@@ -257,7 +257,7 @@ public class CharterCrafting extends Script {
             craft(glassblowingPipe, moltenGlass, Integer.MAX_VALUE);
         } else {
             WalkConfig.Builder walkConfig = new WalkConfig.Builder().disableWalkScreen(true).tileRandomisationRadius(2);
-            walkConfig.doWhileExecuting(() -> {
+            walkConfig.doWhileWalking(() -> {
                 log(CharterCrafting.class, "Crafting while walking...");
                 // find items
                 UIResultList<ItemSearchResult> moltenGlass_ = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.MOLTEN_GLASS);
