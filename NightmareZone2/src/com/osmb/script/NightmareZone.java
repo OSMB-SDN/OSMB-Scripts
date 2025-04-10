@@ -515,6 +515,8 @@ public class NightmareZone extends Script {
             }
         }
 
+        //TODO - unfinished
+
     }
 
     private void drinkPrayerPotion() {
