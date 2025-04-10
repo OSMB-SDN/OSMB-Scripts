@@ -17,11 +17,10 @@ public enum NPC {
     BURGUNDY_WHITE_WOMAN(Dock.PORT_PHASMATYS, Dock.MUSA_POINT);
 
     private final Dock[] docks;
-    private SearchablePixel[] searchablePixels; // Make this non-final and initialize lazily
+    private SearchablePixel[] searchablePixels;
 
     NPC(Dock... docks) {
         this.docks = docks;
-        // Don't initialize searchablePixels here
     }
 
     public static List<NPC> getNpcsForDock(Dock dock) {
