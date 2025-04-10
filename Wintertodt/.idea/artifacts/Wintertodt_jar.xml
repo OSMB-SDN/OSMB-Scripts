@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Wintertodt:jar">
+    <output-path>$USER_HOME$/.osmb/Scripts</output-path>
+    <root id="archive" name="Wintertodt.jar">
+      <element id="module-output" name="Wintertodt" />
+    </root>
+  </artifact>
+</component>
