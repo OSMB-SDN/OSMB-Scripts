@@ -6,9 +6,12 @@ import com.osmb.script.chartercrafting.Dock;
 import com.osmb.script.chartercrafting.GlassBlowingItem;
 import com.osmb.script.chartercrafting.Method;
 import javafx.application.Platform;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
@@ -25,11 +28,12 @@ public class UI extends VBox {
     private VBox itemToMakeBox = null;
 
     public UI(ScriptCore core) {
-        setStyle("-fx-spacing: 10; -fx-alignment: center; -fx-padding: 15; -fx-background-color: #636E72");
+        setStyle("-fx-spacing: 10; -fx-alignment: left; -fx-padding: 5; -fx-background-color: #636E72");
         Label methodLabel = new Label("Method");
         getChildren().add(methodLabel);
         methodComboBox.getItems().addAll(Method.values());
         methodComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newMethod) -> {
+            // update docks to match method requirements
             Platform.runLater(() -> {
                 dockComboBox.getItems().setAll(
                         Arrays.stream(Dock.values())
@@ -57,11 +61,13 @@ public class UI extends VBox {
         itemToMakeComboBox.getSelectionModel().select(0);
 
         itemToMakeBox = new VBox(itemLabel, itemToMakeComboBox);
-        itemToMakeBox.setStyle("-fx-spacing: 10; -fx-alignment: center; -fx-padding: 15; ");
+        itemToMakeBox.setStyle("-fx-spacing: 10; -fx-padding: 0 0 20 0");
         getChildren().add(itemToMakeBox);
 
         Button confirmButton = new Button("Confirm");
-        getChildren().add(confirmButton);
+        HBox confirmHbox = new HBox(confirmButton);
+        confirmHbox.setStyle("-fx-alignment: center-right");
+        getChildren().add(confirmHbox);
         confirmButton.setOnAction(actionEvent -> {
             if (getSelectedDock() == null || getSelectedMethod() == null || getSelectedGlassBlowingItem() == null) {
                 return;
