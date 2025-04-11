@@ -38,7 +38,6 @@ public class CharterCrafting extends Script {
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
     public static final String[] BANK_ACTIONS = {"bank", "open"};
     private static final int[] SELL_OPTION_AMOUNTS = new int[]{1, 5, 10, 50};
-    private Stopwatch boostPotionDrinkTimer = new Stopwatch();
 
     private static final ToleranceComparator TOLERANCE_COMPARATOR_2 = new SingleThresholdComparator(5);
     private static final SearchablePixel SELECTED_HIGHLIGHT_COLOR = new SearchablePixel(-2171877, TOLERANCE_COMPARATOR_2, ColorModel.RGB);
@@ -78,6 +77,7 @@ public class CharterCrafting extends Script {
         getWidgetManager().getInventory().registerInventoryComponent(shopInterface);
         UI ui = new UI(this);
         Scene scene = new Scene(ui);
+        //  osmb style sheet
         scene.getStylesheets().add("style.css");
         getStageController().show(scene, "Settings", false);
 
@@ -125,11 +125,13 @@ public class CharterCrafting extends Script {
                 return 0;
             }
         }
+
         UIResultList<ItemSearchResult> combinationItem = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH);
         UIResultList<ItemSearchResult> bucketOfSand = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BUCKET_OF_SAND);
+
         Optional<Integer> freeSlots = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory());
 
-        if (combinationItem.isNotVisible() || bucketOfSand.isNotVisible() || !freeSlots.isPresent()) {
+        if (combinationItem.isNotVisible() || bucketOfSand.isNotVisible() || freeSlots.isEmpty()) {
             log(CharterCrafting.class, "Inventory not visible...");
             return 0;
         }
@@ -142,6 +144,7 @@ public class CharterCrafting extends Script {
             openShop();
             return 0;
         }
+
         switch (selectedMethod) {
             case SUPER_GLASS_MAKE -> superGlassMake();
             case BUY_AND_BANK -> bankSupplies();
@@ -191,6 +194,10 @@ public class CharterCrafting extends Script {
         if (validNPCPositions.isEmpty()) {
             // walk to furthest if none are visible on screen
             WorldPosition furthestNPCPosition = getFurthestNPC(myPosition, npcPositions);
+            if (furthestNPCPosition == null) {
+                log(CharterCrafting.class, "Furthest npc position is null");
+                return;
+            }
             WalkConfig.Builder walkConfig = new WalkConfig.Builder();
             walkConfig.breakCondition(() -> {
                 RSTile tile = getSceneManager().getTile(furthestNPCPosition);
@@ -248,6 +255,7 @@ public class CharterCrafting extends Script {
     }
 
     private void craftMoltenGlass(UIResult<ItemSearchResult> glassblowingPipe, UIResultList<ItemSearchResult> moltenGlass) {
+        log(CharterCrafting.class, "Crafting Molten glass...");
         WorldPosition myPosition = getWorldPosition();
         if (myPosition == null) {
             return;
@@ -308,9 +316,6 @@ public class CharterCrafting extends Script {
     }
 
     public void waitUntilFinishedProducing(int timeout, int... resources) {
-        WalkConfig.Builder config = new WalkConfig.Builder().disableWalkScreen(true).tileRandomisationRadius(3).enableRun(true);
-        getWalker().walkTo(1, 1, config.build());
-
         AtomicReference<Stopwatch> stopwatch = new AtomicReference<>(new Stopwatch(timeout));
         AtomicReference<Map<Integer, Integer>> previousAmounts = new AtomicReference<>(new HashMap<>());
         for (int resource : resources) {
@@ -422,7 +427,7 @@ public class CharterCrafting extends Script {
     }
 
     private void superGlassMake() {
-        if (getWidgetManager().getSpellbook().selectSpell(LunarSpellbook.SUPERGLASS_MAKE)) {
+        if (getWidgetManager().getSpellbook().selectSpell(LunarSpellbook.SUPERGLASS_MAKE, null)) {
             submitHumanTask(() -> {
                 UIResultList<ItemSearchResult> combinationItem = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH);
                 UIResultList<ItemSearchResult> bucketOfSand = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BUCKET_OF_SAND);
