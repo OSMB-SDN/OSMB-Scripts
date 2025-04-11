@@ -165,12 +165,12 @@ public class NightmareZone extends Script {
     @Override
     public void onStart() {
         this.lowerHealthMethod = LowerHealthMethod.ROCK_CAKE;
-        this.flickRapidHeal = false;
         this.statBoostPotionAmount = 4;
         this.statBoostPotion = Potion.SUPER_COMBAT;
-        this.secondaryPotion = Potion.ABSORPTION_POTION;
+        this.secondaryPotion = Potion.PRAYER_POTION;
         this.afkPosition = AFKPosition.SOUTH_WEST;
         this.noBoostSuicide = true;
+        this.flickRapidHeal = false;
 
         this.idleTimeout = random(2000, 4000);
         this.nextSecondaryDrink = secondaryPotion == Potion.PRAYER_POTION ? random(10, 60) : random(50, 200);
@@ -514,9 +514,9 @@ public class NightmareZone extends Script {
                 rapidHealFlickTimer.reset(random(20000, 50000));
             }
         }
-
-        //TODO - unfinished
-
+        if (getWidgetManager().getMinimapOrbs().setQuickPrayers(true)) {
+            getWidgetManager().getMinimapOrbs().setQuickPrayers(false);
+        }
     }
 
     private void drinkPrayerPotion() {
@@ -670,7 +670,6 @@ public class NightmareZone extends Script {
             return;
         }
         if (isDialogue) {
-            log("IS DIALOGUE");
             log(NightmareZone.class, "Interacting with Dominic");
             interactWithDominic();
             return;

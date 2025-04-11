@@ -32,6 +32,7 @@ public class Pickpocketer extends Script {
     private static final ToleranceComparator TOLERANCE_COMPARATOR = new SingleThresholdComparator(3);
     private static final ToleranceComparator TOLERANCE_COMPARATOR_2 = new SingleThresholdComparator(5);
     private static final WorldPosition EDGE_LADDER_NORTH_TILE = new WorldPosition(3096, 3512, 0);
+    private static final Area EDGEVILLE_UPSTAIRS = new RectangleArea(3091, 3507, 9, 6, 1);
     private final Stopwatch eatBlockTimer = new Stopwatch();
     private SearchablePixel highlightColor = new SearchablePixel(-55297, TOLERANCE_COMPARATOR, ColorModel.RGB);
     private SearchablePixel highlightColor2 = new SearchablePixel(-2237670, TOLERANCE_COMPARATOR_2, ColorModel.RGB);
@@ -40,7 +41,6 @@ public class Pickpocketer extends Script {
     private int hitpointsToEat = -1;
     private int eatHigh = 6;
     private int eatLow = 4;
-    private static final Area EDGEVILLE_UPSTAIRS = new RectangleArea(3091, 3507, 9, 6, 1);
     private WorldPosition previousPosition = null;
 
     public Pickpocketer(Object scriptCore) {
@@ -91,56 +91,57 @@ public class Pickpocketer extends Script {
         return false;
     }
 
+    private void climbDownLadder() {
+        RSObject object = getObjectManager().getClosestObject("Ladder");
+        if (object == null) {
+            return;
+        }
+        if (object.interact("Climb-down")) {
+            submitTask(() -> {
+                WorldPosition position = getWorldPosition();
+                if (position == null) {
+                    return false;
+                }
+                return position.getPlane() == 0;
+            }, 4000);
+        }
+    }
+
     @Override
     public int poll() {
-        // make sure inventory is open
-        if (!getWidgetManager().getInventory().open()) {
-            log(getClass().getSimpleName(), "Inventory not open.");
-            return 0;
-        }
+        WorldPosition myPosition = getWorldPosition();
 
         if (foodItemID != -1 && handleEating()) {
             log("Handling eating...");
             return 0;
         }
-        WorldPosition myPosition = getWorldPosition();
 
         if (EDGEVILLE_UPSTAIRS.contains(myPosition)) {
-            RSObject object = getObjectManager().getClosestObject("Ladder");
-            if (object == null) {
-                return 0;
-            }
-            if (object.interact("Climb-down")) {
-                submitTask(() -> {
-                    WorldPosition position = getWorldPosition();
-                    if (position == null) {
-                        return false;
-                    }
-                    return position.getPlane() == 0;
-                }, 4000);
-            }
+            climbDownLadder();
             return 0;
         }
         UIResult<ItemSearchResult> coinPouch = getItemManager().findItem(getWidgetManager().getInventory(), ItemID.COIN_POUCH);
         if (coinPouch.isNotVisible()) {
-            log(getClass().getSimpleName(), "Coin pouch not visible.");
+            log(getClass().getSimpleName(), "Inventory not visible.");
             return 0;
         }
-
         int amountOfCoinPouches = coinPouch.isNotFound() ? 0 : coinPouch.get().getStackAmount();
         if (amountOfCoinPouches > nextOpenAmount || amountOfCoinPouches >= 28) {
             // tap coin pouches
-            coinPouch.get().interact();
-            refreshOpenAmount();
-            // sleep
-            submitTask(() -> false, random(600, 2000));
+            if (coinPouch.get().interact()) {
+                refreshOpenAmount();
+                // sleep
+                submitTask(() -> false, random(600, 2000));
+            }
+            return 0;
         }
+        // check the cached position to help keep pickpocketing the same npc
         if (previousPosition != null) {
             LocalPosition previousLocalPosition = previousPosition.toLocalPosition(this);
             if (previousLocalPosition == null) {
                 return 0;
             }
-            Polygon poly = getSceneProjector().getTileCube(previousLocalPosition.getX(), previousLocalPosition.getY(), previousLocalPosition.getPlane(), 150, previousLocalPosition.getRemainderX(), previousLocalPosition.getRemainderY());
+            Polygon poly = getSceneProjector().getTileCube(previousLocalPosition, 150);
             Rectangle highlightBounds = getUtils().getHighlightBounds(poly, highlightColor, highlightColor2);
             if (highlightBounds != null) {
                 getScreen().getDrawableCanvas().drawRect(highlightBounds, Color.RED.getRGB());
@@ -152,6 +153,7 @@ public class Pickpocketer extends Script {
                 return 0;
             }
         }
+
         Map<WorldPosition, Polygon> validPositions = getValidNPCPositions();
         if (validPositions == null || validPositions.isEmpty()) {
             log(getClass().getSimpleName(), "No valid positions...");
@@ -169,30 +171,24 @@ public class Pickpocketer extends Script {
         }
         getScreen().getDrawableCanvas().drawRect(highlightBounds, Color.RED.getRGB());
         if (getFinger().tap(highlightBounds)) {
+            // random sleep
             submitTask(() -> false, random(250, 1500));
-//            UIResult<ItemSearchResult> coinPouch_ = getItemManager().findItem(getWidgetManager().getInventory(), ItemID.COIN_POUCH);
-//            if (!coinPouch.isFound()) {
-//                return 0;
-//            }
-//            // wait until increment
-//            if(coinPouch_.get().getStackAmount() > amountOfCoinPouches) {
-//                return true;
-//            }
         }
         return 0;
     }
 
+
     private Map<WorldPosition, Polygon> getValidNPCPositions() {
         UIResultList<WorldPosition> npcPositions = getWidgetManager().getMinimap().getNPCPositions();
-        if (npcPositions.isNotVisible()) {
-            log(getClass().getSimpleName(),"Not visible!");
-            return null;
-        }
         if (npcPositions.isNotFound()) {
-            log(getClass().getSimpleName(), "No NPC's found nearby...");
+            if (npcPositions.isNotVisible()) {
+                log(getClass().getSimpleName(), "Minimap not visible.");
+            } else {
+                log(getClass().getSimpleName(), "No NPC's found nearby...");
+            }
             return null;
         }
-        log(getClass().getSimpleName(),"NPC's on minimap: "+npcPositions.size());
+        log(getClass().getSimpleName(), "NPC's on minimap: " + npcPositions.size());
         Map<WorldPosition, Polygon> validPositions = new HashMap<>();
         npcPositions.forEach(position -> {
             if (position.equals(EDGE_LADDER_NORTH_TILE)) {
