@@ -1,7 +1,5 @@
 package com.osmb.script;
 
-import com.osmb.api.location.position.types.WorldPosition;
-
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
