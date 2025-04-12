@@ -27,7 +27,6 @@ import com.osmb.api.walker.WalkConfig;
 import com.osmb.script.chartercrafting.component.ShopInterface;
 import com.osmb.script.chartercrafting.javafx.UI;
 import javafx.scene.Scene;
-import javafx.scene.layout.VBox;
 
 import java.awt.*;
 import java.util.*;
@@ -266,7 +265,7 @@ public class CharterCrafting extends Script {
                     log(CharterCrafting.class, "Inventory not visible...");
                     return null;
                 }
-                if(moltenGlass_.isEmpty()) {
+                if (moltenGlass_.isEmpty()) {
                     // no molten glass to craft
                     return null;
                 }
@@ -297,17 +296,15 @@ public class CharterCrafting extends Script {
         }
     }
 
-    boolean validDialogue() {
+    public boolean validDialogue() {
         DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
-        if (dialogueType != null) {
-            if (dialogueType == DialogueType.ITEM_OPTION) {
-                boolean selectedOption = getWidgetManager().getDialogue().selectItem(selectedGlassBlowingItem.getItemId());
-                if (!selectedOption) {
-                    log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
-                    return false;
-                }
-                return true;
+        if (dialogueType == DialogueType.ITEM_OPTION) {
+            boolean selectedOption = getWidgetManager().getDialogue().selectItem(selectedGlassBlowingItem.getItemId());
+            if (!selectedOption) {
+                log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
+                return false;
             }
+            return true;
         }
         return false;
     }
