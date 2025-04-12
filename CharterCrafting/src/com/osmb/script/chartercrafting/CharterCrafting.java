@@ -383,7 +383,7 @@ public class CharterCrafting extends Script {
         sleep(Utils.random(300, 1200));
         interact2.interact();
         // sleep until dialogue is visible
-        return submitTask(() -> {
+        return submitHumanTask(() -> {
             DialogueType dialogueType1 = getWidgetManager().getDialogue().getDialogueType();
             if (dialogueType1 == null) return false;
             return dialogueType1 == DialogueType.ITEM_OPTION;

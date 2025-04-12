@@ -25,6 +25,7 @@ import java.awt.image.BufferedImage;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 @ScriptDefinition(name = "AIO Crafter", author = "Joe", version = 1.0, description = "Covers a variety of crafting methods!", skillCategory = SkillCategory.CRAFTING)
 public class AIOCrafter extends Script {
@@ -113,32 +114,14 @@ public class AIOCrafter extends Script {
     private void openBank() {
         log(getClass().getSimpleName(), "Searching for a bank...");
         // Find bank and open it
-        List<RSObject> banksFound = getObjectManager().getObjects(gameObject -> {
-            // if object has no name
-            if (gameObject.getName() == null) {
-                return false;
-            }
-            // has no interact options (eg. bank, open etc.)
-            if (gameObject.getActions() == null) {
-                return false;
-            }
+        List<RSObject> banksFound = getObjectManager().getObjects(bankQuery);
 
-            if (!Arrays.stream(BANK_NAMES).anyMatch(name -> name.equalsIgnoreCase(gameObject.getName()))) {
-                return false;
-            }
-
-            // if no actions contain bank or open
-            if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
-                return false;
-            }
-            // final check is if the object is reachable
-            return gameObject.canReach();
-        });
         //can't find a bank
         if (banksFound.isEmpty()) {
             log(getClass().getSimpleName(), "Can't find any banks matching criteria...");
             return;
         }
+
         RSObject object = (RSObject) getUtils().getClosest(banksFound);
         if (!object.interact(BANK_ACTIONS)) return;
         AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
@@ -157,6 +140,28 @@ public class AIOCrafter extends Script {
         }, 15000);
         return;
     }
+
+    private final Predicate<RSObject> bankQuery = gameObject -> {
+        // if object has no name
+        if (gameObject.getName() == null) {
+            return false;
+        }
+        // has no interact options (eg. bank, open etc.)
+        if (gameObject.getActions() == null) {
+            return false;
+        }
+
+        if (!Arrays.stream(BANK_NAMES).anyMatch(name -> name.equalsIgnoreCase(gameObject.getName()))) {
+            return false;
+        }
+
+        // if no actions contain bank or open
+        if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
+            return false;
+        }
+        // final check is if the object is reachable
+        return gameObject.canReach();
+    };
 
     public boolean isBank() {
         return bank;

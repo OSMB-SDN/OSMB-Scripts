@@ -114,7 +114,7 @@ public abstract class Method {
         script.sleep(Utils.random(300, 1200));
         interact2.interact();
         // sleep until dialogue is visible
-        return script.submitTask(() -> {
+        return script.submitHumanTask(() -> {
             DialogueType dialogueType1 = script.getWidgetManager().getDialogue().getDialogueType();
             if (dialogueType1 == null) return false;
             return dialogueType1 == DialogueType.ITEM_OPTION;
