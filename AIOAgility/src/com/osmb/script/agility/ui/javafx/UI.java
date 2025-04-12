@@ -63,7 +63,7 @@ public class UI {
         HBox hBox = new HBox();
         hBox.setAlignment(Pos.CENTER_LEFT);
         hBox.setSpacing(10);
-        Label itemIDLabel = new Label("Food item ID");
+        Label itemIDLabel = new Label("\uD83D\uDD0E");
         itemIDTextField = new TextField();
         makeNumericOnly(itemIDTextField);
         Button button = new Button("Find item...");
