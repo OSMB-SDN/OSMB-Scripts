@@ -47,6 +47,7 @@ public class CharterCrafting extends Script {
     private GlassBlowingItem selectedGlassBlowingItem;
     private Method selectedMethod;
     private int amountChangeTimeout;
+    // not used, npc highlights are bugged in osrs and reset when relogging. saving for when they are fixed.
     private SearchablePixel highlightColor;
     private boolean hopFlag = false;
     private List<NPC> npcs;
@@ -213,6 +214,7 @@ public class CharterCrafting extends Script {
 //            log(CharterCrafting.class, "No highlight bounds!");
 //            return;
 //        }
+        // Search for npc's pixels instead of highlight pixels
         List<Point> pixels = List.of();
         for (NPC npc : npcs) {
             pixels = getPixelAnalyzer().findPixels(cubePoly, npc.getSearchablePixels());
