@@ -54,8 +54,7 @@ public class AIOAgility extends Script {
     private MultiConsumable multiConsumable = null;
 
     // to handle the osrs glitch where the position doesn't update
-    private int failTimes = 0;
-    private int failThreshold = random(3, 6);
+    private int failThreshold = random(3, 5);
 
     public AIOAgility(Object object) {
         super(object);
@@ -251,7 +250,6 @@ public class AIOAgility extends Script {
                     if (currentPos.equals(previousPosition.get())) {
                         if (noMovementTimer.timeElapsed() > core.noMovementTimeout) {
                             core.noMovementTimeout = RandomUtils.weightedRandom(2000, 6000);
-                            core.failTimes++;
                             return true;
                         }
                     } else {
@@ -269,28 +267,31 @@ public class AIOAgility extends Script {
                 }
                 if (end instanceof Area area) {
                     if (area.contains(currentPos)) {
-                        core.failTimes = 0;
                         core.failThreshold = Utils.random(3, 6);
                         return true;
                     }
                 } else if (end instanceof Position pos) {
                     if (currentPos.equals(pos)) {
-                        core.failTimes = 0;
                         core.failThreshold = Utils.random(3, 6);
                         return true;
                     }
                 }
                 return false;
             }, timeout)) {
+                core.failCount = 0;
                 return ObstacleHandleResponse.SUCCESS;
             } else {
+                core.failCount++;
                 return ObstacleHandleResponse.TIMEOUT;
             }
         } else {
             core.log(AIOAgility.class.getSimpleName(), "ERROR: Failed interacting with obstacle (" + obstacleName + ").");
+            core.failCount++;
             return ObstacleHandleResponse.FAILED_INTERACTION;
         }
     }
+
+    private int failCount = 0;
 
     @Override
     public void onStart() {
@@ -327,7 +328,7 @@ public class AIOAgility extends Script {
 
     @Override
     public int onRelog() {
-        failTimes = 0;
+        failCount = 0;
         return 0;
     }
 
@@ -342,7 +343,8 @@ public class AIOAgility extends Script {
             }
             return 0;
         }
-        if (failTimes > failThreshold) {
+        if (failCount > failThreshold) {
+            log(AIOAgility.class, "Failed handling object multiple times. Relogging.");
             getWidgetManager().getLogoutTab().logout();
             return 0;
         }

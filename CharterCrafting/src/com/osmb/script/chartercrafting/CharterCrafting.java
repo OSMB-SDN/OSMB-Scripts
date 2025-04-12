@@ -13,6 +13,7 @@ import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.ui.spellbook.LunarSpellbook;
+import com.osmb.api.ui.spellbook.SpellNotFoundException;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
 import com.osmb.api.utils.Utils;
@@ -39,6 +40,7 @@ public class CharterCrafting extends Script {
     public static final String[] BANK_ACTIONS = {"bank", "open"};
     private static final int[] SELL_OPTION_AMOUNTS = new int[]{1, 5, 10, 50};
 
+  
     private static final ToleranceComparator TOLERANCE_COMPARATOR_2 = new SingleThresholdComparator(5);
     private static final SearchablePixel SELECTED_HIGHLIGHT_COLOR = new SearchablePixel(-2171877, TOLERANCE_COMPARATOR_2, ColorModel.RGB);
     private static final ToleranceComparator TOLERANCE_COMPARATOR = new SingleThresholdComparator(3);
@@ -47,6 +49,7 @@ public class CharterCrafting extends Script {
     private GlassBlowingItem selectedGlassBlowingItem;
     private Method selectedMethod;
     private int amountChangeTimeout;
+    // not used, npc highlights are bugged in osrs and reset when relogging. saving for when they are fixed.
     private SearchablePixel highlightColor;
     private boolean hopFlag = false;
     private List<NPC> npcs;
@@ -221,6 +224,7 @@ public class CharterCrafting extends Script {
 //            log(CharterCrafting.class, "No highlight bounds!");
 //            return;
 //        }
+        // Search for npc's pixels instead of highlight pixels
         List<Point> pixels = List.of();
         for (NPC npc : npcs) {
             pixels = getPixelAnalyzer().findPixels(cubePoly, npc.getSearchablePixels());
@@ -274,11 +278,16 @@ public class CharterCrafting extends Script {
                     log(CharterCrafting.class, "Inventory not visible...");
                     return null;
                 }
+                if (moltenGlass_.isEmpty()) {
+                    // no molten glass to craft
+                    return null;
+                }
                 if (glassblowingPipe_.isNotFound()) {
                     log(CharterCrafting.class, "No glassblowing pipe found.");
                     stop();
                     return null;
                 }
+
                 craft(glassblowingPipe_, moltenGlass_, random(4000, 12000));
                 return null;
             });
@@ -300,17 +309,15 @@ public class CharterCrafting extends Script {
         }
     }
 
-    boolean validDialogue() {
+    public boolean validDialogue() {
         DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
-        if (dialogueType != null) {
-            if (dialogueType == DialogueType.ITEM_OPTION) {
-                boolean selectedOption = getWidgetManager().getDialogue().selectItem(selectedGlassBlowingItem.getItemId());
-                if (!selectedOption) {
-                    log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
-                    return false;
-                }
-                return true;
+        if (dialogueType == DialogueType.ITEM_OPTION) {
+            boolean selectedOption = getWidgetManager().getDialogue().selectItem(selectedGlassBlowingItem.getItemId());
+            if (!selectedOption) {
+                log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
+                return false;
             }
+            return true;
         }
         return false;
     }
@@ -427,15 +434,20 @@ public class CharterCrafting extends Script {
     }
 
     private void superGlassMake() {
-        if (getWidgetManager().getSpellbook().selectSpell(LunarSpellbook.SUPERGLASS_MAKE, null)) {
-            submitHumanTask(() -> {
-                UIResultList<ItemSearchResult> combinationItem = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH);
-                UIResultList<ItemSearchResult> bucketOfSand = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BUCKET_OF_SAND);
-                if (bucketOfSand.isNotVisible() || combinationItem.isNotVisible()) {
-                    return false;
-                }
-                return combinationItem.isEmpty() || bucketOfSand.isEmpty();
-            }, 5000);
+        try {
+            if (getWidgetManager().getSpellbook().selectSpell(LunarSpellbook.SUPERGLASS_MAKE, null)) {
+                submitHumanTask(() -> {
+                    UIResultList<ItemSearchResult> combinationItem = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH);
+                    UIResultList<ItemSearchResult> bucketOfSand = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BUCKET_OF_SAND);
+                    if (bucketOfSand.isNotVisible() || combinationItem.isNotVisible()) {
+                        return false;
+                    }
+                    return combinationItem.isEmpty() || bucketOfSand.isEmpty();
+                }, 5000);
+            }
+        } catch (SpellNotFoundException e) {
+            log(CharterCrafting.class, "Spell sprite not found, stopping script...");
+            stop();
         }
     }
 
