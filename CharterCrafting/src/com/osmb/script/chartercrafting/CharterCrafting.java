@@ -13,6 +13,7 @@ import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.ui.spellbook.LunarSpellbook;
+import com.osmb.api.ui.spellbook.SpellNotFoundException;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
 import com.osmb.api.utils.Utils;
@@ -26,6 +27,7 @@ import com.osmb.api.walker.WalkConfig;
 import com.osmb.script.chartercrafting.component.ShopInterface;
 import com.osmb.script.chartercrafting.javafx.UI;
 import javafx.scene.Scene;
+import javafx.scene.layout.VBox;
 
 import java.awt.*;
 import java.util.*;
@@ -264,11 +266,16 @@ public class CharterCrafting extends Script {
                     log(CharterCrafting.class, "Inventory not visible...");
                     return null;
                 }
+                if(moltenGlass_.isEmpty()) {
+                    // no molten glass to craft
+                    return null;
+                }
                 if (glassblowingPipe_.isNotFound()) {
                     log(CharterCrafting.class, "No glassblowing pipe found.");
                     stop();
                     return null;
                 }
+
                 craft(glassblowingPipe_, moltenGlass_, random(4000, 12000));
                 return null;
             });
@@ -306,9 +313,6 @@ public class CharterCrafting extends Script {
     }
 
     public void waitUntilFinishedProducing(int timeout, int... resources) {
-        WalkConfig.Builder config = new WalkConfig.Builder().disableWalkScreen(true).tileRandomisationRadius(3).enableRun(true);
-        getWalker().walkTo(1, 1, config.build());
-
         AtomicReference<Stopwatch> stopwatch = new AtomicReference<>(new Stopwatch(timeout));
         AtomicReference<Map<Integer, Integer>> previousAmounts = new AtomicReference<>(new HashMap<>());
         for (int resource : resources) {
@@ -420,15 +424,20 @@ public class CharterCrafting extends Script {
     }
 
     private void superGlassMake() {
-        if (getWidgetManager().getSpellbook().selectSpell(LunarSpellbook.SUPERGLASS_MAKE, null)) {
-            submitHumanTask(() -> {
-                UIResultList<ItemSearchResult> combinationItem = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH);
-                UIResultList<ItemSearchResult> bucketOfSand = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BUCKET_OF_SAND);
-                if (bucketOfSand.isNotVisible() || combinationItem.isNotVisible()) {
-                    return false;
-                }
-                return combinationItem.isEmpty() || bucketOfSand.isEmpty();
-            }, 5000);
+        try {
+            if (getWidgetManager().getSpellbook().selectSpell(LunarSpellbook.SUPERGLASS_MAKE, null)) {
+                submitHumanTask(() -> {
+                    UIResultList<ItemSearchResult> combinationItem = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH);
+                    UIResultList<ItemSearchResult> bucketOfSand = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BUCKET_OF_SAND);
+                    if (bucketOfSand.isNotVisible() || combinationItem.isNotVisible()) {
+                        return false;
+                    }
+                    return combinationItem.isEmpty() || bucketOfSand.isEmpty();
+                }, 5000);
+            }
+        } catch (SpellNotFoundException e) {
+            log(CharterCrafting.class, "Spell sprite not found, stopping script...");
+            stop();
         }
     }
 
