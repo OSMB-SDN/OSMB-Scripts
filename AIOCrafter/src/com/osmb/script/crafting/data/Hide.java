@@ -22,20 +22,20 @@ public enum Hide implements ItemIdentifier{
             new Product(ItemID.SNAKESKIN_CHAPS, 12),
             new Product(ItemID.SNAKESKIN_VAMBRACES, 8)
     }),
-    GREEN_DHIDE(ItemID.GREEN_DRAGONHIDE, new Product[]{
+    GREEN_DHIDE(ItemID.GREEN_DRAGON_LEATHER, new Product[]{
             new Product(ItemID.GREEN_DHIDE_BODY, 3),
             new Product(ItemID.GREEN_DHIDE_CHAPS,2),
             new Product(ItemID.GREEN_DHIDE_VAMBRACES,1)
     }),
-    BLUE_DHIDE(ItemID.BLUE_DRAGONHIDE, new Product[]{
+    BLUE_DHIDE(ItemID.BLUE_DRAGON_LEATHER, new Product[]{
             new Product(ItemID.BLUE_DHIDE_BODY,3),
             new Product(ItemID.BLUE_DHIDE_CHAPS, 2),
             new Product(ItemID.BLUE_DHIDE_VAMBRACES, 1)}),
-    RED_DHIDE(ItemID.RED_DRAGONHIDE,new Product[]{
+    RED_DHIDE(ItemID.RED_DRAGON_LEATHER,new Product[]{
             new Product(ItemID.RED_DHIDE_BODY,3),
             new Product(ItemID.RED_DHIDE_CHAPS, 2),
             new Product(ItemID.RED_DHIDE_VAMBRACES, 1)}),
-    BLACK_DHIDE(ItemID.BLACK_DRAGONHIDE,new Product[]{
+    BLACK_DHIDE(ItemID.BLACK_DRAGON_LEATHER,new Product[]{
             new Product(ItemID.BLACK_DHIDE_BODY,3),
             new Product(ItemID.BLACK_DHIDE_CHAPS, 2),
             new Product(ItemID.BLACK_DHIDE_VAMBRACES, 1)});
