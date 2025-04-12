@@ -40,7 +40,7 @@ public class CharterCrafting extends Script {
     public static final String[] BANK_ACTIONS = {"bank", "open"};
     private static final int[] SELL_OPTION_AMOUNTS = new int[]{1, 5, 10, 50};
 
-  
+
     private static final ToleranceComparator TOLERANCE_COMPARATOR_2 = new SingleThresholdComparator(5);
     private static final SearchablePixel SELECTED_HIGHLIGHT_COLOR = new SearchablePixel(-2171877, TOLERANCE_COMPARATOR_2, ColorModel.RGB);
     private static final ToleranceComparator TOLERANCE_COMPARATOR = new SingleThresholdComparator(3);
@@ -333,10 +333,16 @@ public class CharterCrafting extends Script {
             DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
             if (dialogueType != null) {
                 // look out for level up dialogue etc.
+                // we can check the dialogue text specifically if it is a level up dialogue,
+                // no point though as if we're interrupted we want to break out the loop anyway
                 if (dialogueType == DialogueType.TAP_HERE_TO_CONTINUE) {
                     // sleep for a random time so we're not instantly reacting to the dialogue
                     // we do this in the task to continue updating the screen
-                    submitTask(() -> false, random(1000, 4000));
+                    log(CharterCrafting.class, "Tap here to continue dialogue interrupted us, generating extra random time to react...");
+                    // submitHumanTask already gives a delay afterward on completetion,
+                    // but we want a bit of extra time on top as the user won't always be expecting the dialogue
+                    submitTask(() -> false, random(1000, 6000));
+                    // return true and execute the shorter generated human delay by submitHumanTask
                     return true;
                 }
             }
