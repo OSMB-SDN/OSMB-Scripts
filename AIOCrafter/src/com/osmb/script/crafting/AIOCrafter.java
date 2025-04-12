@@ -158,11 +158,6 @@ public class AIOCrafter extends Script {
 
             return getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
         }, 15000);
-        return;
-    }
-
-    public boolean isBank() {
-        return bank;
     }
 
     public void setBank(boolean bank) {
