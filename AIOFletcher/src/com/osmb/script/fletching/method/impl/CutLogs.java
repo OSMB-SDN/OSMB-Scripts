@@ -2,14 +2,13 @@ package com.osmb.script.fletching.method.impl;
 
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
+import com.osmb.api.javafx.JavaFXUtils;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
 import com.osmb.script.fletching.AIOFletcher;
-import com.osmb.script.fletching.data.ItemIdentifier;
 import com.osmb.script.fletching.data.Log;
 import com.osmb.script.fletching.data.Product;
-import com.osmb.script.fletching.javafx.ScriptOptions;
 import com.osmb.script.fletching.method.Method;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -22,8 +21,8 @@ public class CutLogs extends Method {
 
     private Log selectedLog;
     private Product itemToCreate;
-    private ComboBox<ItemIdentifier> logComboBox;
-    private ComboBox<ItemIdentifier> itemComboBox;
+    private ComboBox<Integer> logComboBox;
+    private ComboBox<Integer> itemComboBox;
 
     public CutLogs(AIOFletcher script) {
         super(script);
@@ -102,17 +101,17 @@ public class CutLogs extends Method {
     @Override
     public void provideUIOptions(VBox vBox) {
         Label logLabel = new Label("Choose log to cut");
-        logComboBox = ScriptOptions.createItemCombobox(script, Log.values());
+        logComboBox = JavaFXUtils.createItemCombobox(script, Log.getItemIDs());
         logComboBox.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue != null) {
-                selectedLog = (Log) newValue;
+                selectedLog = Log.getLog(newValue);
                 itemComboBox.getItems().clear();
-                itemComboBox.getItems().addAll(selectedLog.getProducts());
+                itemComboBox.getItems().addAll(selectedLog.getProductIDs());
             }
         });
 
         Label itemLabel = new Label("Choose item to create");
-        itemComboBox = ScriptOptions.createItemCombobox(script, new ItemIdentifier[0]);
+        itemComboBox = JavaFXUtils.createItemCombobox(script, new int[]{});
         vBox.getChildren().addAll(logLabel, logComboBox, itemLabel, itemComboBox);
         vBox.requestLayout();
     }
@@ -120,9 +119,11 @@ public class CutLogs extends Method {
     @Override
     public boolean uiOptionsSufficient() {
         if (itemComboBox.getValue() != null && logComboBox.getValue() != null) {
-            selectedLog = (Log) logComboBox.getValue();
-            itemToCreate = (Product) itemComboBox.getValue();
-            return true;
+            selectedLog = Log.getLog(logComboBox.getValue());
+            if (selectedLog != null) {
+                itemToCreate = selectedLog.getProduct(itemComboBox.getValue());
+                return true;
+            }
         }
         return false;
     }

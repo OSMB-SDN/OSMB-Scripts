@@ -29,3 +29,11 @@ bin/
 .DS_Store
 /KaIZOWintertodtLooter/
 /.idea/artifacts/
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+*.ids
+*.orig
+/out/

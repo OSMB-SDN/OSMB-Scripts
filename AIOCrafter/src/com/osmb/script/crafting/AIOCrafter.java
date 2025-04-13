@@ -127,6 +127,9 @@ public class AIOCrafter extends Script {
         } else if (this.bank) {
             openBank();
         } else {
+            if (!getItemManager().unSelectItemIfSelected()) {
+                return 0;
+            }
             selectedMethod.poll();
         }
         return 0;

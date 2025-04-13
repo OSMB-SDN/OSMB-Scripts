@@ -4,7 +4,6 @@ import com.osmb.api.ScriptCore;
 import com.osmb.script.fletching.AIOFletcher;
 import com.osmb.script.fletching.data.ItemIdentifier;
 import com.osmb.script.fletching.method.Method;
-import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -33,20 +32,15 @@ public class ScriptOptions extends VBox {
             Method selectedMethod = comboBox.getSelectionModel().getSelectedItem();
             if (selectedMethod == null) return;
             //clear the current child nodes
-            Platform.runLater(() -> {
-                scriptContentBox.getChildren().clear();
-                scriptContentBox.setStyle("-fx-border-color: black; -fx-border-width: 1; -fx-background-color: #495449;"); // Adjust background color as needed
-                selectedMethod.provideUIOptions(scriptContentBox);
-                scriptContentBox.setAlignment(Pos.TOP_CENTER); // Align items to the top left, change as needed
-                Stage stage = null;
-
-                if (getScene() != null && getScene().getWindow() instanceof Stage) {
-                    stage = (Stage) getScene().getWindow();
-                }
-                System.out.println("Sizing to scene");
+            scriptContentBox.getChildren().clear();
+            scriptContentBox.setStyle("-fx-border-color: black; -fx-border-width: 1; -fx-background-color: #495449;"); // Adjust background color as needed
+            selectedMethod.provideUIOptions(scriptContentBox);
+            scriptContentBox.setAlignment(Pos.TOP_CENTER); // Align items to the top left, change as needed
+            Stage stage = null;
+            if (getScene() != null && getScene().getWindow() instanceof Stage) {
+                stage = (Stage) getScene().getWindow();
                 stage.sizeToScene();
-            });
-
+            }
         });
 
         Button button = new Button("Confirm");

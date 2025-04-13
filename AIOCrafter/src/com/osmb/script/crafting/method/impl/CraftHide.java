@@ -7,8 +7,8 @@ import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
 import com.osmb.script.crafting.AIOCrafter;
 import com.osmb.script.crafting.data.Hide;
-import com.osmb.script.crafting.data.Product;
 import com.osmb.script.crafting.data.ItemIdentifier;
+import com.osmb.script.crafting.data.Product;
 import com.osmb.script.crafting.javafx.ScriptOptions;
 import com.osmb.script.crafting.method.Method;
 import javafx.scene.control.ComboBox;
@@ -44,6 +44,10 @@ public class CraftHide extends Method {
             return 0;
         }
         if (!checkItemResult(hides) || !checkItemResult(needle) || !checkItemResult(thread)) {
+            return 0;
+        }
+        if (hides.size() < itemToMake.getAmountNeeded()) {
+            script.setBank(true);
             return 0;
         }
 
