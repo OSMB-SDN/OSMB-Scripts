@@ -44,6 +44,23 @@ public enum SpecialAttackWeapon {
         return -1;
     }
 
+    public static int[] getItemIDs() {
+        int[] itemIDs = new int[SpecialAttackWeapon.values().length];
+        for (int i = 0; i < itemIDs.length; i++) {
+            itemIDs[i] = SpecialAttackWeapon.values()[i].itemID;
+        }
+        return itemIDs;
+    }
+
+    public static SpecialAttackWeapon forID(int itemID) {
+        for(SpecialAttackWeapon specialAttackWeapon : values()) {
+            if(specialAttackWeapon.itemID == itemID) {
+                return specialAttackWeapon;
+            }
+        }
+        return null;
+    }
+
     public int getItemID() {
         return itemID;
     }
