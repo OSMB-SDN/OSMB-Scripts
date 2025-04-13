@@ -187,7 +187,7 @@ public class NightmareZone extends Script {
             this.afkPosition = positions.get(Utils.random(positions.size()));
         }
         // suicides when out of boost potions to be more effecient xp wise
-        this.noBoostSuicide = ui.suicideNoBoost();
+        this.noBoostSuicide = true;
         // flicks rapid heal to keep 1hp (only if using absorption potions as secondary)
         this.flickRapidHeal = ui.flickRapidHeal();
 
@@ -362,18 +362,18 @@ public class NightmareZone extends Script {
             }
         } else if (secondaryPotion == Potion.PRAYER_POTION) {
             // prayer potion
-            UIResult<Integer> prayerPoints = getWidgetManager().getMinimapOrbs().getPrayerPoints();
+            UIResult<Integer> prayerPoints = getWidgetManager().getMinimapOrbs().getPrayerPointsPercentage();
             UIResult<Boolean> quickPrayersActive = getWidgetManager().getMinimapOrbs().isQuickPrayersActivated();
             if (prayerPoints.isNotVisible() || quickPrayersActive.isNotVisible()) {
                 log(NightmareZone.class, "Prayer points orb not visible, make sure regeneration indicators are disabled...");
                 return null;
             }
             if (prayerPoints.isFound()) {
+                log(NightmareZone.class, "Prayer points: "+prayerPoints+"%");
                 if (prayerPoints.get() <= nextSecondaryDrink) {
                     dynamicTasks.add(Task.DRINK_PRAYER_POTION);
                 }
             }
-            UIResultList<WorldPosition> npcs = getWidgetManager().getMinimap().getNPCPositions();
             if (quickPrayersActive.isFound()) {
                 if (!quickPrayersActive.get()) {
                     dynamicTasks.add(Task.ACTIVATE_PRAY);
@@ -1579,6 +1579,15 @@ public class NightmareZone extends Script {
     @Override
     public int[] regionsToPrioritise() {
         return new int[]{10288, 9033};
+    }
+
+    @Override
+    public boolean canHopWorlds() {
+        WorldPosition worldPosition = getWorldPosition();
+        if (worldPosition != null) {
+            return worldPosition.getRegionID() != ARENA_REGION;
+        }
+        return false;
     }
 
     enum Task {
