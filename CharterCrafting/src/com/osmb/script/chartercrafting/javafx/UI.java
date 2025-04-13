@@ -20,7 +20,6 @@ import java.util.stream.Collectors;
 public class UI extends VBox {
 
     private final ComboBox<Dock> dockComboBox = new ComboBox<>();
-    ;
     private final ComboBox<Method> methodComboBox = new ComboBox<>();
     private final ComboBox<Integer> itemToMakeComboBox;
     private final Label itemLabel;

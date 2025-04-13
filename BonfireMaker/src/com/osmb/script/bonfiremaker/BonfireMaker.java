@@ -17,6 +17,7 @@ import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.visual.SearchablePixel;
 import com.osmb.api.visual.color.ColorModel;
 import com.osmb.api.visual.color.tolerance.impl.ChannelThresholdComparator;
+import com.osmb.api.walker.WalkConfig;
 import javafx.scene.Scene;
 
 import java.util.Arrays;
@@ -94,9 +95,11 @@ public class BonfireMaker extends Script {
                 log(getClass().getSimpleName(), "Running to target light position to escape a currently active bonfire...");
                 WorldPosition myPos = getWorldPosition();
                 if (!bonfireTargetCreationPos.equals(myPos)) {
-                    getWalker().getSettings().setBreakDistance(0);
-                    getWalker().getSettings().setTileRandomisationRadius(0);
-                    getWalker().walkTo(bonfireTargetCreationPos);
+                    WalkConfig.Builder builder = new WalkConfig.Builder();
+                    builder.breakDistance(0);
+                    builder.tileRandomisationRadius(0);
+
+                    getWalker().walkTo(bonfireTargetCreationPos, builder.build());
                 } else {
                     log(getClass().getSimpleName(), "Arrived at target position...");
                     bonfireTargetCreationPos = null;
@@ -264,9 +267,9 @@ public class BonfireMaker extends Script {
             log(getClass().getSimpleName(), "No reachable tiles found.");
             return;
         }
-
-        getWalker().getSettings().setBreakDistance(1);
-        getWalker().getSettings().setTileRandomisationRadius(1);
+        WalkConfig.Builder builder = new WalkConfig.Builder();
+        builder.breakDistance(1);
+        builder.tileRandomisationRadius(1);
         LocalPosition randomPos = reachableTiles.get(random(reachableTiles.size()));
         getWalker().walkTo(randomPos);
         forceNewPosition = false;
@@ -291,9 +294,11 @@ public class BonfireMaker extends Script {
         if (tile == null || !tile.isOnGameScreen()) {
             log(getClass().getSimpleName(), "Walking to bonfire");
             // walk to tile
-            getWalker().getSettings().setBreakDistance(1);
-            getWalker().getSettings().setTileRandomisationRadius(1);
-            getWalker().walkTo(tile.getWorldPosition(), () -> tile.isOnGameScreen());
+            WalkConfig.Builder builder = new WalkConfig.Builder();
+            builder.breakDistance(2);
+            builder.tileRandomisationRadius(2);
+            builder.breakCondition(() -> tile != null && tile.isOnGameScreen());
+            getWalker().walkTo(tile.getWorldPosition(), builder.build());
             return;
         }
         Polygon tileCube = tile.getTileCube(70);
