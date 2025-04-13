@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="API">
-    <CLASSES>
-      <root url="jar://$PROJECT_DIR$/../OSMBProject/out/artifacts/OSMBProject/API.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>
