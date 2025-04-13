@@ -6,12 +6,11 @@ import com.osmb.script.chartercrafting.Dock;
 import com.osmb.script.chartercrafting.GlassBlowingItem;
 import com.osmb.script.chartercrafting.Method;
 import javafx.application.Platform;
-import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
@@ -43,7 +42,10 @@ public class UI extends VBox {
                 dockComboBox.getSelectionModel().select(0);
                 if (itemToMakeBox != null)
                     itemToMakeBox.setVisible(newMethod != Method.BUY_AND_BANK);
-                ((Stage) methodComboBox.getScene().getWindow()).sizeToScene();
+                Scene scene = methodComboBox.getScene();
+                if (scene != null) {
+                    ((Stage) scene.getWindow()).sizeToScene();
+                }
             });
         });
         methodComboBox.getSelectionModel().select(0);
