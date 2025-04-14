@@ -9,7 +9,6 @@ import com.osmb.api.visual.SearchablePixel;
 import com.osmb.api.visual.color.ColorModel;
 import com.osmb.api.visual.color.tolerance.ToleranceComparator;
 import com.osmb.api.visual.image.Image;
-import com.osmb.api.visual.image.SearchableImage;
 import com.osmb.api.visual.ocr.fonts.Font;
 
 import java.awt.*;
@@ -19,13 +18,15 @@ public class PointsOverlay extends OverlayBoundary {
 
     public static final SearchablePixel BLACK_PIXEL = new SearchablePixel(-16777215, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
     public static final int ORANGE_TEXT = -26593;
+    public static final int BORDER_PIXEL = -9157096;
     public static final String POINTS = "points";
     public static final Rectangle ABSORPTION_TEXT = new Rectangle(8, 4, 53, 11);
+
+    //private final SearchableImage bigAbsorption;
+
     public PointsOverlay(ScriptCore core) {
         super(core);
     }
-
-    //private final SearchableImage bigAbsorption;
 
     @Override
     public int getWidth() {
@@ -39,12 +40,27 @@ public class PointsOverlay extends OverlayBoundary {
 
     @Override
     protected boolean checkVisibility(Rectangle bounds) {
-        if(bounds == null) {
+        if (bounds == null) {
             return false;
         }
-        Rectangle textBounds = bounds.getSubRectangle(ABSORPTION_TEXT);
-        String text = core.getOCR().getText(Font.SMALL_FONT, textBounds, ORANGE_TEXT);
-        return text.equalsIgnoreCase("absorption");
+        Image screenImage = core.getScreen().getImage();
+
+        boolean foundTop = false;
+        boolean foundBottom = false;
+        for (int x = bounds.x; x < bounds.x + bounds.width; x++) {
+            if (!foundTop && screenImage.getRGB(x, bounds.y) == BORDER_PIXEL) {
+                foundTop = true;
+            }
+            if (!foundBottom && screenImage.getRGB(x, bounds.y) == BORDER_PIXEL) {
+                foundBottom = true;
+            }
+            if (foundTop && foundBottom) {
+                core.getScreen().getDrawableCanvas().fillRect(bounds, Color.GREEN.getRGB(), 0.5);
+                core.getScreen().getDrawableCanvas().drawRect(bounds, Color.GREEN.getRGB());
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -54,7 +70,7 @@ public class PointsOverlay extends OverlayBoundary {
 
     @Override
     public Point getOverlayOffset() {
-        return new Point(62, 50);
+        return new Point(62, 6);
     }
 
     @Override
@@ -77,11 +93,15 @@ public class PointsOverlay extends OverlayBoundary {
 
     /**
      * Gets the color of the absorption points text. The text changes color, to work the color out we use the shadow pixels as they are always x+1, y+1.
+     *
      * @param overlayBounds
      * @return
      */
     private Integer getTextColor(Rectangle overlayBounds) {
-        List<Point> pixels = core.getPixelAnalyzer().findPixels(overlayBounds.getPadding(4), BLACK_PIXEL);
+        //    Rectangle pointsBounds = overlayBounds.getSubRectangle()
+        Rectangle textBounds = overlayBounds.getPadding(25,0,13,0);
+        core.getScreen().getDrawableCanvas().drawRect(textBounds, Color.YELLOW.getRGB());
+        List<Point> pixels = core.getPixelAnalyzer().findPixels(textBounds, BLACK_PIXEL);
         Image screenImage = core.getScreen().getImage();
         Integer rgb;
         for (Point p : pixels) {

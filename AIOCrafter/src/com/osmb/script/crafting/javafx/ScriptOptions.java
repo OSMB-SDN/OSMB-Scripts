@@ -58,7 +58,7 @@ public class ScriptOptions extends VBox {
         scriptContentBox.setSpacing(10);
         scriptContentBox.setPadding(new Insets(10));
 
-        Label label = new Label("Choose your desired fletching method");
+        Label label = new Label("Choose your desired crafting method");
         ComboBox<Method> comboBox = new ComboBox<>();
         comboBox.getItems().addAll(methods);
         comboBox.setOnAction(actionEvent -> {

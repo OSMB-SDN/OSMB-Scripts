@@ -1,6 +1,7 @@
 package com.osmb.script;
 
 import com.osmb.api.definition.ItemDefinition;
+//import com.osmb.api.input.MenuHook;
 import com.osmb.api.input.PhysicalKey;
 import com.osmb.api.input.TouchType;
 import com.osmb.api.item.ItemID;
@@ -115,6 +116,7 @@ public class NightmareZone extends Script {
     // Misc
     private java.awt.Font font = java.awt.Font.getFont("Ariel");
     private boolean inArena;
+    private Stopwatch specialDelayTimer = new Stopwatch();
 
     public NightmareZone(Object scriptCore) {
         super(scriptCore);
@@ -338,7 +340,12 @@ public class NightmareZone extends Script {
             return Task.EQUIP_ITEMS;
         }
 
-        if (noBoostSuicide) {
+        if (isDueToBreak()) {
+            log(NightmareZone.class, "Due to break, suiciding...");
+            return Task.SUICIDE;
+        }
+        if (boostPotions != null && noBoostSuicide) {
+
             int statBoostPotionDoses = getDoses(boostPotions, statBoostPotion);
             if (statBoostPotionDoses == 0) {
                 // suicide and restock
@@ -369,7 +376,7 @@ public class NightmareZone extends Script {
                 return null;
             }
             if (prayerPoints.isFound()) {
-                log(NightmareZone.class, "Prayer points: "+prayerPoints+"%");
+                log(NightmareZone.class, "Prayer points: " + prayerPoints + "% | Next drinking at: " + nextSecondaryDrink);
                 if (prayerPoints.get() <= nextSecondaryDrink) {
                     dynamicTasks.add(Task.DRINK_PRAYER_POTION);
                 }
@@ -491,8 +498,36 @@ public class NightmareZone extends Script {
             case FLICK_PRAYER -> flickPrayer();
             case OPEN_BANK -> openBank();
             case DRINK_POTIONS -> drinkBoostPotion();
-
+            case USE_SPECIAL_ATTACK -> activateSpecialAttack();
         }
+    }
+
+    private void activateSpecialAttack() {
+        UIResult<Integer> previousPercentageResult = getWidgetManager().getMinimapOrbs().getSpecialAttackPercentage();
+        if (!percentageValid(previousPercentageResult)) {
+            return;
+        }
+        if (getWidgetManager().getMinimapOrbs().setSpecialAttack(true)) {
+            submitTask(() -> {
+                UIResult<Boolean> activated = getWidgetManager().getMinimapOrbs().isSpecialAttackActivated();
+                if (!percentageValid(activated)) {
+                    return false;
+                }
+                return !activated.get();
+            }, 6000);
+        }
+    }
+
+    private boolean percentageValid(UIResult result) {
+        if (result.isNotVisible()) {
+            log(NightmareZone.class, "Special attack percentage not visible.");
+            return false;
+        }
+        if (result.isNotFound()) {
+            log(NightmareZone.class, "Can't find special attack %");
+            return false;
+        }
+        return true;
     }
 
     private void drinkBoostPotion() {
@@ -688,12 +723,14 @@ public class NightmareZone extends Script {
                 return false;
             }
             if (isArena(worldPosition)) {
+                log(NightmareZone.class, "Executing delay...");
                 submitTask(() -> {
                     // highlight screen blue to show we're executing this delay
                     Canvas canvas = getScreen().getDrawableCanvas();
                     canvas.fillRect(getScreen().getBounds(), Color.BLUE.getRGB(), 0.5);
                     return false;
-                }, Utils.random(500, 70000));
+                }, Utils.random(500, 7000));
+                log(NightmareZone.class, "Finished.");
                 return true;
             }
             return false;
@@ -852,6 +889,10 @@ public class NightmareZone extends Script {
         if (polygon == null) {
             return;
         }
+//        MenuHook hook = menuEntries -> {
+//            return null;
+//        };
+        // fix
         if (!getFinger().tap(polygon.getResized(0.5), "Drink")) {
             // failed to interact, just poll again from the top
             return;
@@ -1588,6 +1629,13 @@ public class NightmareZone extends Script {
             return worldPosition.getRegionID() != ARENA_REGION;
         }
         return false;
+    }
+
+    @Override
+    public boolean promptBankTabDialogue() {
+        boolean isPrimary = statBoostPotion != null && !statBoostPotion.isBarrel();
+        boolean isSecondary = secondaryPotion != null && !secondaryPotion.isBarrel();
+        return isPrimary || isSecondary;
     }
 
     enum Task {
