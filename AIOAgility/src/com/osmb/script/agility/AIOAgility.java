@@ -53,7 +53,7 @@ public class AIOAgility extends Script {
     private MultiConsumable multiConsumable = null;
 
     // to handle the osrs glitch where the position doesn't update
-    private int failThreshold = random(2, 4);
+    private int failThreshold = random(2, 3);
     private int failCount = 0;
 
     public AIOAgility(Object object) {
@@ -269,12 +269,12 @@ public class AIOAgility extends Script {
                 }
                 if (end instanceof Area area) {
                     if (area.contains(currentPos)) {
-                        core.failThreshold = Utils.random(2, 4);
+                        core.failThreshold = Utils.random(2, 3);
                         return true;
                     }
                 } else if (end instanceof Position pos) {
                     if (currentPos.equals(pos)) {
-                        core.failThreshold = Utils.random(2, 4);
+                        core.failThreshold = Utils.random(2, 3);
                         return true;
                     }
                 }
