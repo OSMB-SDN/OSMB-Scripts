@@ -1,7 +1,7 @@
 package com.osmb.script;
 
 import com.osmb.api.definition.ItemDefinition;
-//import com.osmb.api.input.MenuHook;
+import com.osmb.api.input.MenuEntry;
 import com.osmb.api.input.PhysicalKey;
 import com.osmb.api.input.TouchType;
 import com.osmb.api.item.ItemID;
@@ -862,6 +862,7 @@ public class NightmareZone extends Script {
         }
     }
 
+
     private void interactWithPotion() {
         RSTile potionTile = getSceneManager().getTile(POTION_TILE);
         if (potionTile == null) {
@@ -893,7 +894,23 @@ public class NightmareZone extends Script {
 //            return null;
 //        };
         // fix
-        if (!getFinger().tap(polygon.getResized(0.5), "Drink")) {
+        if (!getFinger().tap(polygon.getResized(0.5), menuEntries -> {
+            // pre check for investigate option
+            for (MenuEntry entry : menuEntries) {
+                if (entry.getRawText().startsWith("investigate")) {
+                    log(NightmareZone.class, "Investigate option found, it seems we are mistaken & the dream isn't setup!");
+                    setupDream = false;
+                    return null;
+                }
+            }
+
+            for (MenuEntry entry : menuEntries) {
+                if (entry.getRawText().startsWith("drink")) {
+                    return entry;
+                }
+            }
+            return null;
+        })) {
             // failed to interact, just poll again from the top
             return;
         }
@@ -1545,31 +1562,6 @@ public class NightmareZone extends Script {
         }, 15000);
     }
 
-    private void openPotionInterface() {
-        RSObject potion = getObjectManager().getClosestObject("Potion");
-        if (potion == null) {
-            log(NightmareZone.class, "Can't find potion object...");
-            return;
-        }
-        if (!potion.interact("Drink")) {
-            // failed to interact, just poll again from the top
-            return;
-        }
-        AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
-        AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
-        submitTask(() -> {
-            WorldPosition position = getWorldPosition();
-            if (position == null) {
-                return false;
-            }
-            if (pos.get() == null || !position.equals(pos.get())) {
-                positionChangeTimer.get().reset();
-                pos.set(position);
-            }
-
-            return potionInterface.isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
-        }, 15000);
-    }
 
     private void openChest() {
         RSObject rewardsChest = getObjectManager().getClosestObject("Rewards chest");
