@@ -1,6 +1,5 @@
 package com.osmb.script.agility;
 
-import com.osmb.api.ScriptCore;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.location.area.Area;
@@ -54,7 +53,8 @@ public class AIOAgility extends Script {
     private MultiConsumable multiConsumable = null;
 
     // to handle the osrs glitch where the position doesn't update
-    private int failThreshold = random(3, 5);
+    private int failThreshold = random(2, 4);
+    private int failCount = 0;
 
     public AIOAgility(Object object) {
         super(object);
@@ -222,7 +222,7 @@ public class AIOAgility extends Script {
 
             return canReach_;
         });
-        if (!result.isPresent()) {
+        if (result.isEmpty()) {
             core.log(AIOAgility.class.getSimpleName(), "ERROR: Obstacle (" + obstacleName + ") does not exist with criteria.");
             return ObstacleHandleResponse.OBJECT_NOT_IN_SCENE;
         }
@@ -250,6 +250,8 @@ public class AIOAgility extends Script {
                     if (currentPos.equals(previousPosition.get())) {
                         if (noMovementTimer.timeElapsed() > core.noMovementTimeout) {
                             core.noMovementTimeout = RandomUtils.weightedRandom(2000, 6000);
+                            core.printFail();
+                            core.failCount++;
                             return true;
                         }
                     } else {
@@ -267,12 +269,12 @@ public class AIOAgility extends Script {
                 }
                 if (end instanceof Area area) {
                     if (area.contains(currentPos)) {
-                        core.failThreshold = Utils.random(3, 6);
+                        core.failThreshold = Utils.random(2, 4);
                         return true;
                     }
                 } else if (end instanceof Position pos) {
                     if (currentPos.equals(pos)) {
-                        core.failThreshold = Utils.random(3, 6);
+                        core.failThreshold = Utils.random(2, 4);
                         return true;
                     }
                 }
@@ -282,6 +284,7 @@ public class AIOAgility extends Script {
                 return ObstacleHandleResponse.SUCCESS;
             } else {
                 core.failCount++;
+                core.printFail();
                 return ObstacleHandleResponse.TIMEOUT;
             }
         } else {
@@ -291,7 +294,9 @@ public class AIOAgility extends Script {
         }
     }
 
-    private int failCount = 0;
+    private void printFail() {
+        log(AIOAgility.class, "Failed to handle obstacle. Fail count: " + failCount + "/" + failThreshold);
+    }
 
     @Override
     public void onStart() {
@@ -344,7 +349,7 @@ public class AIOAgility extends Script {
             return 0;
         }
         if (failCount > failThreshold) {
-            log(AIOAgility.class, "Failed handling object multiple times. Relogging.");
+            log(AIOAgility.class, "Failed object multiple times. Relogging.");
             getWidgetManager().getLogoutTab().logout();
             return 0;
         }
