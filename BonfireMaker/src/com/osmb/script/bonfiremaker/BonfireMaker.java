@@ -14,9 +14,6 @@ import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
 import com.osmb.api.utils.timing.Timer;
-import com.osmb.api.visual.SearchablePixel;
-import com.osmb.api.visual.color.ColorModel;
-import com.osmb.api.visual.color.tolerance.impl.ChannelThresholdComparator;
 import com.osmb.api.walker.WalkConfig;
 import javafx.scene.Scene;
 
@@ -26,7 +23,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 
 @ScriptDefinition(name = "Bonfire Maker", description = "Makes bonfires and burns logs on them.", skillCategory = SkillCategory.FIREMAKING, version = 1.0, author = "Joe")
 public class BonfireMaker extends Script {
@@ -34,6 +31,27 @@ public class BonfireMaker extends Script {
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
     public static final String[] BANK_ACTIONS = {"bank", "open"};
     private static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 6;
+    private final Predicate<RSObject> bankQuery = gameObject -> {
+        // if object has no name
+        if (gameObject.getName() == null) {
+            return false;
+        }
+        // has no interact options (eg. bank, open etc.)
+        if (gameObject.getActions() == null) {
+            return false;
+        }
+
+        if (!Arrays.stream(BANK_NAMES).anyMatch(name -> name.equalsIgnoreCase(gameObject.getName()))) {
+            return false;
+        }
+
+        // if no actions contain bank or open
+        if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
+            return false;
+        }
+        // final check is if the object is reachable
+        return gameObject.canReach();
+    };
     private int selectedLogsID = ItemID.LOGS;
     private WorldPosition bonfirePosition;
     private WorldPosition bonfireTargetCreationPos;
@@ -58,7 +76,6 @@ public class BonfireMaker extends Script {
             stop();
         }
     }
-
 
     @Override
     public int poll() {
@@ -152,27 +169,8 @@ public class BonfireMaker extends Script {
         log("Opening bank to withdraw logs...");
         log(getClass().getSimpleName(), "Searching for a bank...");
         // Find bank and open it
-        List<RSObject> banksFound = getObjectManager().getObjects(gameObject -> {
-            // if object has no name
-            if (gameObject.getName() == null) {
-                return false;
-            }
-            // has no interact options (eg. bank, open etc.)
-            if (gameObject.getActions() == null) {
-                return false;
-            }
 
-            if (!Arrays.stream(BANK_NAMES).anyMatch(name -> name.equalsIgnoreCase(gameObject.getName()))) {
-                return false;
-            }
-
-            // if no actions contain bank or open
-            if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
-                return false;
-            }
-            // final check is if the object is reachable
-            return gameObject.canReach();
-        });
+        List<RSObject> banksFound = getObjectManager().getObjects(bankQuery);
         //can't find a bank
         if (banksFound.isEmpty()) {
             log(getClass().getSimpleName(), "Can't find any banks matching criteria...");
@@ -180,6 +178,7 @@ public class BonfireMaker extends Script {
         }
         RSObject object = (RSObject) getUtils().getClosest(banksFound);
         if (!object.interact(BANK_ACTIONS)) return;
+        log(BonfireMaker.class, "Waiting for bank to open...");
         AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
         AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
         submitTask(() -> {
@@ -192,7 +191,7 @@ public class BonfireMaker extends Script {
                 pos.set(position);
             }
 
-            return getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
+            return getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 3000;
         }, 15000);
     }
 
@@ -226,7 +225,7 @@ public class BonfireMaker extends Script {
 
         WorldPosition lightPosition = getWorldPosition();
         Optional<Integer> freeSlots = getItemManager().getTakenSlotsInteger(getWidgetManager().getInventory());
-        if (!freeSlots.isPresent()) {
+        if (freeSlots.isEmpty()) {
             log(getClass().getSimpleName(), "Failed to get free slots in inventory.");
             return;
         }
@@ -291,7 +290,11 @@ public class BonfireMaker extends Script {
     private void burnLogsOnBonfire(UIResultList<ItemSearchResult> logs) {
         // check if bonfire is active
         RSTile tile = getSceneManager().getTile(bonfirePosition);
-        if (tile == null || !tile.isOnGameScreen()) {
+        if (tile == null) {
+            log("Bonfire tile is null...");
+            return;
+        }
+        if (!tile.isOnGameScreen()) {
             log(getClass().getSimpleName(), "Walking to bonfire");
             // walk to tile
             WalkConfig.Builder builder = new WalkConfig.Builder();
