@@ -80,6 +80,7 @@ public class NightmareZone extends Script {
     private final Stopwatch statBoostPotionDrinkTimer = new Stopwatch();
     private final Stopwatch rapidHealFlickTimer = new Stopwatch();
     private final Stopwatch prayerFlickTimer = new Stopwatch();
+    private final Stopwatch eatDownBlock = new Stopwatch();
     private Stopwatch lowerHPDelayTimer;
     // Configuration Settings
     private SpecialAttackWeapon specialAttackWeapon;
@@ -94,7 +95,6 @@ public class NightmareZone extends Script {
     private boolean noBoostSuicide;
     private int shieldItemID;
     private int weaponItemID;
-
     // State Trackers
     private boolean setupDream = false;
     private boolean outOfPointsFlag = false;
@@ -111,12 +111,13 @@ public class NightmareZone extends Script {
     private Optional<Integer> freeSlots;
     private UIResultList<ItemSearchResult> secondaryPotions;
     private Integer cachedRewardPoints = null;
-    private Long overloadDrinkTime = null;
-
+    private Stopwatch overloadDrinkWindow = new Stopwatch();
     // Misc
     private java.awt.Font font = java.awt.Font.getFont("Ariel");
     private boolean inArena;
     private Stopwatch specialDelayTimer = new Stopwatch();
+    private int overloadEatDelay = random(13000, 25000);
+    private int overloadBlockTime = random(TimeUnit.MINUTES.toMillis(4), TimeUnit.MINUTES.toMillis(5));
 
     public NightmareZone(Object scriptCore) {
         super(scriptCore);
@@ -344,8 +345,7 @@ public class NightmareZone extends Script {
             log(NightmareZone.class, "Due to break, suiciding...");
             return Task.SUICIDE;
         }
-        if (boostPotions != null && noBoostSuicide) {
-
+        if (statBoostPotion != null && noBoostSuicide) {
             int statBoostPotionDoses = getDoses(boostPotions, statBoostPotion);
             if (statBoostPotionDoses == 0) {
                 // suicide and restock
@@ -413,10 +413,7 @@ public class NightmareZone extends Script {
 
         if (secondaryPotion == Potion.ABSORPTION_POTION && hitpoints.isFound() && hitpoints.get() > 1) {
             if (lowerHPDelayTimer != null && lowerHPDelayTimer.hasFinished()) {
-                // if we have overload selected & there is less than 1 min left then don't drink to be safe
-                boolean ignore = overloadDrinkTime != null && (System.currentTimeMillis() - overloadDrinkTime) > TimeUnit.MINUTES.toMillis(4);
-
-                if (!ignore) {
+                if (canEatDownHP()) {
                     dynamicTasks.add(Task.LOWER_HP);
                 }
             } else {
@@ -563,12 +560,20 @@ public class NightmareZone extends Script {
             long base = TimeUnit.MINUTES.toMillis(5);
             long extra = TimeUnit.SECONDS.toMillis(15);
             statBoostPotionDrinkTimer.reset(base + extra);
-            overloadDrinkTime = System.currentTimeMillis();
+            overloadDrinkWindow.reset(random(TimeUnit.MINUTES.toMillis(3) + TimeUnit.SECONDS.toMillis(20), TimeUnit.MINUTES.toMillis(4) + TimeUnit.SECONDS.toMillis(30)));
+            lowerHPDelayTimer.reset(random(15000, 35000));
         } else {
             long min = TimeUnit.MINUTES.toMillis(3);
             long max = TimeUnit.HOURS.toMillis(5);
             statBoostPotionDrinkTimer.reset(random(min, max));
         }
+    }
+
+    private boolean canEatDownHP() {
+        if (overloadDrinkWindow != null && statBoostPotion == Potion.OVERLOAD) {
+            return !overloadDrinkWindow.hasFinished();
+        }
+        return true;
     }
 
     private void flickPrayer() {
