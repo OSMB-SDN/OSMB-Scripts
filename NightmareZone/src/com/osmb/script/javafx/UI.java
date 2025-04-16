@@ -32,6 +32,7 @@ public class UI extends BorderPane {
     private int shieldItemId = -1;
 
     public UI(ScriptCore core) {
+        VBox leftContainer = new VBox();
         // main weapon
         Label mainWeaponLabel = new Label("Main weapon");
         mainWeaponImageView = JavaFXUtils.getItemImageView(core, ItemID.BANK_FILLER);
@@ -90,8 +91,26 @@ public class UI extends BorderPane {
         weaponTitledPane.getStyleClass().add("script-manager-titled-pane");
         VBox.setVgrow(weaponTitledPane, Priority.ALWAYS);
         weaponTitledPane.setMaxHeight(Double.MAX_VALUE);
+        leftContainer.getChildren().add(weaponTitledPane);
 
-        setLeft(weaponTitledPane);
+        Label afkPositionLabel = new Label("AFK area");
+        afkPositionComboBox = new ComboBox<>();
+        afkPositionComboBox.getSelectionModel().select(0);
+        afkPositionComboBox.getItems().addAll(AFKPosition.values());
+
+        suicideNoBoost = new CheckBox("Suicide when out of stat boost potions (Better xp)");
+        suicideNoBoost.setPrefWidth(180);
+        suicideNoBoost.setStyle("-fx-text-fill: white");
+        suicideNoBoost.setWrapText(true);
+
+        VBox miscBox = new VBox(afkPositionLabel, afkPositionComboBox,suicideNoBoost);
+        miscBox.setSpacing(10);
+        TitledPane misc = new TitledPane("Misc", miscBox);
+        misc.setCollapsible(false);
+        misc.getStyleClass().add("script-manager-titled-pane");
+        leftContainer.getChildren().add(misc);
+
+        setLeft(leftContainer);
 
         Label primaryPotionLabel = new Label("Stat boost potion");
 
@@ -116,22 +135,18 @@ public class UI extends BorderPane {
         lowerHPMethodComboBox = JavaFXUtils.createItemCombobox(core, new int[]{LowerHealthMethod.ROCK_CAKE.getItemID(), LowerHealthMethod.LOCATOR_ORB.getItemID()});
         lowerHPMethodComboBox.setPrefWidth(180);
 
-        suicideNoBoost = new CheckBox("Suicide when out of stat boost potions (Better xp)");
-        suicideNoBoost.setPrefWidth(180);
-        suicideNoBoost.setStyle("-fx-text-fill: white");
-        suicideNoBoost.setWrapText(true);
-
         flickRapidHeal = new CheckBox("Flick Rapid heal to keep 1HP (Quick prayers)");
         flickRapidHeal.setPrefWidth(180);
         flickRapidHeal.setWrapText(true);
         flickRapidHeal.setStyle("-fx-text-fill: white");
 
 
-        absorptionSettingsVbox = new VBox(lowerHPMethodLabel, lowerHPMethodComboBox, suicideNoBoost, flickRapidHeal);
+        absorptionSettingsVbox = new VBox(lowerHPMethodLabel, lowerHPMethodComboBox, flickRapidHeal);
         absorptionSettingsVbox.setSpacing(10);
 
 
-        VBox potionVBox = new VBox(primaryPotionLabel, boostPotionComboBox, boostPotionAmountBox, secondaryPotionLabel, secondaryPotionComboBox);
+        VBox potionVBox = new VBox(primaryPotionLabel, boostPotionComboBox, boostPotionAmountBox,
+                secondaryPotionLabel, secondaryPotionComboBox);
         secondaryPotionComboBox.getSelectionModel().selectedItemProperty().addListener((observableValue, integer, t1) -> {
             if (t1 != null && t1 == Potion.ABSORPTION_POTION.getFullID()) {
                 potionVBox.getChildren().add(absorptionSettingsVbox);
@@ -144,19 +159,21 @@ public class UI extends BorderPane {
                 stage.sizeToScene();
             }
         });
+
         potionVBox.setStyle("-fx-spacing: 5; -fx-padding: 10; -fx-background-color: #636E72");
+        potionVBox.setPrefHeight(300);
+
         TitledPane potionTitledPane = new TitledPane("Potion load out", potionVBox);
         potionTitledPane.setCollapsible(false);
         potionTitledPane.getStyleClass().add("script-manager-titled-pane");
 
-        setRight(potionTitledPane);
+        // Create a container VBox for the titled pane
+        VBox rightContainer = new VBox(potionTitledPane);
+        rightContainer.setStyle("-fx-background-color: #636E72");
+        VBox.setVgrow(potionTitledPane, Priority.ALWAYS);  // Make titled pane grow
+        rightContainer.setMaxHeight(Double.MAX_VALUE);
 
-
-        Label afkPositionLabel = new Label("AFK area");
-        afkPositionComboBox = new ComboBox<>();
-        afkPositionComboBox.getSelectionModel().select(0);
-        afkPositionComboBox.getItems().addAll(AFKPosition.values());
-        VBox afkPosBox = new VBox(afkPositionLabel, afkPositionComboBox);
+        setRight(rightContainer);
 
         Button confirmButton = new Button("Confirm");
         confirmButton.setOnAction(actionEvent -> {
@@ -166,10 +183,10 @@ public class UI extends BorderPane {
         HBox buttonHBox = new HBox(confirmButton);
         buttonHBox.setStyle("-fx-alignment: center-right;");
 
-        HBox bottomHBox = new HBox(afkPosBox, buttonHBox);
+        HBox bottomHBox = new HBox(miscBox, buttonHBox);
         bottomHBox.setMaxWidth(Double.MAX_VALUE);  // Allow it to expand horizontally
-        bottomHBox.setStyle("-fx-alignment: center; -fx-padding: 10; -fx-background-color: #636E72");
-        HBox.setHgrow(afkPosBox, Priority.ALWAYS); // Make afkPosBox grow to push buttonHBox to the right
+        bottomHBox.setStyle("-fx-alignment: center-right; -fx-padding: 10; -fx-background-color: #636E72");
+        HBox.setHgrow(miscBox, Priority.ALWAYS); // Make afkPosBox grow to push buttonHBox to the right
 
         setBottom(bottomHBox);
     }
