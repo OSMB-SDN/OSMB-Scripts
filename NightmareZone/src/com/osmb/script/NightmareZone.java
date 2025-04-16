@@ -71,6 +71,8 @@ public class NightmareZone extends Script {
             new DialogueOption("which dream would you like to experience?", "Previous:"),
             new DialogueOption("Agree to pay", "Yes")
     };
+    // Misc
+    private static final java.awt.Font ARIEL = java.awt.Font.getFont("Ariel");
     // Collections
     private final List<ItemSearchResult> itemsToEquip = new ArrayList<>();
     private final Map<Potion, Integer> barrelDoseCache = Collections.synchronizedMap(new HashMap<>());
@@ -79,8 +81,7 @@ public class NightmareZone extends Script {
     private final Stopwatch arenaDelayTimer = new Stopwatch();
     private final Stopwatch statBoostPotionDrinkTimer = new Stopwatch();
     private final Stopwatch rapidHealFlickTimer = new Stopwatch();
-    private final Stopwatch prayerFlickTimer = new Stopwatch();
-    private final Stopwatch eatDownBlock = new Stopwatch();
+    private Stopwatch prayerDelayTimer;
     private Stopwatch lowerHPDelayTimer;
     // Configuration Settings
     private SpecialAttackWeapon specialAttackWeapon;
@@ -112,12 +113,8 @@ public class NightmareZone extends Script {
     private UIResultList<ItemSearchResult> secondaryPotions;
     private Integer cachedRewardPoints = null;
     private Stopwatch overloadDrinkWindow = new Stopwatch();
-    // Misc
-    private java.awt.Font font = java.awt.Font.getFont("Ariel");
     private boolean inArena;
-    private Stopwatch specialDelayTimer = new Stopwatch();
-    private int overloadEatDelay = random(13000, 25000);
-    private int overloadBlockTime = random(TimeUnit.MINUTES.toMillis(4), TimeUnit.MINUTES.toMillis(5));
+    private Stopwatch specialDelayTimer;
 
     public NightmareZone(Object scriptCore) {
         super(scriptCore);
@@ -132,40 +129,40 @@ public class NightmareZone extends Script {
         c.fillRect(5, 40, 300, 200, Color.BLACK.getRGB(), 0.7);
         c.drawRect(5, 40, 300, 200, Color.BLACK.getRGB());
         int y = 60;
-        c.drawText("Task: " + (task == null ? "None" : task), 10, y, Color.WHITE.getRGB(), font);
+        c.drawText("Task: " + (task == null ? "None" : task), 10, y, Color.WHITE.getRGB(), ARIEL);
         y += 20;
         if (inArena) {
             if (lowerHPDelayTimer != null) {
                 long secondsLeft = TimeUnit.MILLISECONDS.toSeconds(lowerHPDelayTimer.timeLeft());
-                c.drawText("Lower HP delay: " + Math.max(secondsLeft, 0), 10, y, Color.WHITE.getRGB(), font);
+                c.drawText("Lower HP delay: " + Math.max(secondsLeft, 0), 10, y, Color.WHITE.getRGB(), ARIEL);
                 y += 20;
             }
             if (statBoostPotion != null) {
                 long secondsLeft = TimeUnit.MILLISECONDS.toSeconds(statBoostPotionDrinkTimer.timeLeft());
-                c.drawText("Next " + statBoostPotion + " drink: " + Math.max(secondsLeft, 0), 10, y, Color.WHITE.getRGB(), font);
+                c.drawText("Next " + statBoostPotion + " drink: " + Math.max(secondsLeft, 0), 10, y, Color.WHITE.getRGB(), ARIEL);
                 y += 20;
             }
             if (secondaryPotion != null) {
                 String end = secondaryPotion == Potion.PRAYER_POTION ? "%" : "points";
-                c.drawText("Next " + secondaryPotion + " drink @ " + nextSecondaryDrink + " " + end, 10, y, Color.WHITE.getRGB(), font);
+                c.drawText("Next " + secondaryPotion + " drink @ " + nextSecondaryDrink + " " + end, 10, y, Color.WHITE.getRGB(), ARIEL);
                 y += 20;
             }
         } else {
-            c.drawText("Setup dream: " + setupDream, 10, y, Color.WHITE.getRGB(), font);
+            c.drawText("Setup dream: " + setupDream, 10, y, Color.WHITE.getRGB(), ARIEL);
             y += 20;
-            c.drawText("Reward points: " + (cachedRewardPoints == null ? "null" : cachedRewardPoints), 10, y, Color.WHITE.getRGB(), font);
+            c.drawText("Reward points: " + (cachedRewardPoints == null ? "null" : cachedRewardPoints), 10, y, Color.WHITE.getRGB(), ARIEL);
             y += 20;
         }
-        c.drawText("Dynamic tasks: ", 10, y, Color.WHITE.getRGB(), font);
+        c.drawText("Dynamic tasks: ", 10, y, Color.WHITE.getRGB(), ARIEL);
         for (Task task : dynamicTasks) {
             y += 20;
-            c.drawText(" - Task: " + task, 10, y, Color.WHITE.getRGB(), font);
+            c.drawText(" - Task: " + task, 10, y, Color.WHITE.getRGB(), ARIEL);
         }
         for (Map.Entry<Potion, Integer> entry : barrelDoseCache.entrySet()) {
             y += 20;
             Potion potion = entry.getKey();
             Integer value = entry.getValue();
-            c.drawText(potion.getName() + ": " + value, 10, y, Color.WHITE.getRGB(), font);
+            c.drawText(potion.getName() + ": " + value, 10, y, Color.WHITE.getRGB(), ARIEL);
         }
     }
 
@@ -383,7 +380,11 @@ public class NightmareZone extends Script {
             }
             if (quickPrayersActive.isFound()) {
                 if (!quickPrayersActive.get()) {
-                    dynamicTasks.add(Task.ACTIVATE_PRAY);
+                    if (prayerDelayTimer == null) {
+                        prayerDelayTimer = new Stopwatch(random(1000, 20000));
+                    } else if (prayerDelayTimer.hasFinished()) {
+                        dynamicTasks.add(Task.ACTIVATE_PRAY);
+                    }
                 }
             }
 
@@ -436,14 +437,19 @@ public class NightmareZone extends Script {
             }
         }
         // use special attack
-        if (specialAttackWeapon != null) {
+        if (specialAttackWeapon != null && specialDelayTimer.hasFinished()) {
             UIResult<Integer> specialAttackAmount = getWidgetManager().getMinimapOrbs().getSpecialAttackPercentage();
             if (specialAttackAmount.isNotVisible()) {
                 log(NightmareZone.class, "Special attack orb not visible...");
                 return null;
             }
             if (specialAttackAmount.isFound() && specialAttackAmount.get() >= specialAttackWeapon.getAmount()) {
-                return Task.USE_SPECIAL_ATTACK;
+                if (specialDelayTimer == null) {
+                    specialDelayTimer.reset(random(2000, 30000));
+                } else if (specialDelayTimer.hasFinished()) {
+                    return Task.USE_SPECIAL_ATTACK;
+                }
+
             }
         }
         return null;
@@ -505,13 +511,16 @@ public class NightmareZone extends Script {
             return;
         }
         if (getWidgetManager().getMinimapOrbs().setSpecialAttack(true)) {
-            submitTask(() -> {
+            boolean result = submitTask(() -> {
                 UIResult<Boolean> activated = getWidgetManager().getMinimapOrbs().isSpecialAttackActivated();
                 if (!percentageValid(activated)) {
                     return false;
                 }
                 return !activated.get();
             }, 6000);
+            if (result) {
+                specialDelayTimer = null;
+            }
         }
     }
 
@@ -561,7 +570,7 @@ public class NightmareZone extends Script {
             long extra = TimeUnit.SECONDS.toMillis(15);
             statBoostPotionDrinkTimer.reset(base + extra);
             overloadDrinkWindow.reset(random(TimeUnit.MINUTES.toMillis(3) + TimeUnit.SECONDS.toMillis(20), TimeUnit.MINUTES.toMillis(4) + TimeUnit.SECONDS.toMillis(30)));
-            lowerHPDelayTimer.reset(random(15000, 35000));
+            lowerHPDelayTimer = new Stopwatch(random(15000, 35000));
         } else {
             long min = TimeUnit.MINUTES.toMillis(3);
             long max = TimeUnit.HOURS.toMillis(5);
@@ -627,7 +636,9 @@ public class NightmareZone extends Script {
 
     private void activatePrayer() {
         log(NightmareZone.class, "Activating prayer...");
-        getWidgetManager().getMinimapOrbs().setQuickPrayers(true);
+        if (getWidgetManager().getMinimapOrbs().setQuickPrayers(true)) {
+            prayerDelayTimer = null;
+        }
     }
 
     private void drinkAbsorption(int timeout) {
