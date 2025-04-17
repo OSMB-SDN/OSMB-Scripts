@@ -272,6 +272,9 @@ public class CharterCrafting extends Script {
             walkConfig.doWhileWalking(() -> {
                 log(CharterCrafting.class, "Crafting while walking...");
                 // find items
+                if (!getItemManager().unSelectItemIfSelected()) {
+                    return null;
+                }
                 UIResultList<ItemSearchResult> moltenGlass_ = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.MOLTEN_GLASS);
                 UIResult<ItemSearchResult> glassblowingPipe_ = getItemManager().findItem(getWidgetManager().getInventory(), ItemID.GLASSBLOWING_PIPE);
                 if (moltenGlass_.isNotVisible() || glassblowingPipe_.isNotVisible()) {
@@ -297,6 +300,9 @@ public class CharterCrafting extends Script {
     }
 
     private void craft(UIResult<ItemSearchResult> glassblowingPipe, UIResultList<ItemSearchResult> moltenGlass, int timeout) {
+        if (!getItemManager().unSelectItemIfSelected()) {
+            return;
+        }
         if (validDialogue()) {
             waitUntilFinishedProducing(timeout, ItemID.MOLTEN_GLASS);
             return;
@@ -598,6 +604,7 @@ public class CharterCrafting extends Script {
         if (bucketOfSandShop.isNotVisible() || combinationItemShop.isNotVisible()) {
             return;
         }
+
         Integer[] itemsToIgnore = new Integer[]{ItemID.BUCKET_OF_SAND,
                 selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH};
 
@@ -606,8 +613,8 @@ public class CharterCrafting extends Script {
         int excessSlots = freeSlotsExclBuyItems - (moltenGlassToMake * 2);
 
         // cache shop stock
-        int bucketOfSandStock = bucketOfSandShop.get().getStackAmount();
-        int combinationItemStock = combinationItemShop.get().getStackAmount();
+        int bucketOfSandStock = bucketOfSandShop.isFound() ? bucketOfSandShop.get().getStackAmount() : 0;
+        int combinationItemStock = combinationItemShop.isFound() ? combinationItemShop.get().getStackAmount() : 0;
         log(CharterCrafting.class, "Bucket of sand stock: " + bucketOfSandStock + " Combination stock: " + combinationItemStock);
 
         // calculate amount to buy
