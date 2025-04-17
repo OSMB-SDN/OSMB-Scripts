@@ -591,17 +591,15 @@ public class NightmareZone extends Script {
             log(NightmareZone.class, "Prayer orb not visible, make sure regeneration indicators are disabled...");
             return;
         }
-        if (prayersActivated.isNotFound()) {
-            return;
-        }
 
-        if (prayersActivated.get()) {
+        if (prayersActivated.isFound()) {
             if (getWidgetManager().getMinimapOrbs().setQuickPrayers(false)) {
                 rapidHealFlickTimer.reset(random(20000, 50000));
             }
-        }
-        if (getWidgetManager().getMinimapOrbs().setQuickPrayers(true)) {
-            getWidgetManager().getMinimapOrbs().setQuickPrayers(false);
+        } else if (getWidgetManager().getMinimapOrbs().setQuickPrayers(true)) {
+            if (getWidgetManager().getMinimapOrbs().setQuickPrayers(false)) {
+                rapidHealFlickTimer.reset(random(20000, 50000));
+            }
         }
     }
 
@@ -612,7 +610,7 @@ public class NightmareZone extends Script {
         }
         ItemSearchResult potion = secondaryPotions.getRandom();
         String itemName = getItemManager().getItemName(potion.getId());
-        int initialDoseAmount = getDoses(boostPotions, statBoostPotion);
+        int initialDoseAmount = getDoses(secondaryPotions, secondaryPotion);
         if (itemName != null)
             log(NightmareZone.class, "Drinking " + itemName + "...");
         if (!potion.interact()) {
@@ -622,11 +620,11 @@ public class NightmareZone extends Script {
         submitTask(() -> false, 800);
         // search for items and calculate dose amount, then compare to the previous dose amount to confirm we drank the potion.
         boolean dosesDecremented = submitTask(() -> {
-            boostPotions = getItemManager().findAllOfItem(getWidgetManager().getInventory(), statBoostPotion.getItemIDs());
-            if (boostPotions.isNotVisible()) {
+            secondaryPotions = getItemManager().findAllOfItem(getWidgetManager().getInventory(), secondaryPotion.getItemIDs());
+            if (secondaryPotions.isNotVisible()) {
                 return false;
             }
-            return getDoses(boostPotions, statBoostPotion) < initialDoseAmount;
+            return getDoses(secondaryPotions, secondaryPotion) < initialDoseAmount;
         }, 3000);
 
         if (dosesDecremented) {

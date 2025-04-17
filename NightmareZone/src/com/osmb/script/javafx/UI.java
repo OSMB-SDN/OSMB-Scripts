@@ -97,13 +97,14 @@ public class UI extends BorderPane {
         afkPositionComboBox = new ComboBox<>();
         afkPositionComboBox.getSelectionModel().select(0);
         afkPositionComboBox.getItems().addAll(AFKPosition.values());
+        afkPositionComboBox.getSelectionModel().select(0);
 
         suicideNoBoost = new CheckBox("Suicide when out of stat boost potions (Better xp)");
         suicideNoBoost.setPrefWidth(180);
         suicideNoBoost.setStyle("-fx-text-fill: white");
         suicideNoBoost.setWrapText(true);
 
-        VBox miscBox = new VBox(afkPositionLabel, afkPositionComboBox,suicideNoBoost);
+        VBox miscBox = new VBox(afkPositionLabel, afkPositionComboBox, suicideNoBoost);
         miscBox.setSpacing(10);
         TitledPane misc = new TitledPane("Misc", miscBox);
         misc.setCollapsible(false);
