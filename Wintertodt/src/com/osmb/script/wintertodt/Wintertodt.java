@@ -552,11 +552,8 @@ public class Wintertodt extends Script {
         if (!missingEquipment.isEmpty()) {
             // Convert to List
             List<Equipment> list = new ArrayList<>(missingEquipment);
-
-            // Shuffle the List
             Collections.shuffle(list);
-            // Convert back to Set (if needed)
-            Set<Equipment> shuffledSet = new LinkedHashSet<>(list); // Preserves shuffled order
+            missingEquipment = new LinkedHashSet<>(list);
         }
 
     }
@@ -868,7 +865,6 @@ public class Wintertodt extends Script {
         } else if (brumaHerbsNeeded > 0) {
             pickHerbs(brumaHerbs, brumaHerbsNeeded, freeSlots.get());
         } else {
-
             UIResult<Boolean> tapToDrop = getWidgetManager().getHotkeys().isTapToDropEnabled();
             if (tapToDrop.isFound() && tapToDrop.get()) {
                 if (!getWidgetManager().getHotkeys().setTapToDropEnabled(false)) {
