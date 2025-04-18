@@ -54,6 +54,7 @@ public class AnvilInterface extends ComponentCentered implements ItemGroup {
         return new Point(bounds.x + 16, bounds.y + 47);
     }
 
+
     @Override
     public int groupWidth() {
         return 6;
@@ -72,6 +73,46 @@ public class AnvilInterface extends ComponentCentered implements ItemGroup {
     @Override
     public int yIncrement() {
         return 55;
+    }
+
+    @Override
+    public int[] getColumnGaps() {
+        return new int[] {80,80,80,80,65};
+    }
+
+    @Override
+    public int missclickPaddingRight(int slot) {
+        return 0;
+    }
+
+    @Override
+    public int missclickPaddingBottom(int slot) {
+        return 0;
+    }
+
+    @Override
+    public int missclickPaddingLeft(int slot) {
+        return 0;
+    }
+
+    @Override
+    public int missclickPaddingTop(int slot) {
+        return 0;
+    }
+
+    @Override
+    public int itemPaddingBottom(int slot) {
+        return 18;
+    }
+
+    @Override
+    public int itemPaddingRight(int slot) {
+        return 15;
+    }
+
+    @Override
+    public int itemPaddingLeft(int slot) {
+        return 5;
     }
 
     @Override

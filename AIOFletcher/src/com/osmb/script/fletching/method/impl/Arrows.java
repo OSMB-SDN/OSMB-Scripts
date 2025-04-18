@@ -32,7 +32,7 @@ public class Arrows extends Method {
     public int poll() {
         DialogueType dialogueType = script.getWidgetManager().getDialogue().getDialogueType();
 
-        if (dialogueType != null && dialogueType == DialogueType.ITEM_OPTION) {
+        if (dialogueType == DialogueType.ITEM_OPTION) {
             handleDialogue();
             return 0;
         }

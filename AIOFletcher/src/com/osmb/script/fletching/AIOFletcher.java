@@ -26,7 +26,9 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 @ScriptDefinition(name = "AIO Fletcher", author = "Joe", version = 1.0, description = "Covers a variety of fletching methods!", skillCategory = SkillCategory.FLETCHING)
 public class AIOFletcher extends Script {
@@ -37,13 +39,34 @@ public class AIOFletcher extends Script {
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
     public static final String[] BANK_ACTIONS = {"bank", "open"};
     public static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 6;
+    private final Predicate<RSObject> bankQuery = gameObject -> {
+        // if object has no name
+        if (gameObject.getName() == null) {
+            return false;
+        }
+        // has no interact options (eg. bank, open etc.)
+        if (gameObject.getActions() == null) {
+            return false;
+        }
+
+        if (Arrays.stream(BANK_NAMES).noneMatch(name -> name.equalsIgnoreCase(gameObject.getName()))) {
+            return false;
+        }
+
+        // if no actions contain bank or open
+        if (Arrays.stream(gameObject.getActions()).noneMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
+            return false;
+        }
+        // final check is if the object is reachable
+        return gameObject.canReach();
+    };
     private Method selectedMethod;
     private boolean bank = false;
+
 
     public AIOFletcher(Object o) {
         super(o);
     }
-
 
     public static String getItemName(ScriptCore core, int itemID) {
         ItemDefinition def = core.getItemManager().getItemDefinition(itemID);
@@ -65,7 +88,6 @@ public class AIOFletcher extends Script {
         return new javafx.scene.image.ImageView(fxImage);
     }
 
-
     public void setSelectedMethod(Method selectedMethod) {
         this.selectedMethod = selectedMethod;
     }
@@ -75,7 +97,7 @@ public class AIOFletcher extends Script {
         Method[] methods = new Method[]{new CutLogs(this), new StringBows(this), new DartBoltMaker(this), new Arrows(this)};
         ScriptOptions scriptOptions = new ScriptOptions(this, methods);
         Scene scene = new Scene(scriptOptions);
-        scene.getStylesheets().add(ScriptCore.class.getResource("/style.css").toExternalForm());
+        scene.getStylesheets().add(Objects.requireNonNull(ScriptCore.class.getResource("/style.css")).toExternalForm());
         getStageController().show(scene, "Settings", false);
         if (selectedMethod == null) {
             throw new IllegalArgumentException("Selected method cannot be null!");
@@ -109,27 +131,8 @@ public class AIOFletcher extends Script {
     private void openBank() {
         log(getClass().getSimpleName(), "Searching for a bank...");
         // Find bank and open it
-        List<RSObject> banksFound = getObjectManager().getObjects(gameObject -> {
-            // if object has no name
-            if (gameObject.getName() == null) {
-                return false;
-            }
-            // has no interact options (eg. bank, open etc.)
-            if (gameObject.getActions() == null) {
-                return false;
-            }
 
-            if (!Arrays.stream(BANK_NAMES).anyMatch(name -> name.equalsIgnoreCase(gameObject.getName()))) {
-                return false;
-            }
-
-            // if no actions contain bank or open
-            if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
-                return false;
-            }
-            // final check is if the object is reachable
-            return gameObject.canReach();
-        });
+        List<RSObject> banksFound = getObjectManager().getObjects(bankQuery);
         //can't find a bank
         if (banksFound.isEmpty()) {
             log(getClass().getSimpleName(), "Can't find any banks matching criteria...");

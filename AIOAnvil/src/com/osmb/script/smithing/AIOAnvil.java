@@ -25,13 +25,13 @@ import java.util.concurrent.atomic.AtomicReference;
 @ScriptDefinition(name = "AIO Anvil", skillCategory = SkillCategory.SMITHING, version = 1, author = "Joe", description = "Uses bars at anvils to create weapons and armour.")
 public class AIOAnvil extends Script {
 
-    private static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 6;
+    private static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 7;
     private static final RectangleArea VARROCK_AREA = new RectangleArea(3131, 3391, 109, 75, 0);
     private static final WorldPosition VARROCK_BANK_BOOTH_POSITION = new WorldPosition(3186, 3436, 0);
     private int selectedBarID;
     private int selecteProductID;
     private Product selectedProduct;
-    private AnvilInterface anvilInterface = new AnvilInterface(this);
+    private AnvilInterface anvilInterface;
 
     public AIOAnvil(Object scriptCore) {
         super(scriptCore);
@@ -39,6 +39,7 @@ public class AIOAnvil extends Script {
 
     @Override
     public void onStart() {
+        anvilInterface = new AnvilInterface(this);
         ScriptOptions scriptOptions = new ScriptOptions(this);
         Scene scene = new Scene(scriptOptions);
         scene.getStylesheets().add("style.css");
@@ -123,7 +124,7 @@ public class AIOAnvil extends Script {
             }
 
             return false;
-        }, 40000, true, false, true);
+        }, 60000, true, false, true);
     }
 
     @Override
@@ -183,6 +184,7 @@ public class AIOAnvil extends Script {
     }
 
     private void openBank() {
+        log(AIOAnvil.class, "Opening bank...");
         WorldPosition position = getWorldPosition();
         // the bank booth closest to the anvil has no name in object def (will be some anti-botting thing where its info is loaded on login)
         // to combat this we just get the object from the tile
@@ -195,19 +197,24 @@ public class AIOAnvil extends Script {
             RSObject bank = bankTile.getObjects().get(0);
             if (bank != null) {
                 if (bank.interact(1, "Bank booth", null, "Bank")) {
-                    submitTask(() -> getWidgetManager().getBank().isVisible(), 10000);
+                    log(AIOAnvil.class, "Interacted successfully, waiting for bank to be visible.");
+                    if (submitTask(() -> getWidgetManager().getBank().isVisible(), 12000)) {
+                        log(AIOAnvil.class, "Bank is visible.");
+                    } else {
+                        log(AIOAnvil.class, "Timed out waiting for bank to open");
+                    }
                 }
+            }
+        } else {
+            RSObject bank = getObjectManager().getClosestObject("Bank booth");
+            if (bank == null) {
+                log(getClass().getSimpleName(), "Can't find Bank booth...");
                 return;
             }
-        }
-        RSObject bank = getObjectManager().getClosestObject("Bank booth");
-        if (bank == null) {
-            log(getClass().getSimpleName(), "Can't find Bank booth...");
-            return;
-        }
-        if (bank.interact("Bank")) {
-            // wait for bank to be visible
-            submitTask(() -> getWidgetManager().getBank().isVisible(), 10000);
+            if (bank.interact("Bank")) {
+                // wait for bank to be visible
+                submitTask(() -> getWidgetManager().getBank().isVisible(), 10000);
+            }
         }
     }
 }
