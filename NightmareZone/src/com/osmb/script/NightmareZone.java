@@ -714,8 +714,13 @@ public class NightmareZone extends Script {
                     lowerHPDelayTimer = null;
                     return true;
                 }
-                getFinger().tap(false, lowerHealthItem.get());
-                submitTask(() -> false, RandomUtils.weightedRandom(150, 600));
+                if (lowerHealthMethod == LowerHealthMethod.ROCK_CAKE) {
+                    getFinger().tap(false, lowerHealthItem.get(), "Guzzle");
+                    submitTask(() -> false, RandomUtils.weightedRandom(50, 400));
+                } else {
+                    getFinger().tap(false, lowerHealthItem.get());
+                    submitTask(() -> false, RandomUtils.weightedRandom(150, 600));
+                }
             }
             return false;
         }, timeout);
