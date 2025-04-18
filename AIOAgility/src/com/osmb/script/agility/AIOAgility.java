@@ -280,7 +280,6 @@ public class AIOAgility extends Script {
                 }
                 return false;
             }, timeout)) {
-                core.failCount = 0;
                 return ObstacleHandleResponse.SUCCESS;
             } else {
                 core.failCount++;
@@ -320,7 +319,7 @@ public class AIOAgility extends Script {
         this.eatLow = ui.getEatLow();
         this.hitpointsToEat = random(eatLow, eatHigh);
         this.nextRunActivate = random(30, 70);
-        int foodItemID = ui.foodItemID();
+        int foodItemID = ui.getFoodID();
 
         this.multiConsumable = MultiConsumable.getMultiConsumable(foodItemID);
         if (multiConsumable != null) {
