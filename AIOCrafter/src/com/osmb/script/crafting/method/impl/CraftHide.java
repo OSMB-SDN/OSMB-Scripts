@@ -34,16 +34,21 @@ public class CraftHide extends Method {
 
     @Override
     public int poll() {
-        needle = script.getItemManager().findItem(script.getWidgetManager().getInventory(), ItemID.NEEDLE);
+        needle = script.getItemManager().findItem(script.getWidgetManager().getInventory(), ItemID.NEEDLE, ItemID.COSTUME_NEEDLE);
         thread = script.getItemManager().findItem(script.getWidgetManager().getInventory(), ItemID.THREAD);
         hides = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), hideID);
 
-        if (thread.isNotFound()) {
-            script.log(getClass().getSimpleName(), "No thread found in the inventory, stopping script...");
+        if (!checkItemResult(hides)) {
+            return 0;
+        }
+        if (!checkItemResult(needle)) {
+            script.log(getClass().getSimpleName(), "No needle found in the inventory, stopping script...");
             script.stop();
             return 0;
         }
-        if (!checkItemResult(hides) || !checkItemResult(needle) || !checkItemResult(thread)) {
+        if (needle.get().getId() == ItemID.NEEDLE && !checkItemResult(thread)) {
+            script.log(getClass().getSimpleName(), "No thread found in the inventory, stopping script...");
+            script.stop();
             return 0;
         }
         if (hides.size() < itemToMake.getAmountNeeded()) {
