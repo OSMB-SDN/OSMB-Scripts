@@ -360,7 +360,7 @@ public class CharterCrafting extends Script {
                 }
 
             }
-            // If the amount of gems in the inventory hasn't changed and the timeout is exceeded, then return true to break out of the sleep method
+            // If the amount of resources in the inventory hasn't changed and the timeout is exceeded, then return true to break out of the sleep method
             if (amountChangeTimer.timeElapsed() > amountChangeTimeout) {
                 this.amountChangeTimeout = random(4500, 7000);
                 return true;
