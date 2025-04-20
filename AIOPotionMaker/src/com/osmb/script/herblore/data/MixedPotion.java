@@ -34,7 +34,8 @@ public enum MixedPotion implements Potion {
     ANTI_VENOM(12905, 120, new Ingredient(ItemID.ANTIDOTE4_5952), new Ingredient(ItemID.ZULRAHS_SCALES)),
     ANTI_VENOM_PLUS(12915, 125, new Ingredient(ItemID.ANTIVENOM4), new Ingredient(ItemID.TORSTOL)),
     SUPER_ANTIFIRE_POTION(21978, 130, new Ingredient(ItemID.ANTIFIRE_POTION4), new Ingredient(ItemID.CRUSHED_SUPERIOR_DRAGON_BONES)),
-    SUPER_COMBAT_POTION(ItemID.SUPER_COMBAT_POTION4, 130, new Ingredient(ItemID.TORSTOL_POTION_UNF, 1, true), new Ingredient(ItemID.SUPER_ATTACK4), new Ingredient(ItemID.SUPER_STRENGTH4), new Ingredient(ItemID.SUPER_DEFENCE4));
+    SUPER_COMBAT_POTION(ItemID.SUPER_COMBAT_POTION4, 130, new Ingredient(ItemID.TORSTOL, 1, true), new Ingredient(ItemID.SUPER_ATTACK4), new Ingredient(ItemID.SUPER_STRENGTH4), new Ingredient(ItemID.SUPER_DEFENCE4)),
+    SUPER_COMBAT_POTION_2(ItemID.SUPER_COMBAT_POTION4, 130, new Ingredient(ItemID.TORSTOL_POTION_UNF, 1, true), new Ingredient(ItemID.SUPER_ATTACK4), new Ingredient(ItemID.SUPER_STRENGTH4), new Ingredient(ItemID.SUPER_DEFENCE4));
 
     private final double xp;
     private final int itemId;
