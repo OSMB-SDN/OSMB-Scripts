@@ -49,26 +49,7 @@ public class Pollnivneach implements Course {
             AIOAgility.handleObstacle(core, "Tree", "Jump-on", AREA_8, 2,false,20000);
             return 0;
         } else if (AREA_8.contains(pos)) {
-            String obstacleName = "Drying line";
-            AIOAgility.handleObstacle(core, obstacleName, "", END_AREA, 2, 20000);
-            Optional<RSObject> result = core.getObjectManager().getObject(gameObject -> {
-                if (gameObject.getName() == null) return false;
-                return gameObject.getName().equalsIgnoreCase("Drying line");
-            });
-            if (!result.isPresent()) {
-                core.log(AIOAgility.class.getSimpleName(), "ERROR: Obstacle (" + obstacleName + ") does not exist with criteria.");
-                return 0;
-            }
-            RSObject object = result.get();
-            if(object.interact("Jump-to")) {
-                core.submitTask(() -> {
-                    WorldPosition currentPos = core.getWorldPosition();
-                    if (currentPos == null) {
-                        return false;
-                    }
-                    return END_AREA.contains(currentPos);
-                }, 15000);
-            }
+            AIOAgility.handleObstacle(core, "Drying line", "Jump-to", END_AREA, 2, 20000);
             return 0;
         } else {
             ObstacleHandleResponse handleResponse = AIOAgility.handleObstacle(core, "Basket", "Climb-on", AREA_1, 15000);

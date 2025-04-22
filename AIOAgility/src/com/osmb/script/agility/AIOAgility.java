@@ -11,6 +11,7 @@ import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
+import com.osmb.api.ui.component.chatbox.ChatboxComponent;
 import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
@@ -75,7 +76,7 @@ public class AIOAgility extends Script {
                 continue;
             }
 
-            if (!tile.isOnGameScreen()) {
+            if (!tile.isOnGameScreen(ChatboxComponent.class)) {
                 core.log(AIOAgility.class.getSimpleName(), "WARNING: Tile containing item is not on screen, reduce your zoom level.");
                 continue;
             }
@@ -95,14 +96,12 @@ public class AIOAgility extends Script {
                 continue;
             }
             core.log("Checking ground item for MOG");
-            tilePoly = tilePoly.getResized(0.9);
+            tilePoly = tilePoly.getResized(0.8);
             // if the tile contains all pixels
 
             if (core.getPixelAnalyzer().findPixel(tilePoly, MOG_PIXELS_GOLD) == null || core.getPixelAnalyzer().findPixel(tilePoly, MOG_PIXELS_RED) == null) {
                 continue;
             }
-
-
             UIResult<ItemSearchResult> mog = core.getItemManager().findItem(core.getWidgetManager().getInventory(), ItemID.MARK_OF_GRACE);
             if (mog.isNotFound()) {
                 // check if we have free spaces
@@ -125,8 +124,7 @@ public class AIOAgility extends Script {
                 }
             }
             core.log(AIOAgility.class.getSimpleName(), "Attempting to interact with MOG");
-            Polygon polygon = tilePoly.getResized(0.6);
-            if (core.getFinger().tap(polygon, "Take mark of grace")) {
+            if (core.getFinger().tapGameScreen(tilePoly, "Take mark of grace")) {
 
                 // sleep until we picked up the mark
                 core.submitHumanTask(() -> {
@@ -218,16 +216,15 @@ public class AIOAgility extends Script {
             if (!canReach) {
                 return true;
             }
-            boolean canReach_ = gameObject.canReach(interactDistance);
 
-            return canReach_;
+            return gameObject.canReach(interactDistance);
         });
         if (result.isEmpty()) {
             core.log(AIOAgility.class.getSimpleName(), "ERROR: Obstacle (" + obstacleName + ") does not exist with criteria.");
             return ObstacleHandleResponse.OBJECT_NOT_IN_SCENE;
         }
         RSObject object = result.get();
-        if (object.interact(interactDistance, new String[]{menuOption})) {
+        if (object.interact(menuOption)) {
             core.log(AIOAgility.class.getSimpleName(), "Interacted successfully, sleeping until conditions are met...");
             Timer noMovementTimer = new Timer();
             AtomicReference<WorldPosition> previousPosition = new AtomicReference<>();
