@@ -196,7 +196,7 @@ public class AIOAnvil extends Script {
             }
             RSObject bank = bankTile.getObjects().get(0);
             if (bank != null) {
-                if (bank.interact(1, "Bank booth", null, "Bank")) {
+                if (bank.interact("Bank booth", new String[] {"Bank"})) {
                     log(AIOAnvil.class, "Interacted successfully, waiting for bank to be visible.");
                     if (submitTask(() -> getWidgetManager().getBank().isVisible(), 12000)) {
                         log(AIOAnvil.class, "Bank is visible.");
