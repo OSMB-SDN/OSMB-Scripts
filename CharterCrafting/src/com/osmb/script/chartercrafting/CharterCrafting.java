@@ -552,7 +552,7 @@ public class CharterCrafting extends Script {
         }
         RSObject object = (RSObject) getUtils().getClosest(banksFound);
         if (object.getName().equals("Closed booth")) {
-            if (!object.interact(1, "Bank booth", null, "Bank")) {
+            if (!object.interact("Bank booth", new String[] {"Bank"})) {
                 return;
             }
         } else {
@@ -781,7 +781,7 @@ public class CharterCrafting extends Script {
             // convert to local
             LocalPosition localPosition = position.toLocalPosition(this);
             // get poly for position
-            Polygon poly = getSceneProjector().getTileCube(localPosition.getX(), localPosition.getY(), localPosition.getPlane(), 150, localPosition.getRemainderX(), localPosition.getRemainderY());
+            Polygon poly = getSceneProjector().getTileCube(localPosition.getX(), localPosition.getY(), localPosition.getPlane(), 150);
             if (poly == null) {
                 return;
             }
