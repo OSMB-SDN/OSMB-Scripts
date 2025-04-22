@@ -1,6 +1,7 @@
 package com.osmb.script.wintertodt;
 
 import com.osmb.api.definition.ItemDefinition;
+import com.osmb.api.input.MenuHook;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.location.area.impl.RectangleArea;
@@ -391,6 +392,7 @@ public class Wintertodt extends Script {
 
     private void healPyromancer() {
         WorldPosition pyromancerPosition = focusedBrazier.getPyromancerPosition();
+
         Polygon poly = getSceneProjector().getTileCube(pyromancerPosition, 100);
         if (poly == null) {
             return;
@@ -419,7 +421,7 @@ public class Wintertodt extends Script {
         UIResult<ItemSearchResult> item = getItemManager().findItem(getWidgetManager().getInventory(), itemToRetrieve.getItemIds());
 
         if (item.isFound()) {
-            missingEquipment.remove(0);
+            missingEquipment.remove(itemToRetrieve);
             return;
         }
 
@@ -711,12 +713,26 @@ public class Wintertodt extends Script {
             log(getClass().getSimpleName(), "Can't find Brazier object in the loaded scene.");
             return;
         }
+
         WintertodtOverlay.BrazierStatus initialBrazierStatus = overlay.getBrazierStatus(focusedBrazier);
         if (initialBrazierStatus == null) {
             log(getClass().getSimpleName(), "Can't read Brazier status.");
             return;
         }
-        if (brazier.interact()) {
+
+        if (!brazier.isInteractableOnScreen()) {
+            log(getClass().getSimpleName(), "Brazier is not interactable on screen, walking to it to repair/light.");
+            WalkConfig.Builder builder = new WalkConfig.Builder();
+            builder.breakCondition(() -> brazier.isInteractableOnScreen());
+            getWalker().walkTo(brazier, builder.build());
+            return;
+        }
+        Polygon brazierPoly = brazier.getConvexHull();
+        if (brazierPoly == null) {
+            return;
+        }
+        // cast menuHook to avoid ambigious call
+        if (getFinger().tapGameScreen(brazierPoly, (MenuHook) null)) {
             // sleep until brazier status changes
             submitTask(() -> {
                 WintertodtOverlay.BrazierStatus brazierStatus = overlay.getBrazierStatus(focusedBrazier);
@@ -747,7 +763,7 @@ public class Wintertodt extends Script {
             log(getClass().getSimpleName(), "Can't read Warmth value...");
             return;
         }
-        if (brazier.interact(1, "Burning brazier", null, "feed")) {
+        if (brazier.interact("Burning brazier", new String[]{"feed", "fix", "light"})) {
             // sleep until brazier status changes
             submitTask(() -> {
                 //listen hitpoints
@@ -902,7 +918,7 @@ public class Wintertodt extends Script {
                 }
                 return brewmaTile_.isOnGameScreen();
             });
-            getWalker().walkTo(BREWMA_POSITION,builder.build());
+            getWalker().walkTo(BREWMA_POSITION, builder.build());
         }
         // select "Use" on a random ingredient
         List<ItemSearchResult> items = random(2) == 0 ? brumaHerbs.asList() : unfPotions.asList();
