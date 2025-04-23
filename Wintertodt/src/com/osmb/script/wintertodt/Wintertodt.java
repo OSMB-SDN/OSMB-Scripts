@@ -12,6 +12,7 @@ import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
+import com.osmb.api.shape.Shape;
 import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
@@ -669,7 +670,7 @@ public class Wintertodt extends Script {
         if (tapBrazier && brazier.isInteractableOnScreen()) {
             Polygon polygon = brazier.getConvexHull();
             if (polygon != null) {
-                if (brazier.interact()) {
+                if (getFinger().tapGameScreen(polygon, (MenuHook) null)) {
                     return true;
                 }
             }
