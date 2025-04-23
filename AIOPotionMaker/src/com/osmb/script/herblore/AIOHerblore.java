@@ -1,8 +1,5 @@
 package com.osmb.script.herblore;
 
-import com.osmb.api.ScriptCore;
-import com.osmb.api.definition.ItemDefinition;
-import com.osmb.api.item.ZoomType;
 import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.scene.RSObject;
 import com.osmb.api.script.Script;
@@ -13,52 +10,30 @@ import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.herblore.data.MixedPotion;
 import com.osmb.script.herblore.data.UnfinishedPotion;
 import com.osmb.script.herblore.javafx.ScriptOptions;
-import com.osmb.script.herblore.method.Method;
-import javafx.embed.swing.SwingFXUtils;
+import com.osmb.script.herblore.method.PotionMixer;
 import javafx.scene.Scene;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 
-import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 @ScriptDefinition(name = "AIO Potion maker", author = "Joe", version = 1.0, description = "Makes potions and unfinished potions", skillCategory = SkillCategory.HERBLORE)
 public class AIOHerblore extends Script {
-    public static final Color MENU_COLOR_BACKGROUND = new Color(58, 65, 66);
     public static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 6;
 
     // names of possible banks
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
     public static final String[] BANK_ACTIONS = {"bank", "open"};
-    private Method selectedMethod;
+    private PotionMixer selectedPotionMixer;
     private boolean bank = false;
 
     public AIOHerblore(Object o) {
         super(o);
     }
 
-
-    public static String getItemName(ScriptCore core, int itemID) {
-        ItemDefinition def = core.getItemManager().getItemDefinition(itemID);
-        String name = null;
-        if (def != null && def.name != null) {
-            name = def.name;
-        }
-        return name;
-    }
-
-    public static ImageView getUIImage(ScriptCore core, int itemID) {
-        BufferedImage itemImage = core.getItemManager().getItemImage(itemID, 1, ZoomType.SIZE_1, AIOHerblore.MENU_COLOR_BACKGROUND.getRGB()).toBufferedImage();
-        Image fxImage = SwingFXUtils.toFXImage(itemImage, null);
-        return new javafx.scene.image.ImageView(fxImage);
-    }
-
-
-    public void setSelectedMethod(Method selectedMethod) {
-        this.selectedMethod = selectedMethod;
+    public void setSelectedMethod(PotionMixer selectedPotionMixer) {
+        this.selectedPotionMixer = selectedPotionMixer;
     }
 
     @Override
@@ -68,20 +43,23 @@ public class AIOHerblore extends Script {
 
     @Override
     public void onStart() {
-        Method[] methods = new Method[]{new Method(this, "Potion maker", MixedPotion.values()), new Method(this, "Unfinished potion maker", UnfinishedPotion.values())};
-        ScriptOptions scriptOptions = new ScriptOptions(this, methods);
+        PotionMixer[] potionMixers = new PotionMixer[]{
+                new PotionMixer(this, "Potion maker", MixedPotion.values()),
+                new PotionMixer(this, "Unfinished potion maker", UnfinishedPotion.values())
+        };
+        ScriptOptions scriptOptions = new ScriptOptions(this, potionMixers);
 
         Scene scene = new Scene(scriptOptions);
         scene.getStylesheets().add("style.css");
         getStageController().show(scene, "Settings", false);
-        if (selectedMethod == null) {
+        if (selectedPotionMixer == null) {
             throw new IllegalArgumentException("Selected method cannot be null!");
         }
     }
 
     @Override
     public void onGameStateChanged(GameState newGameState) {
-        selectedMethod.onGamestateChanged(newGameState);
+        selectedPotionMixer.onGamestateChanged(newGameState);
     }
 
     @Override
@@ -89,11 +67,11 @@ public class AIOHerblore extends Script {
         if (getWidgetManager().getBank().isVisible()) {
             log(getClass().getSimpleName(), "Handling bank");
             this.bank = false;
-            selectedMethod.handleBankInterface();
-        } else if (this.bank) {
+            selectedPotionMixer.handleBankInterface();
+        } else if (bank) {
             openBank();
         } else {
-            selectedMethod.poll();
+            selectedPotionMixer.poll();
         }
         return 0;
     }
@@ -101,7 +79,7 @@ public class AIOHerblore extends Script {
     private void openBank() {
         log(getClass().getSimpleName(), "Searching for a bank...");
         // Find bank and open it
-        List<RSObject> banksFound = getObjectManager().getObjects(gameObject -> {
+        Predicate<RSObject> bankQuery = gameObject -> {
             // if object has no name
             if (gameObject.getName() == null) {
                 return false;
@@ -121,21 +99,25 @@ public class AIOHerblore extends Script {
             }
             // final check is if the object is reachable
             return gameObject.canReach();
-        });
+        };
+        List<RSObject> banksFound = getObjectManager().getObjects(bankQuery);
         //can't find a bank
         if (banksFound.isEmpty()) {
             log(getClass().getSimpleName(), "Can't find any banks matching criteria...");
             return;
         }
         RSObject object = (RSObject) getUtils().getClosest(banksFound);
-        if (!object.interact(BANK_ACTIONS)) return;
+        if (!object.interact(BANK_ACTIONS))
+            return;
         AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
         AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
+        // wait for bank interface
         submitTask(() -> {
             WorldPosition position = getWorldPosition();
             if (position == null) {
                 return false;
             }
+            // check position change, in case of a dud action
             if (pos.get() == null || !position.equals(pos.get())) {
                 positionChangeTimer.get().reset();
                 pos.set(position);

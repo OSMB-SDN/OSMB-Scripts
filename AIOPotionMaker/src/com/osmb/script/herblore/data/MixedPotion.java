@@ -25,7 +25,7 @@ public enum MixedPotion implements Potion {
     ANTIFIRE_POTION(2454, 157.5, new Ingredient(ItemID.LANTADYME_POTION_UNF), new Ingredient(ItemID.DRAGON_SCALE_DUST)),
     RANGING_POTION(169, 162.5, new Ingredient(ItemID.DWARF_WEED_POTION_UNF), new Ingredient(ItemID.WINE_OF_ZAMORAK)),
     MAGIC_POTION(3042, 172.5, new Ingredient(ItemID.LANTADYME_POTION_UNF), new Ingredient(ItemID.POTATO_CACTUS)),
-    STAMINA_POTION(12625, 102, new Ingredient(ItemID.SUPER_ENERGY4), new Ingredient(ItemID.AMYLASE_CRYSTAL)),
+    STAMINA_POTION(12625, 102, new Ingredient(ItemID.SUPER_ENERGY4), new Ingredient(ItemID.AMYLASE_CRYSTAL,1,true)),
     ZAMORAK_BREW(189, 175, new Ingredient(ItemID.TORSTOL_POTION_UNF), new Ingredient(ItemID.JANGERBERRIES)),
     BASTION_POTION(22464, 155, new Ingredient(ItemID.CADANTINE_BLOOD_POTION_UNF), new Ingredient(ItemID.WINE_OF_ZAMORAK)),
     BATTLEMAGE_POTION(22452, 155, new Ingredient(ItemID.CADANTINE_BLOOD_POTION_UNF), new Ingredient(ItemID.POTATO_CACTUS)),
@@ -45,6 +45,22 @@ public enum MixedPotion implements Potion {
         this.xp = xp;
         this.itemId = itemId;
         this.ingredients = ingredients;
+    }
+
+    public static int[] getItemIds() {
+        int[] itemIds = new int[MixedPotion.values().length];
+        for (int i = 0; i < itemIds.length; i++) {
+            itemIds[i] = MixedPotion.values()[i].itemId;
+        }
+        return itemIds;
+    }
+    public static MixedPotion getMixedPotionForId(int itemId) {
+        for(MixedPotion mixedPotion : values()) {
+            if(mixedPotion.itemId == itemId) {
+                return mixedPotion;
+            }
+        }
+        return null;
     }
 
     public Ingredient[] getIngredients() {
