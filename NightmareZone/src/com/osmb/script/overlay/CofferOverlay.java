@@ -33,7 +33,7 @@ public class CofferOverlay extends OverlayBoundary implements ItemGroup {
     @Override
     protected boolean checkVisibility(Rectangle bounds) {
         Rectangle titleBounds = bounds.getSubRectangle(TITLE_BOUNDS);
-        String text = core.getOCR().getText(Font.STANDARD_FONT, titleBounds, PointsOverlay.ORANGE_TEXT);
+        String text = core.getOCR().getText(Font.STANDARD_FONT, titleBounds, AbsorptionPointsOverlay.ORANGE_TEXT);
         return text.equalsIgnoreCase("coffer");
     }
 

@@ -16,6 +16,8 @@ import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
 import com.osmb.api.shape.Rectangle;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
+import com.osmb.api.ui.component.chatbox.ChatboxComponent;
+import com.osmb.api.ui.tabs.Tab;
 import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
@@ -28,8 +30,8 @@ import com.osmb.api.walker.WalkConfig;
 import com.osmb.script.component.ChestInterface;
 import com.osmb.script.component.PotionInterface;
 import com.osmb.script.javafx.UI;
+import com.osmb.script.overlay.AbsorptionPointsOverlay;
 import com.osmb.script.overlay.CofferOverlay;
-import com.osmb.script.overlay.PointsOverlay;
 import javafx.scene.Scene;
 import javafx.util.Pair;
 
@@ -38,6 +40,7 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 @ScriptDefinition(name = "Nightmare zone", description = "", author = "Joe", skillCategory = SkillCategory.COMBAT, version = 1.0)
 public class NightmareZone extends Script {
@@ -78,9 +81,9 @@ public class NightmareZone extends Script {
     private final Map<Potion, Integer> barrelDoseCache = Collections.synchronizedMap(new HashMap<>());
     private final List<Task> dynamicTasks = new ArrayList<>();
     // Timers
-    private final Stopwatch arenaDelayTimer = new Stopwatch();
     private final Stopwatch statBoostPotionDrinkTimer = new Stopwatch();
     private final Stopwatch rapidHealFlickTimer = new Stopwatch();
+    private final Stopwatch switchTabTimer = new Stopwatch();
     private Stopwatch prayerDelayTimer;
     private Stopwatch lowerHPDelayTimer;
     // Configuration Settings
@@ -99,11 +102,10 @@ public class NightmareZone extends Script {
     // State Trackers
     private boolean setupDream = false;
     private boolean outOfPointsFlag = false;
-    private boolean checkedChest = false;
     private Task previousTask = null;
     private Task task;
     // UI References
-    private PointsOverlay pointsOverlay;
+    private AbsorptionPointsOverlay absorptionPointsOverlay;
     private ChestInterface chestInterface;
     private PotionInterface potionInterface;
     private CofferOverlay cofferOverlay;
@@ -129,41 +131,40 @@ public class NightmareZone extends Script {
         c.fillRect(5, 40, 300, 200, Color.BLACK.getRGB(), 0.7);
         c.drawRect(5, 40, 300, 200, Color.BLACK.getRGB());
         int y = 60;
-        c.drawText("Task: " + (task == null ? "None" : task), 10, y, Color.WHITE.getRGB(), ARIEL);
-        y += 20;
+        c.drawText("Task: " + (task == null ? "None" : task), 10, y += 20, Color.WHITE.getRGB(), ARIEL);
+        c.drawText("Suicide when out of boost potions: " + noBoostSuicide, 10, y += 20, Color.WHITE.getRGB(), ARIEL);
+        if (!overloadDrinkWindow.hasFinished()) {
+            c.drawText("Overload drink window: " + overloadDrinkWindow.timeLeft(), 10, y += 20, Color.WHITE.getRGB(), ARIEL);
+        }
         if (inArena) {
             if (lowerHPDelayTimer != null) {
                 long secondsLeft = TimeUnit.MILLISECONDS.toSeconds(lowerHPDelayTimer.timeLeft());
-                c.drawText("Lower HP delay: " + Math.max(secondsLeft, 0), 10, y, Color.WHITE.getRGB(), ARIEL);
-                y += 20;
+                c.drawText("Lower HP delay: " + Math.max(secondsLeft, 0), 10, y += 20, Color.WHITE.getRGB(), ARIEL);
+            } else {
+                c.drawText("Lower HP delay: null", 10, y += 20, Color.WHITE.getRGB(), ARIEL);
             }
             if (statBoostPotion != null) {
                 long secondsLeft = TimeUnit.MILLISECONDS.toSeconds(statBoostPotionDrinkTimer.timeLeft());
-                c.drawText("Next " + statBoostPotion + " drink: " + Math.max(secondsLeft, 0), 10, y, Color.WHITE.getRGB(), ARIEL);
-                y += 20;
+                c.drawText("Next " + statBoostPotion + " drink: " + Math.max(secondsLeft, 0), 10, y += 20, Color.WHITE.getRGB(), ARIEL);
             }
             if (secondaryPotion != null) {
                 String end = secondaryPotion == Potion.PRAYER_POTION ? "%" : "points";
-                c.drawText("Next " + secondaryPotion + " drink @ " + nextSecondaryDrink + " " + end, 10, y, Color.WHITE.getRGB(), ARIEL);
-                y += 20;
+                c.drawText("Next " + secondaryPotion + " drink: " + nextSecondaryDrink + " " + end, 10, y += 20, Color.WHITE.getRGB(), ARIEL);
             }
         } else {
-            c.drawText("Setup dream: " + setupDream, 10, y, Color.WHITE.getRGB(), ARIEL);
-            y += 20;
-            c.drawText("Reward points: " + (cachedRewardPoints == null ? "null" : cachedRewardPoints), 10, y, Color.WHITE.getRGB(), ARIEL);
-            y += 20;
-        }
-        c.drawText("Dynamic tasks: ", 10, y, Color.WHITE.getRGB(), ARIEL);
-        for (Task task : dynamicTasks) {
-            y += 20;
-            c.drawText(" - Task: " + task, 10, y, Color.WHITE.getRGB(), ARIEL);
+            c.drawText("Setup dream: " + setupDream, 10, y += 20, Color.WHITE.getRGB(), ARIEL);
+            c.drawText("Reward points: " + (cachedRewardPoints == null ? "null" : cachedRewardPoints), 10, y += 20, Color.WHITE.getRGB(), ARIEL);
         }
         for (Map.Entry<Potion, Integer> entry : barrelDoseCache.entrySet()) {
-            y += 20;
             Potion potion = entry.getKey();
             Integer value = entry.getValue();
-            c.drawText(potion.getName() + ": " + value, 10, y, Color.WHITE.getRGB(), ARIEL);
+            c.drawText(potion.getName() + ": " + value, 10, y += 20, Color.WHITE.getRGB(), ARIEL);
         }
+        c.drawText("Dynamic tasks: ", 10, y += 20, Color.WHITE.getRGB(), ARIEL);
+        for (Task task : dynamicTasks) {
+            c.drawText(" - Task: " + task, 10, y += 20, Color.WHITE.getRGB(), ARIEL);
+        }
+
     }
 
     @Override
@@ -172,33 +173,30 @@ public class NightmareZone extends Script {
         Scene scene = new Scene(ui);
         scene.getStylesheets().add("style.css");
         getStageController().show(scene, "Settings", false);
+
         this.lowerHealthMethod = ui.getLowerHPMethod();
-
         this.statBoostPotion = ui.getPrimaryPotion();
-        // amount of boost potions to bring
-        this.statBoostPotionAmount = 4;
-
+        this.statBoostPotionAmount = ui.getBoostPotionAmount();
         this.secondaryPotion = ui.getSecondaryPotion();
-
         this.afkPosition = ui.getAFKPosition();
+        // suicides when out of boost potions to be more effecient xp wise
+        this.noBoostSuicide = ui.suicideNoBoost();
+        // flicks rapid heal to keep 1hp (only if using absorption potions as secondary)
+        this.flickRapidHeal = ui.flickRapidHeal();
+
         if (this.afkPosition == AFKPosition.RANDOM) {
             List<AFKPosition> positions = new ArrayList<>(EnumSet.allOf(AFKPosition.class));
             positions.remove(AFKPosition.RANDOM); // Remove RANDOM from possible choices
             this.afkPosition = positions.get(Utils.random(positions.size()));
         }
-        // suicides when out of boost potions to be more effecient xp wise
-        this.noBoostSuicide = true;
-        // flicks rapid heal to keep 1hp (only if using absorption potions as secondary)
-        this.flickRapidHeal = ui.flickRapidHeal();
 
         this.idleTimeout = random(2000, 4000);
-
         this.nextSecondaryDrink = secondaryPotion == Potion.PRAYER_POTION ? random(10, 60) : random(50, 200);
 
         cofferOverlay = new CofferOverlay(this);
         chestInterface = new ChestInterface(this);
         potionInterface = new PotionInterface(this);
-        pointsOverlay = new PointsOverlay(this);
+        absorptionPointsOverlay = new AbsorptionPointsOverlay(this);
     }
 
     @Override
@@ -259,16 +257,18 @@ public class NightmareZone extends Script {
     }
 
     private Task getTask() {
-        // make sure boost potion are all full doses
-        if ((isBarrelPotion(statBoostPotion) || isBarrelPotion(secondaryPotion)) && !checkedChest) {
+        if ((isBarrelPotion(statBoostPotion) || isBarrelPotion(secondaryPotion)) && cachedRewardPoints == null) {
             dynamicTasks.add(Task.HANDLE_CHEST);
         }
+        // make sure boost potion are all full doses
         // if amount doesn't match amount selected
         if (statBoostPotion != null && (boostPotions.size() != statBoostPotionAmount || !allFullDoses(boostPotions, statBoostPotion.getFullID()))) {
-            log("Need boost potions");
+            log(NightmareZone.class, "Need boost potions");
             if (!isBarrelPotion(statBoostPotion)) {
+                log(NightmareZone.class, "Not a barrel potion");
                 dynamicTasks.add(Task.OPEN_BANK);
             } else {
+                log(NightmareZone.class, "Is barrel potion");
                 if (boostPotions.size() > statBoostPotionAmount) {
                     return Task.RESTOCK_BOOST_POTIONS;
                 }
@@ -281,8 +281,11 @@ public class NightmareZone extends Script {
         }
 
         // if we have free slots remaining, or if the absorptions aren't all (4) dose
-        if (freeSlots.get() > 0 || !allFullDoses(secondaryPotions, secondaryPotion.getFullID())) {
+
+        int secondariesNeeded = getSecondaryPotionsNeeded();
+        if (secondariesNeeded > 0 || !allFullDoses(secondaryPotions, secondaryPotion.getFullID())) {
             if (!isBarrelPotion(secondaryPotion)) {
+                log(NightmareZone.class, "Secondary needs bank");
                 dynamicTasks.add(Task.OPEN_BANK);
             } else {
                 // check ignore flags (used for when we don't have enough points to fully stock etc.)
@@ -333,6 +336,12 @@ public class NightmareZone extends Script {
 
     private Task getArenaTask(boolean walking, WorldPosition worldPosition) {
 
+        // reset cached reward points
+        if (cachedRewardPoints != null) {
+            cachedRewardPoints = null;
+            outOfPointsFlag = false;
+        }
+
         // equip items if necessary
         if (hasItemsToEquip()) {
             return Task.EQUIP_ITEMS;
@@ -355,9 +364,9 @@ public class NightmareZone extends Script {
         }
 
         // drink absorptions
-        if (secondaryPotion == Potion.ABSORPTION_POTION) {
-            if (pointsOverlay.isVisible()) {
-                Integer points = (Integer) pointsOverlay.getValue(PointsOverlay.POINTS);
+        if (secondaryPotion == Potion.ABSORPTION_POTION && !secondaryPotions.isEmpty()) {
+            if (absorptionPointsOverlay.isVisible()) {
+                Integer points = (Integer) absorptionPointsOverlay.getValue(AbsorptionPointsOverlay.POINTS);
                 if (points != null && points <= nextSecondaryDrink) {
                     dynamicTasks.add(Task.DRINK_ABSORPTION);
                 }
@@ -373,7 +382,7 @@ public class NightmareZone extends Script {
                 return null;
             }
             if (prayerPoints.isFound()) {
-                log(NightmareZone.class, "Prayer points: " + prayerPoints + "% | Next drinking at: " + nextSecondaryDrink);
+                log(NightmareZone.class, "Prayer points: " + prayerPoints.get() + "% | Next drinking at: " + nextSecondaryDrink);
                 if (prayerPoints.get() <= nextSecondaryDrink) {
                     dynamicTasks.add(Task.DRINK_PRAYER_POTION);
                 }
@@ -402,7 +411,7 @@ public class NightmareZone extends Script {
         }
         // drink stat boost pot
         boolean canDrink = statBoostPotion != Potion.OVERLOAD || hitpoints.get() > 51;
-        if (statBoostPotion != null && canDrink && statBoostPotionDrinkTimer.hasFinished()) {
+        if (statBoostPotion != null && canDrink && statBoostPotionDrinkTimer.hasFinished() && !boostPotions.isEmpty()) {
             dynamicTasks.add(Task.DRINK_POTIONS);
         }
 
@@ -451,6 +460,13 @@ public class NightmareZone extends Script {
                 }
 
             }
+        }
+
+        // switch tabs randomly to prevent afk log
+        if (switchTabTimer.hasFinished()) {
+            log(NightmareZone.class, "Switching tabs...");
+            getWidgetManager().getTabManager().openTab(Tab.Type.values()[random(Tab.Type.values().length)]);
+            switchTabTimer.reset(random(TimeUnit.MINUTES.toMillis(3), TimeUnit.MINUTES.toMillis(5)));
         }
         return null;
     }
@@ -573,13 +589,13 @@ public class NightmareZone extends Script {
             lowerHPDelayTimer = new Stopwatch(random(15000, 35000));
         } else {
             long min = TimeUnit.MINUTES.toMillis(3);
-            long max = TimeUnit.HOURS.toMillis(5);
+            long max = TimeUnit.MINUTES.toMillis(5);
             statBoostPotionDrinkTimer.reset(random(min, max));
         }
     }
 
     private boolean canEatDownHP() {
-        if (overloadDrinkWindow != null && statBoostPotion == Potion.OVERLOAD) {
+        if (statBoostPotion == Potion.OVERLOAD) {
             return !overloadDrinkWindow.hasFinished();
         }
         return true;
@@ -642,7 +658,7 @@ public class NightmareZone extends Script {
     private void drinkAbsorption(int timeout) {
         log(NightmareZone.class, "Drinking absorptions...");
         submitTask(() -> {
-            Integer absorptionPoints = (Integer) pointsOverlay.getValue(PointsOverlay.POINTS);
+            Integer absorptionPoints = (Integer) absorptionPointsOverlay.getValue(AbsorptionPointsOverlay.POINTS);
             if (absorptionPoints == null) {
                 absorptionPoints = 0;
             }
@@ -650,6 +666,14 @@ public class NightmareZone extends Script {
                 return true;
             }
             UIResultList<ItemSearchResult> absorptions = getItemManager().findAllOfItem(getWidgetManager().getInventory(), secondaryPotion.getItemIDs());
+            if (absorptions.isNotVisible()) {
+                // inventory not  visible
+                return false;
+            }
+            if (absorptions.isNotFound()) {
+                log(NightmareZone.class, "Can't find Absorption potions...");
+                return true;
+            }
             ItemSearchResult absorption = absorptions.getRandom();
             getFinger().tap(false, absorption);
             submitTask(() -> false, RandomUtils.weightedRandom(150, 1200));
@@ -715,7 +739,7 @@ public class NightmareZone extends Script {
                     return true;
                 }
                 if (lowerHealthMethod == LowerHealthMethod.ROCK_CAKE) {
-                    getFinger().tap(false, lowerHealthItem.get(), "Guzzle");
+                    getFinger().tap(false, lowerHealthItem.get());
                     submitTask(() -> false, RandomUtils.weightedRandom(50, 400));
                 } else {
                     getFinger().tap(false, lowerHealthItem.get());
@@ -742,6 +766,9 @@ public class NightmareZone extends Script {
                 return false;
             }
             if (isArena(worldPosition)) {
+                lowerHPDelayTimer = new Stopwatch(random(1000, 13000));
+                prayerDelayTimer = new Stopwatch(random(1000, 13000));
+                switchTabTimer.reset(random(TimeUnit.MINUTES.toMillis(3), TimeUnit.MINUTES.toMillis(5)));
                 log(NightmareZone.class, "Executing delay...");
                 submitTask(() -> {
                     // highlight screen blue to show we're executing this delay
@@ -767,11 +794,11 @@ public class NightmareZone extends Script {
             interactWithDominic();
             return;
         }
-        boolean isDialogue = !isDominicDialogue(dialogueType);
+        boolean invalidDialogue = !isDominicDialogue(dialogueType);
         if (setupDream) {
             return;
         }
-        if (isDialogue) {
+        if (invalidDialogue) {
             log(NightmareZone.class, "Interacting with Dominic");
             interactWithDominic();
             return;
@@ -856,27 +883,36 @@ public class NightmareZone extends Script {
             getWalker().walkTo(DOMINIC_POSITION, new WalkConfig.Builder().breakDistance(10).build());
             return;
         }
+        boolean isGameScreen = false;
+        Polygon tilePoly = dominicTile.getTilePoly();
+        if (tilePoly != null) {
+            tilePoly = tilePoly.getResized(0.7);
+            isGameScreen = getWidgetManager().insideGameScreen(tilePoly, ChatboxComponent.class);
+        }
 
-        if (!dominicTile.isOnGameScreen()) {
+        WorldPosition myPosition = getWorldPosition();
+        if (myPosition == null) {
+            return;
+        }
+        // walk to if distance is > 14 as the max render distance is 15
+        if (!isGameScreen || DOMINIC_POSITION.distanceTo(myPosition) > 13) {
             // walk to tile
             WalkConfig.Builder builder = new WalkConfig.Builder();
             builder.breakCondition(() -> {
                 if (getWorldPosition() == null) {
                     return false;
                 }
-                RSTile dominicTile_ = getSceneManager().getTile(DOMINIC_POSITION);
-                if (dominicTile_ == null) {
-                    return false;
+                Polygon tilePoly2 = dominicTile.getTilePoly();
+                if (tilePoly2 != null) {
+                    tilePoly2 = tilePoly2.getResized(0.7);
+                    return getWidgetManager().insideGameScreen(tilePoly2, ChatboxComponent.class);
                 }
-                return dominicTile_.isOnGameScreen();
+                return false;
             });
             getWalker().walkTo(DOMINIC_POSITION, builder.build());
-        }
-        Polygon polygon = dominicTile.getTilePoly();
-        if (polygon == null) {
             return;
         }
-        if (getFinger().tap(polygon.getResized(0.6), "Dream")) {
+        if (getFinger().tap(tilePoly, "Dream")) {
             submitTask(() -> getWidgetManager().getDialogue().getDialogueType() != null, random(4000, 6000));
         }
     }
@@ -886,34 +922,38 @@ public class NightmareZone extends Script {
         RSTile potionTile = getSceneManager().getTile(POTION_TILE);
         if (potionTile == null) {
             // shouldn't happen
-            log(NightmareZone.class, "Dominic tile is null...");
+            log(NightmareZone.class, "Potion tile is null.");
             return;
         }
+        boolean isGameScreen = false;
+        Polygon tilePoly = potionTile.getTilePoly();
+        if (tilePoly == null) {
+            log(NightmareZone.class, "Potion tile polygon is null.");
+            return;
+        }
+        Polygon tilePolyResized = tilePoly.getResized(0.7);
+        isGameScreen = getWidgetManager().insideGameScreen(tilePolyResized, ChatboxComponent.class);
 
-        if (!potionTile.isOnGameScreen()) {
+        log(NightmareZone.class, "Geniune: " + tilePoly + " resized: " + tilePolyResized);
+        if (!isGameScreen) {
+            log(NightmareZone.class, "Walking to potion tile");
             // walk to tile
             WalkConfig.Builder builder = new WalkConfig.Builder();
             builder.breakCondition(() -> {
                 if (getWorldPosition() == null) {
                     return false;
                 }
-                RSTile potionTile_ = getSceneManager().getTile(POTION_TILE);
-                if (potionTile_ == null) {
-                    return false;
+                Polygon tilePoly2 = potionTile.getTilePoly();
+                if (tilePoly2 != null) {
+                    tilePoly2 = tilePoly2.getResized(0.7);
+                    return getWidgetManager().insideGameScreen(tilePoly2, ChatboxComponent.class);
                 }
-                return potionTile_.isOnGameScreen();
+                return false;
             });
             getWalker().walkTo(POTION_TILE, builder.build());
-        }
-        Polygon polygon = potionTile.getTilePoly();
-        if (polygon == null) {
             return;
         }
-//        MenuHook hook = menuEntries -> {
-//            return null;
-//        };
-        // fix
-        if (!getFinger().tap(polygon.getResized(0.5), menuEntries -> {
+        if (!getFinger().tap(tilePolyResized, menuEntries -> {
             // pre check for investigate option
             for (MenuEntry entry : menuEntries) {
                 if (entry.getRawText().startsWith("investigate")) {
@@ -1093,7 +1133,6 @@ public class NightmareZone extends Script {
         if (potionBuyEntries.isEmpty() || outOfPointsFlag) {
             log(NightmareZone.class, "Potion buy entries: " + potionBuyEntries.size() + " outOfPointsFlag: " + outOfPointsFlag);
             // close
-            checkedChest = true;
             chestInterface.close();
         } else {
             PotionBuyEntry potionBuyEntry = potionBuyEntries.get(random(potionBuyEntries.size()));
@@ -1191,39 +1230,28 @@ public class NightmareZone extends Script {
 
         // find secondary potions IF ENABLED
         if (secondaryPotion != null) {
-            secondaryPotions = getItemManager().findAllOfItem(getWidgetManager().getInventory(), secondaryPotion.getItemIDs());
+            secondaryPotions = getItemManager().findAllOfItem(getWidgetManager().getInventory(), secondaryPotion.getFullID());
         }
 
         // find boost potions IF ENABLED
-        if (handleStatBoostPotion) {
-            boostPotions = getItemManager().findAllOfItem(getWidgetManager().getInventory(), statBoostPotion.getItemIDs());
+        if (statBoostPotion != null) {
+            boostPotions = getItemManager().findAllOfItem(getWidgetManager().getInventory(), statBoostPotion.getFullID());
         }
 
         freeSlots = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory());
         Map<Integer, Integer> itemsToWithdraw = new HashMap<>();
 
         if (handleStatBoostPotion) {
-            boostPotions = getItemManager().findAllOfItem(getWidgetManager().getInventory(), statBoostPotion.getFullID());
             int amountToWithdraw = statBoostPotionAmount - boostPotions.size();
             log(NightmareZone.class, "Amount needed: " + statBoostPotionAmount + " Amount to withdraw: " + amountToWithdraw);
             if (amountToWithdraw != 0)
                 itemsToWithdraw.put(statBoostPotion.getFullID(), amountToWithdraw);
         }
         if (handleSecondaryPotion) {
-            int boostPots = handleStatBoostPotion ? Math.max(boostPotions.size(), statBoostPotionAmount) : 0;
-            int[] potionsToIgnore = new int[0];
-            if (handleStatBoostPotion) {
-                potionsToIgnore = statBoostPotion.getItemIDs();
-            }
-            Optional<Integer> freeSlotsExcludingBoostPotions = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory(), potionsToIgnore);
-            if (!freeSlotsExcludingBoostPotions.isPresent()) {
-                // shouldn't happen
-                return;
-            }
-
-            int amountToWithdraw = freeSlotsExcludingBoostPotions.get() - boostPots;
-            if (amountToWithdraw != 0)
-                itemsToWithdraw.put(secondaryPotion.getFullID(), amountToWithdraw);
+            int amountNeeded = getSecondaryPotionsNeeded();
+            log(NightmareZone.class, "Amount needed: " + amountNeeded);
+            if (amountNeeded != 0)
+                itemsToWithdraw.put(secondaryPotion.getFullID(), amountNeeded);
         }
 
         if (itemsToWithdraw.isEmpty()) {
@@ -1246,6 +1274,30 @@ public class NightmareZone extends Script {
             log(NightmareZone.class, "Withdrawing item ID: " + itemId + ", amount: " + amount);
             getWidgetManager().getBank().withdraw(itemId, amount);
         }
+    }
+
+
+    private int getSecondaryPotionsNeeded() {
+        int boostPots = statBoostPotion != null ? statBoostPotionAmount : 0;
+        List<Integer> potionsToIgnoreList = new ArrayList<>();
+        for (int i = 0; i < secondaryPotion.getItemIDs().length; i++) {
+            potionsToIgnoreList.add(secondaryPotion.getItemIDs()[i]);
+        }
+        if (statBoostPotion != null) {
+            for (int i = 0; i < statBoostPotion.getItemIDs().length; i++) {
+                potionsToIgnoreList.add(statBoostPotion.getItemIDs()[i]);
+            }
+        }
+        int[] potionsToIgnore = new int[potionsToIgnoreList.size()];
+        for (int i = 0; i < potionsToIgnore.length; i++) {
+            potionsToIgnore[i] = potionsToIgnoreList.get(i);
+        }
+        Optional<Integer> freeSlotsExcludingPotions = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory(), potionsToIgnore);
+        if (!freeSlotsExcludingPotions.isPresent()) {
+            // shouldn't happen
+            return -1;
+        }
+        return freeSlotsExcludingPotions.get() - boostPots - secondaryPotions.size();
     }
 
     private boolean isBankingComplete(boolean boostPotion, UIResultList<ItemSearchResult> boostPotionsInventory, boolean secondaryPotion, UIResultList<ItemSearchResult> secondaryPotionsInventory) {
@@ -1280,19 +1332,16 @@ public class NightmareZone extends Script {
         // if absorption potion
         // work out amount needed
         int amountNeeded = freeSlots.get() + secondaryPotions.size();
-        log(NightmareZone.class, "Free slots: " + amountNeeded);
+        log(NightmareZone.class, "Free slots exl absorptions: " + amountNeeded);
         if (statBoostPotion != null) {
             int boostPotionsNeeded = statBoostPotionAmount;
             boostPotionsNeeded -= boostPotions.size();
-
             if (boostPotionsNeeded < 0) {
                 log(NightmareZone.class, "Too many boost potions, handling that instead of secondaries.");
                 // too many boost potions, redirect task
                 restockBoostPotions();
                 return;
             }
-            int boostPotions = this.boostPotions.size();
-            amountNeeded += boostPotions;
             amountNeeded -= boostPotionsNeeded;
         }
         restockFromBarrel(secondaryPotion, secondaryPotions, amountNeeded);
@@ -1305,7 +1354,13 @@ public class NightmareZone extends Script {
             return;
         }
         // check here if we have room, deposit absorptions if needed
+        int slotsExclBoost = freeSlots.get() + boostPotions.size();
 
+        if (slotsExclBoost < statBoostPotionAmount) {
+            // no room bank secondaries
+            restockSecondaryPotions();
+            return;
+        }
         restockFromBarrel(statBoostPotion, boostPotions, statBoostPotionAmount);
     }
 
@@ -1343,6 +1398,7 @@ public class NightmareZone extends Script {
     }
 
     private void restockFromBarrel(Potion potionType, UIResultList<ItemSearchResult> potions, int requiredAmount) {
+        log("Restocking " + potionType.getName() + " from barrel. Amount needed: " + requiredAmount);
         Optional<RSObject> barrelOpt = getObjectManager().getObject(rsObject -> {
             String name = rsObject.getName();
             if (name == null) {
@@ -1436,13 +1492,21 @@ public class NightmareZone extends Script {
         // press enter key
         getKeyboard().pressKey(TouchType.DOWN_AND_UP, PhysicalKey.ENTER);
         // wait for dose amount to change
-        submitTask(() -> {
+        boolean result = submitTask(() -> {
             UIResultList<ItemSearchResult> potions_ = getItemManager().findAllOfItem(getWidgetManager().getInventory(), potionType.getItemIDs());
             if (potions_.isNotFound()) {
                 return false;
             }
-            return prevDoses > getDoses(potions_, potionType);
+            return prevDoses < getDoses(potions_, potionType);
         }, 3000);
+        if (result) {
+            log(NightmareZone.class, "Withdrawn doses successfully.");
+            int cachedAmount = barrelDoseCache.get(potionType);
+            int newAmount = Math.max(cachedAmount - dosesToWithdraw, 0);
+            barrelDoseCache.put(potionType, newAmount);
+        } else {
+            log(NightmareZone.class, "Failed withdrawing doses");
+        }
     }
 
     /**
@@ -1483,12 +1547,7 @@ public class NightmareZone extends Script {
             // walk closer to the barrel
             log(NightmareZone.class, "Barrel is not on screen, lets walk to it.");
             WalkConfig.Builder builder = new WalkConfig.Builder();
-            builder.breakCondition(() -> {
-                if (barrel == null) {
-                    return true;
-                }
-                return barrel.isInteractableOnScreen();
-            });
+            builder.breakCondition(barrel::isInteractableOnScreen);
             getWalker().walkTo(barrel, builder.build());
             return;
         }
@@ -1537,7 +1596,7 @@ public class NightmareZone extends Script {
     private void openBank() {
         log(getClass().getSimpleName(), "Searching for a bank...");
         // Find bank and open it
-        List<RSObject> banksFound = getObjectManager().getObjects(gameObject -> {
+        Predicate<RSObject> bankQuery = gameObject -> {
             // if object has no name
             if (gameObject.getName() == null) {
                 return false;
@@ -1547,17 +1606,18 @@ public class NightmareZone extends Script {
                 return false;
             }
 
-            if (!Arrays.stream(BANK_NAMES).anyMatch(name -> name.equalsIgnoreCase(gameObject.getName()))) {
+            if (Arrays.stream(BANK_NAMES).noneMatch(name -> name.equalsIgnoreCase(gameObject.getName()))) {
                 return false;
             }
 
             // if no actions contain bank or open
-            if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
+            if (Arrays.stream(gameObject.getActions()).noneMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
                 return false;
             }
             // final check is if the object is reachable
             return gameObject.canReach();
-        });
+        };
+        List<RSObject> banksFound = getObjectManager().getObjects(bankQuery);
         //can't find a bank
         if (banksFound.isEmpty()) {
             log(getClass().getSimpleName(), "Can't find any banks matching criteria...");
@@ -1594,9 +1654,10 @@ public class NightmareZone extends Script {
             log(NightmareZone.class, "Failed to interact with Rewards chest.");
             return;
         }
+
         AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
         AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
-        submitTask(() -> {
+        submitHumanTask(() -> {
             WorldPosition position = getWorldPosition();
             if (position == null) {
                 return false;

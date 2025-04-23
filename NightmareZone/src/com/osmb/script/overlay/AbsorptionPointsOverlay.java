@@ -14,17 +14,16 @@ import com.osmb.api.visual.ocr.fonts.Font;
 import java.awt.*;
 import java.util.List;
 
-public class PointsOverlay extends OverlayBoundary {
+public class AbsorptionPointsOverlay extends OverlayBoundary {
 
     public static final SearchablePixel BLACK_PIXEL = new SearchablePixel(-16777215, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
     public static final int ORANGE_TEXT = -26593;
     public static final int BORDER_PIXEL = -9157096;
     public static final String POINTS = "points";
-    public static final Rectangle ABSORPTION_TEXT = new Rectangle(8, 4, 53, 11);
 
     //private final SearchableImage bigAbsorption;
 
-    public PointsOverlay(ScriptCore core) {
+    public AbsorptionPointsOverlay(ScriptCore core) {
         super(core);
     }
 

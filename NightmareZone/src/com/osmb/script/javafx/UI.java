@@ -26,6 +26,7 @@ public class UI extends BorderPane {
     private final CheckBox suicideNoBoost;
     private final ComboBox<Integer> specialItemComboBox;
     private final ComboBox<AFKPosition> afkPositionComboBox;
+    private final Spinner<Integer> boostPotionAmountSpinner;
     private ImageView shieldImageView;
     private ImageView mainWeaponImageView;
     private int mainWeaponItemId = -1;
@@ -118,7 +119,7 @@ public class UI extends BorderPane {
         boostPotionComboBox = JavaFXUtils.createItemCombobox(core, true, new int[]{Potion.OVERLOAD.getFullID(), Potion.SUPER_COMBAT.getFullID(), Potion.SUPER_RANGING_POTION.getFullID(), Potion.SUPER_MAGIC_POTION.getFullID(), Potion.RANGING_POTION.getFullID()});
         boostPotionComboBox.setPrefWidth(180);
 
-        Spinner<Integer> boostPotionAmountSpinner = new Spinner<>();
+        boostPotionAmountSpinner = new Spinner<>();
         boostPotionAmountSpinner.setPrefWidth(60);
         boostPotionAmountSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 25));
         HBox boostPotionAmountBox = new HBox(new Label("Boost potion amount"), boostPotionAmountSpinner);
@@ -251,6 +252,10 @@ public class UI extends BorderPane {
             return LowerHealthMethod.forID(selectedID);
         }
         return null;
+    }
+
+    public int getBoostPotionAmount() {
+        return boostPotionAmountSpinner.getValue();
     }
 
     public boolean suicideNoBoost() {
