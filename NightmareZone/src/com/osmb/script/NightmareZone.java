@@ -2,6 +2,7 @@ package com.osmb.script;
 
 import com.osmb.api.definition.ItemDefinition;
 import com.osmb.api.input.MenuEntry;
+import com.osmb.api.input.MenuHook;
 import com.osmb.api.input.PhysicalKey;
 import com.osmb.api.input.TouchType;
 import com.osmb.api.item.ItemID;
@@ -17,6 +18,7 @@ import com.osmb.api.shape.Polygon;
 import com.osmb.api.shape.Rectangle;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.ui.component.chatbox.ChatboxComponent;
+import com.osmb.api.ui.overlay.BuffOverlay;
 import com.osmb.api.ui.tabs.Tab;
 import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.utils.UIResult;
@@ -114,9 +116,10 @@ public class NightmareZone extends Script {
     private Optional<Integer> freeSlots;
     private UIResultList<ItemSearchResult> secondaryPotions;
     private Integer cachedRewardPoints = null;
-    private Stopwatch overloadDrinkWindow = new Stopwatch();
     private boolean inArena;
     private Stopwatch specialDelayTimer;
+    private boolean guzzleFirstOption = false;
+    private BuffOverlay overloadBuffOverlay;
 
     public NightmareZone(Object scriptCore) {
         super(scriptCore);
@@ -128,14 +131,17 @@ public class NightmareZone extends Script {
 
     @Override
     public void onPaint(Canvas c) {
-        c.fillRect(5, 40, 300, 200, Color.BLACK.getRGB(), 0.7);
-        c.drawRect(5, 40, 300, 200, Color.BLACK.getRGB());
+        c.fillRect(5, 40, 300, 250, Color.BLACK.getRGB(), 0.7);
+        c.drawRect(5, 40, 300, 250, Color.BLACK.getRGB());
         int y = 60;
         c.drawText("Task: " + (task == null ? "None" : task), 10, y += 20, Color.WHITE.getRGB(), ARIEL);
         c.drawText("Suicide when out of boost potions: " + noBoostSuicide, 10, y += 20, Color.WHITE.getRGB(), ARIEL);
-        if (!overloadDrinkWindow.hasFinished()) {
-            c.drawText("Overload drink window: " + overloadDrinkWindow.timeLeft(), 10, y += 20, Color.WHITE.getRGB(), ARIEL);
+        c.drawText("Flick rapid heal: " + flickRapidHeal, 10, y += 20, Color.WHITE.getRGB(), ARIEL);
+        if (flickRapidHeal) {
+            long secondsLeft = TimeUnit.MILLISECONDS.toSeconds(rapidHealFlickTimer.timeLeft());
+            c.drawText("Next flick time: " + secondsLeft, 10, y += 20, Color.WHITE.getRGB(), ARIEL);
         }
+        c.drawText("Overload active: " + overloadBuffOverlay.isVisible(), 10, y += 20, Color.WHITE.getRGB(), ARIEL);
         if (inArena) {
             if (lowerHPDelayTimer != null) {
                 long secondsLeft = TimeUnit.MILLISECONDS.toSeconds(lowerHPDelayTimer.timeLeft());
@@ -193,10 +199,11 @@ public class NightmareZone extends Script {
         this.idleTimeout = random(2000, 4000);
         this.nextSecondaryDrink = secondaryPotion == Potion.PRAYER_POTION ? random(10, 60) : random(50, 200);
 
-        cofferOverlay = new CofferOverlay(this);
-        chestInterface = new ChestInterface(this);
-        potionInterface = new PotionInterface(this);
-        absorptionPointsOverlay = new AbsorptionPointsOverlay(this);
+        this.cofferOverlay = new CofferOverlay(this);
+        this.chestInterface = new ChestInterface(this);
+        this.potionInterface = new PotionInterface(this);
+        this.absorptionPointsOverlay = new AbsorptionPointsOverlay(this);
+        this.overloadBuffOverlay = new BuffOverlay(this, ItemID.OVERLOAD_4);
     }
 
     @Override
@@ -354,6 +361,7 @@ public class NightmareZone extends Script {
         if (statBoostPotion != null && noBoostSuicide) {
             int statBoostPotionDoses = getDoses(boostPotions, statBoostPotion);
             if (statBoostPotionDoses == 0) {
+                log("No boost doses left, suiciding...");
                 // suicide and restock
                 return Task.SUICIDE;
             }
@@ -416,7 +424,7 @@ public class NightmareZone extends Script {
         }
 
 
-        if (flickRapidHeal && rapidHealFlickTimer.hasFinished()) {
+        if (flickRapidHeal && rapidHealFlickTimer.hasFinished() && hitpoints.get() == 1) {
             dynamicTasks.add(Task.FLICK_PRAYER);
         }
 
@@ -585,7 +593,6 @@ public class NightmareZone extends Script {
             long base = TimeUnit.MINUTES.toMillis(5);
             long extra = TimeUnit.SECONDS.toMillis(15);
             statBoostPotionDrinkTimer.reset(base + extra);
-            overloadDrinkWindow.reset(random(TimeUnit.MINUTES.toMillis(3) + TimeUnit.SECONDS.toMillis(20), TimeUnit.MINUTES.toMillis(4) + TimeUnit.SECONDS.toMillis(30)));
             lowerHPDelayTimer = new Stopwatch(random(15000, 35000));
         } else {
             long min = TimeUnit.MINUTES.toMillis(3);
@@ -596,7 +603,7 @@ public class NightmareZone extends Script {
 
     private boolean canEatDownHP() {
         if (statBoostPotion == Potion.OVERLOAD) {
-            return !overloadDrinkWindow.hasFinished();
+            return overloadBuffOverlay.isVisible();
         }
         return true;
     }
@@ -608,12 +615,17 @@ public class NightmareZone extends Script {
             return;
         }
 
-        if (prayersActivated.isFound()) {
+        if (prayersActivated.isFound() && prayersActivated.get()) {
+            log(NightmareZone.class, "Prayers activated already");
             if (getWidgetManager().getMinimapOrbs().setQuickPrayers(false)) {
+                log(NightmareZone.class, "Disabled prayers, resetting");
                 rapidHealFlickTimer.reset(random(20000, 50000));
             }
         } else if (getWidgetManager().getMinimapOrbs().setQuickPrayers(true)) {
-            if (getWidgetManager().getMinimapOrbs().setQuickPrayers(false)) {
+            log(NightmareZone.class, "Prayers activated");
+            boolean result = getWidgetManager().getMinimapOrbs().setQuickPrayers(false);
+            if (result) {
+                log(NightmareZone.class, "Activated & prayers, resetting");
                 rapidHealFlickTimer.reset(random(20000, 50000));
             }
         }
@@ -738,9 +750,24 @@ public class NightmareZone extends Script {
                     lowerHPDelayTimer = null;
                     return true;
                 }
-                if (lowerHealthMethod == LowerHealthMethod.ROCK_CAKE) {
-                    getFinger().tap(false, lowerHealthItem.get());
-                    submitTask(() -> false, RandomUtils.weightedRandom(50, 400));
+                if (lowerHealthMethod == LowerHealthMethod.ROCK_CAKE && !guzzleFirstOption) {
+                    UIResult<Point> point = lowerHealthItem.get().getRandomPointInSlot();
+                    if (point.isNotFound()) {
+                        return false;
+                    }
+                    // check if "Guzzle" is first option
+                    MenuHook menuHook = menuEntries -> {
+                        for (int i = 0; i < menuEntries.size(); i++) {
+                            MenuEntry menuEntry = menuEntries.get(i);
+                            if (menuEntry.getRawText().toLowerCase().startsWith("guzzle")) {
+                                guzzleFirstOption = i == 0;
+                                return menuEntry;
+                            }
+                        }
+                        return null;
+                    };
+                    getFinger().tap(false, point.get(), menuHook);
+                    submitTask(() -> false, RandomUtils.weightedRandom(100, 600));
                 } else {
                     getFinger().tap(false, lowerHealthItem.get());
                     submitTask(() -> false, RandomUtils.weightedRandom(150, 600));
