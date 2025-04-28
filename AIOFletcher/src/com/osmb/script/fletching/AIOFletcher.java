@@ -158,10 +158,7 @@ public class AIOFletcher extends Script {
                 previousPosition.set(position);
             }
 
-            log(getClass(), "Bank visible: " + getWidgetManager().getBank().isVisible());
-            boolean complete = getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
-            log(getClass(), "Complete: " + complete);
-            return complete;
+            return getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
         }, 15000, true, false, true);
     }
 
