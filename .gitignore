@@ -28,6 +28,7 @@ bin/
 ### Mac OS ###
 .DS_Store
 /KaIZOWintertodtLooter/
+/Pickpocketer/
 /.idea/artifacts/
 # IntelliJ IDEA
 .idea/
