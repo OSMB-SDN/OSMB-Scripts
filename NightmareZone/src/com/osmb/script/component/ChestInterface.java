@@ -23,7 +23,7 @@ import static com.osmb.api.visual.color.ColorUtils.ORANGE_UI_TEXT;
 
 public class ChestInterface extends ComponentCentered implements ItemGroup {
     public static final int WHITE_PIXEL = -1;
-    public static final Rectangle TITLE_BOUNDS = new Rectangle(117, 6, 476, 23);
+    public static final Rectangle TITLE_BOUNDS = new Rectangle(6, 6, 476, 23);
     private static final Rectangle POINTS_BOUNDS = new Rectangle(276, 35, 206, 21);
     private static final Rectangle CLOSE_BUTTON_BOUNDS = new Rectangle(460, 7, 21, 21);
     private static final int UNSELECTED_BUTTON_ID = 812;
