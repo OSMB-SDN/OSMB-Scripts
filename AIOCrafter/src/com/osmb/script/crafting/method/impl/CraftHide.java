@@ -78,7 +78,7 @@ public class CraftHide extends Method {
     @Override
     public int handleBankInterface() {
         // bank everything, ignoring logs and knife
-        if (!script.getWidgetManager().getBank().depositAll(new int[]{hideID, ItemID.THREAD, ItemID.NEEDLE})) {
+        if (!script.getWidgetManager().getBank().depositAll(new int[]{hideID, ItemID.THREAD, ItemID.NEEDLE, ItemID.COSTUME_NEEDLE})) {
             return 0;
         }
         UIResultList<ItemSearchResult> hidesInventory = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), hideID);

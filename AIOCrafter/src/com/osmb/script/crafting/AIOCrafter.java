@@ -33,7 +33,7 @@ public class AIOCrafter extends Script {
 
     // names of possible banks
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
-    public static final String[] BANK_ACTIONS = {"bank", "open"};
+    public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
     private final Predicate<RSObject> bankQuery = gameObject -> {
         // if object has no name
         if (gameObject.getName() == null) {
