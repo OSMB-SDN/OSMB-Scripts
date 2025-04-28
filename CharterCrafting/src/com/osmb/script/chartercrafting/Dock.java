@@ -18,7 +18,7 @@ public enum Dock {
     PORT_SARIM("Port Sarim", 12082, new RectangleArea(3034, 3192, 11, 2, 0), null, null),
   //  PRIFDDINAS("Prifddinas", 8499, null, null, null),
     SHIPYARD("Shipyard", 11823, new RectangleArea(3000, 3031, 2, 7, 0), null, null),
-    LANDS_END("Lands End", 11823, new RectangleArea(1496, 3402, 8, 3, 0), new RectangleArea(1506, 3419, 6, 3, 0), null);
+    LANDS_END("Lands End", 5941, new RectangleArea(1496, 3402, 8, 3, 0), new RectangleArea(1506, 3419, 6, 3, 0), null);
 
     private final Area wanderArea;
     private final Area bankArea;

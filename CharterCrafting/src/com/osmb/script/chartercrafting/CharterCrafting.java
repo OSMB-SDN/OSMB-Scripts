@@ -32,12 +32,13 @@ import java.awt.*;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 @ScriptDefinition(name = "Charter crafter", author = "Joe", version = 1.0, description = "", skillCategory = SkillCategory.CRAFTING)
 public class CharterCrafting extends Script {
 
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
-    public static final String[] BANK_ACTIONS = {"bank", "open"};
+    public static final String[] BANK_ACTIONS = {"bank", "open", "Use"};
     private static final int[] SELL_OPTION_AMOUNTS = new int[]{1, 5, 10, 50};
 
 
@@ -505,46 +506,48 @@ public class CharterCrafting extends Script {
             submitHumanTask(() -> getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION, random(2000, 7000));
         }
     }
+    // Find bank and open it
+    private final Predicate<RSObject> bankQuery = gameObject -> {
+        // if object has no name
+        String name = gameObject.getName();
 
-    private void openBank() {
-        log(getClass().getSimpleName(), "Searching for a bank...");
-        // Find bank and open it
-        List<RSObject> banksFound = getObjectManager().getObjects(gameObject -> {
-            // if object has no name
-            String name = gameObject.getName();
+        if (name == null) {
+            return false;
+        }
 
-            if (name == null) {
+
+        if (selectedDock == Dock.CORSAIR_COVE) {
+            // handle closed bank
+            if (gameObject.getWorldX() != 2569 || gameObject.getWorldY() != 2865) {
+                return false;
+            }
+            if (!name.equalsIgnoreCase("Closed booth")) {
                 return false;
             }
 
-
-            if (selectedDock == Dock.CORSAIR_COVE) {
-                // handle closed bank
-                if (gameObject.getWorldX() != 2569 || gameObject.getWorldY() != 2865) {
-                    return false;
-                }
-                if (!name.equalsIgnoreCase("Closed booth")) {
-                    return false;
-                }
-
-            } else {
-                // has no interact options (eg. bank, open etc.)
-                if (gameObject.getActions() == null) {
-                    return false;
-                }
-
-                if (!Arrays.stream(BANK_NAMES).anyMatch(bankName -> bankName.equalsIgnoreCase(name))) {
-                    return false;
-                }
-
-                // if no actions contain bank or open
-                if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
-                    return false;
-                }
+        } else {
+            // has no interact options (eg. bank, open etc.)
+            if (gameObject.getActions() == null) {
+                return false;
             }
-            // final check is if the object is reachable
-            return gameObject.canReach();
-        });
+
+            if (!Arrays.stream(BANK_NAMES).anyMatch(bankName -> bankName.equalsIgnoreCase(name))) {
+                return false;
+            }
+
+            // if no actions contain bank or open
+            if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
+                return false;
+            }
+        }
+        // final check is if the object is reachable
+        return gameObject.canReach();
+    };
+
+    private void openBank() {
+        log(getClass().getSimpleName(), "Searching for a bank...");
+
+        List<RSObject> banksFound = getObjectManager().getObjects(bankQuery);
         //can't find a bank
         if (banksFound.isEmpty()) {
             log(getClass().getSimpleName(), "Can't find any banks matching criteria...");
@@ -552,7 +555,7 @@ public class CharterCrafting extends Script {
         }
         RSObject object = (RSObject) getUtils().getClosest(banksFound);
         if (object.getName().equals("Closed booth")) {
-            if (!object.interact("Bank booth", new String[] {"Bank"})) {
+            if (!object.interact("Bank booth", new String[]{"Bank"})) {
                 return;
             }
         } else {
