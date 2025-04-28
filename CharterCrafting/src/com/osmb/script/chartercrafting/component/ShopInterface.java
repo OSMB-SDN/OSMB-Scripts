@@ -18,7 +18,7 @@ import java.awt.*;
 import java.util.List;
 
 public class ShopInterface extends ComponentCentered implements ItemGroup {
-    public static final Rectangle TITLE_BOUNDS = new Rectangle(117, 6, 476, 23);
+    public static final Rectangle TITLE_BOUNDS = new Rectangle(6, 6, 476, 23);
     private static final Rectangle CLOSE_BUTTON_BOUNDS = new Rectangle(460, 7, 21, 21);
 
 
