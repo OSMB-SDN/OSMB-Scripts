@@ -12,7 +12,6 @@ import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
-import com.osmb.api.shape.Shape;
 import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
@@ -375,7 +374,7 @@ public class Wintertodt extends Script {
             // done
             case DRINK_REJUVINATION -> drinkRejuvenation();
             // done
-            case RESTOCK_REJUVINATION_POTIONS -> restockRejuvination();
+            case RESTOCK_REJUVINATION_POTIONS -> restockRejuvenation();
             //done
             case WAIT_FOR_BOSS -> waitForBoss();
             //done
@@ -850,10 +849,15 @@ public class Wintertodt extends Script {
         return currentDosesAtomic.get();
     }
 
-    private void restockRejuvination() {
+    private void restockRejuvenation() {
+        log(Wintertodt.class, "Restocking Rejuvenation");
+        if (!getItemManager().unSelectItemIfSelected()) {
+            return;
+        }
         int currentDoses = getRejuvenationDoses(false);
         Optional<Integer> freeSlots = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory(), ItemID.REJUVENATION_POTION_UNF, ItemID.BRUMA_HERB);
         if (!freeSlots.isPresent()) {
+            log(Wintertodt.class, "Inventory not visible...");
             return;
         }
 
@@ -870,18 +874,24 @@ public class Wintertodt extends Script {
         int unfPotionsNeeded = potionsNeeded - unfPotions.size();
         int brumaHerbsNeeded = potionsNeeded - brumaHerbs.size();
 
+        log(Wintertodt.class, "Unf potions needed: " + unfPotionsNeeded + " Bruma herbs needed: " + brumaHerbsNeeded);
         // drop if we have too many
         if (unfPotionsNeeded < 0) {
+            log(Wintertodt.class, "Too many unf potions, dropping...");
             getItemManager().dropItem(getWidgetManager().getInventory(), ItemID.REJUVENATION_POTION_UNF, Math.abs(unfPotionsNeeded));
         } else if (brumaHerbsNeeded < 0) {
+            log(Wintertodt.class, "Too many herbs, dropping...");
             getItemManager().dropItem(getWidgetManager().getInventory(), ItemID.BRUMA_HERB, Math.abs(brumaHerbsNeeded));
         }
         // if we need more
         else if (unfPotionsNeeded > 0) {
+            log(Wintertodt.class, "Need more unf potions");
             getUnfPotions(unfPotions, unfPotionsNeeded);
         } else if (brumaHerbsNeeded > 0) {
+            log(Wintertodt.class, "Need more herbs");
             pickHerbs(brumaHerbs, brumaHerbsNeeded, freeSlots.get());
         } else {
+            // ensure tap to drop is disabled
             UIResult<Boolean> tapToDrop = getWidgetManager().getHotkeys().isTapToDropEnabled();
             if (tapToDrop.isFound() && tapToDrop.get()) {
                 if (!getWidgetManager().getHotkeys().setTapToDropEnabled(false)) {
@@ -920,6 +930,7 @@ public class Wintertodt extends Script {
                 return brewmaTile_.isOnGameScreen();
             });
             getWalker().walkTo(BREWMA_POSITION, builder.build());
+            return;
         }
         // select "Use" on a random ingredient
         List<ItemSearchResult> items = random(2) == 0 ? brumaHerbs.asList() : unfPotions.asList();
@@ -934,11 +945,14 @@ public class Wintertodt extends Script {
             log(Wintertodt.class, "Item definition is null for item: " + randomItem.getId());
             return;
         }
-        Polygon polygon = brewmaTile.getTilePoly();
+        Polygon polygon = brewmaTile.getTileCube(80);
         if (polygon == null) {
             return;
         }
 
+        Polygon polygonResized = polygon.getResized(0.4);
+
+        log(Wintertodt.class, "Resized: " + polygonResized + " Original: " + polygon);
         if (getFinger().tap(polygon, "Use " + itemDefinition.name + " -> " + "Brew'ma")) {
             submitTask(() -> {
                 UIResultList<ItemSearchResult> unfPotions_ = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.REJUVENATION_POTION_UNF);
