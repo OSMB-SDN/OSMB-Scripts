@@ -2,7 +2,6 @@ package com.osmb.script.herblore.method;
 
 import com.osmb.api.definition.ItemDefinition;
 import com.osmb.api.item.ItemSearchResult;
-import com.osmb.api.javafx.JavaFXUtils;
 import com.osmb.api.ui.GameState;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.utils.Result;
@@ -12,7 +11,6 @@ import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.herblore.AIOHerblore;
 import com.osmb.script.herblore.data.Ingredient;
 import com.osmb.script.herblore.data.ItemIdentifier;
-import com.osmb.script.herblore.data.MixedPotion;
 import com.osmb.script.herblore.data.Potion;
 import com.osmb.script.herblore.javafx.ScriptOptions;
 import javafx.scene.control.ComboBox;
@@ -52,7 +50,13 @@ public class PotionMixer {
         // if item action dialogue is visible, select which item
         DialogueType dialogueType = script.getWidgetManager().getDialogue().getDialogueType();
         if (dialogueType == DialogueType.ITEM_OPTION) {
-            boolean selectedOption = script.getWidgetManager().getDialogue().selectItem(selectedPotion.getItemID());
+            int[] dialogueIds = new int[selectedPotion.getIngredients().length + 1];
+            for (int i = 0; i < selectedPotion.getIngredients().length; i++) {
+                dialogueIds[i] = selectedPotion.getIngredients()[i].getItemID();
+            }
+            dialogueIds[dialogueIds.length - 1] = selectedPotion.getItemID();
+
+            boolean selectedOption = script.getWidgetManager().getDialogue().selectItem(dialogueIds);
             if (!selectedOption) {
                 script.log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
             } else {
@@ -160,7 +164,7 @@ public class PotionMixer {
 
     public void provideUIOptions(VBox vBox) {
         Label itemLabel = new Label("Choose potion");
-        itemComboBox = ScriptOptions.createItemCombobox(script,values);
+        itemComboBox = ScriptOptions.createItemCombobox(script, values);
         vBox.getChildren().addAll(itemLabel, itemComboBox);
         vBox.requestLayout();
     }
