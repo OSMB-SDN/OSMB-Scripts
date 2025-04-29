@@ -13,9 +13,14 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.StringConverter;
 
+import java.util.prefs.Preferences;
+
 public class ScriptOptions extends VBox {
 
     private final VBox scriptContentBox;
+    private final Preferences prefs = Preferences.userNodeForPackage(ScriptOptions.class);
+    private static final String PREF_SELECTED_METHOD = "aiocrafter_selected_method";
+
     public static ComboBox<ItemIdentifier> createItemCombobox(ScriptCore core, ItemIdentifier[] values) {
         ComboBox<ItemIdentifier> productComboBox = new ComboBox<>();
         productComboBox.setConverter(new StringConverter<>() {
@@ -49,6 +54,7 @@ public class ScriptOptions extends VBox {
         productComboBox.getItems().addAll(values);
         return productComboBox;
     }
+
     public ScriptOptions(AIOCrafter script, Method[] methods) {
         setAlignment(Pos.TOP_CENTER);
         setStyle("-fx-background-color: #636E72; -fx-padding: 10; -fx-spacing: 10");
@@ -61,6 +67,10 @@ public class ScriptOptions extends VBox {
         Label label = new Label("Choose your desired crafting method");
         ComboBox<Method> comboBox = new ComboBox<>();
         comboBox.getItems().addAll(methods);
+
+        // Load saved method
+        loadSavedMethod(comboBox, methods);
+
         comboBox.setOnAction(actionEvent -> {
             Method selectedMethod = comboBox.getSelectionModel().getSelectedItem();
             if (selectedMethod == null) return;
@@ -94,11 +104,39 @@ public class ScriptOptions extends VBox {
                 }
                 script.setSelectedMethod(selectedMethod);
                 //stage.close();
+                saveSelectedMethod(selectedMethod);
                 ((Stage) button.getScene().getWindow()).close();
             }
         });
         getChildren().addAll(label, comboBox, scriptContentBox, button);
     }
 
+    private void saveSelectedMethod(Method method) {
+        if (method != null) {
+            prefs.put(PREF_SELECTED_METHOD, method.name());
+        }
+    }
 
+    private void loadSavedMethod(ComboBox<Method> comboBox, Method[] availableMethods) {
+        String savedMethodName = prefs.get(PREF_SELECTED_METHOD, null);
+        if (savedMethodName != null) {
+            for (Method method : availableMethods) {
+                if (method.name().equals(savedMethodName)) {
+                    comboBox.getSelectionModel().select(method);
+                    Platform.runLater(() -> {
+                        scriptContentBox.getChildren().clear();
+                        scriptContentBox.setStyle("-fx-border-color: black; -fx-border-width: 1; -fx-background-color: #495449;");
+                        method.provideUIOptions(scriptContentBox);
+                        scriptContentBox.setAlignment(Pos.TOP_CENTER);
+                        Stage stage = null;
+                        if (getScene() != null && getScene().getWindow() instanceof Stage) {
+                            stage = (Stage) getScene().getWindow();
+                        }
+                        stage.sizeToScene();
+                    });
+                    break;
+                }
+            }
+        }
+    }
 }
