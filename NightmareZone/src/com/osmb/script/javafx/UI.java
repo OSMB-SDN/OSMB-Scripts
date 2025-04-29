@@ -91,7 +91,9 @@ public class UI extends BorderPane {
         Label specialAttackWeaponLabel = new Label("Special attack weapon");
         specialItemComboBox = JavaFXUtils.createItemCombobox(core, true, SpecialAttackWeapon.getItemIDs());
         specialItemComboBox.setPrefWidth(180);
-        specialItemComboBox.getSelectionModel().select(Integer.valueOf(prefs.getInt(PREF_SPECIAL_WEAPON, SpecialAttackWeapon.NONE.getItemID())));
+        int index = prefs.getInt(PREF_SPECIAL_WEAPON, -1);
+        if (index != -1)
+            specialItemComboBox.getSelectionModel().select(index);
 
         VBox weaponVBox = new VBox(weaponShieldHBox, specialAttackWeaponLabel, specialItemComboBox);
         weaponVBox.setStyle("-fx-spacing: 5; -fx-padding: 10; -fx-background-color: #636E72");
@@ -137,7 +139,8 @@ public class UI extends BorderPane {
         Label secondaryPotionLabel = new Label("Secondary potion");
         secondaryPotionComboBox = JavaFXUtils.createItemCombobox(core, false, new int[]{Potion.PRAYER_POTION.getFullID(), Potion.ABSORPTION_POTION.getFullID()});
         secondaryPotionComboBox.setPrefWidth(180);
-        secondaryPotionComboBox.getSelectionModel().select(Integer.valueOf(prefs.getInt(PREF_SECONDARY_POTION, Potion.PRAYER_POTION.getFullID())));
+        int savedSecondary = prefs.getInt(PREF_SECONDARY_POTION, Potion.PRAYER_POTION.getFullID());
+        secondaryPotionComboBox.getSelectionModel().select(savedSecondary);
 
         Label lowerHPMethodLabel = new Label("Lower HP method");
         lowerHPMethodComboBox = JavaFXUtils.createItemCombobox(core, new int[]{LowerHealthMethod.ROCK_CAKE.getItemID(), LowerHealthMethod.LOCATOR_ORB.getItemID()});
@@ -153,7 +156,12 @@ public class UI extends BorderPane {
         absorptionSettingsVbox = new VBox(lowerHPMethodLabel, lowerHPMethodComboBox, flickRapidHeal);
         absorptionSettingsVbox.setSpacing(10);
 
+
         VBox potionVBox = new VBox(primaryPotionLabel, boostPotionComboBox, boostPotionAmountBox, secondaryPotionLabel, secondaryPotionComboBox);
+        if(secondaryPotionComboBox.getValue() == Potion.ABSORPTION_POTION.getFullID()) {
+            potionVBox.getChildren().add(absorptionSettingsVbox);
+        }
+
         secondaryPotionComboBox.getSelectionModel().selectedItemProperty().addListener((observableValue, integer, t1) -> {
             if (t1 != null && t1 == Potion.ABSORPTION_POTION.getFullID()) {
                 potionVBox.getChildren().add(absorptionSettingsVbox);

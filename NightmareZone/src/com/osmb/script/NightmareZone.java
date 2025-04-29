@@ -69,8 +69,8 @@ public class NightmareZone extends Script {
             "Welcome to the Nightmare Zone! Would you like me to create a dream for you?"
     );
     private static final List<String> DOMINIC_SUCCESS_CHAT_DIALOGUES = Arrays.asList(
-            "I've already created a dream for you. Do you want me to cancel it?",
-            "I've prepard your dream. Step ito te ecosure,"
+            "I've already created a dream for you Do you want me to cancel it?",
+            "I've prepared your dream. Step into the enclosure invite up to 4 players to join you, then drink from the vial to begin .  E a ch of y ou will ne e d to u nlo ck the coffer and have 26,000 coins deposited first"
     );
     private static final DialogueOption[] DOMINIC_DIALOGUE_OPTIONS = new DialogueOption[]{
             new DialogueOption("which dream would you like to experience?", "Previous:"),
@@ -906,21 +906,17 @@ public class NightmareZone extends Script {
     private void interactWithDominic() {
         RSTile dominicTile = getSceneManager().getTile(DOMINIC_POSITION);
         if (dominicTile == null) {
-            log(NightmareZone.class, "Walking to Dominic...");
-            getWalker().walkTo(DOMINIC_POSITION, new WalkConfig.Builder().breakDistance(10).build());
+            walkToDominic();
             return;
         }
         boolean isGameScreen = false;
         Polygon tilePoly = dominicTile.getTilePoly();
         if (tilePoly == null) {
-            log(NightmareZone.class, "Walking to Dominic...");
-            getWalker().walkTo(DOMINIC_POSITION, new WalkConfig.Builder().breakDistance(10).build());
+            walkToDominic();
             return;
         }
         Polygon tilePolyResized = tilePoly.getResized(0.7);
         isGameScreen = getWidgetManager().insideGameScreen(tilePolyResized, ChatboxComponent.class);
-
-        log(NightmareZone.class, "Geniune: " + tilePoly + " resized: " + tilePolyResized);
 
         WorldPosition myPosition = getWorldPosition();
         if (myPosition == null) {
@@ -929,19 +925,7 @@ public class NightmareZone extends Script {
         // walk to if distance is > 14 as the max render distance is 15
         if (!isGameScreen || DOMINIC_POSITION.distanceTo(myPosition) > 13) {
             // walk to tile
-            WalkConfig.Builder builder = new WalkConfig.Builder();
-            builder.breakCondition(() -> {
-                if (getWorldPosition() == null) {
-                    return false;
-                }
-                Polygon tilePoly2 = dominicTile.getTilePoly();
-                if (tilePoly2 != null) {
-                    tilePoly2 = tilePoly2.getResized(0.7);
-                    return getWidgetManager().insideGameScreen(tilePoly2, ChatboxComponent.class);
-                }
-                return false;
-            });
-            getWalker().walkTo(DOMINIC_POSITION, builder.build());
+            walkToDominic();
             return;
         }
         if (getFinger().tap(tilePolyResized, "Dream")) {
@@ -949,20 +933,38 @@ public class NightmareZone extends Script {
         }
     }
 
+    private void walkToDominic() {
+        log(NightmareZone.class, "Walking to Dominic...");
+        WalkConfig.Builder builder = new WalkConfig.Builder();
+        builder.breakCondition(() -> {
+            if (getWorldPosition() == null) {
+                return false;
+            }
+            RSTile dominicTile = getSceneManager().getTile(DOMINIC_POSITION);
+            if (dominicTile == null) {
+                return false;
+            }
+            Polygon tilePoly2 = dominicTile.getTilePoly();
+            if (tilePoly2 != null) {
+                tilePoly2 = tilePoly2.getResized(0.7);
+                return getWidgetManager().insideGameScreen(tilePoly2, ChatboxComponent.class);
+            }
+            return false;
+        });
+        getWalker().walkTo(DOMINIC_POSITION, builder.build());
+    }
 
     private void interactWithPotion() {
         RSTile potionTile = getSceneManager().getTile(POTION_TILE);
         if (potionTile == null) {
-            // shouldn't happen
-            log(NightmareZone.class, "Potion tile is null.");
-            getWalker().walkTo(POTION_TILE, new WalkConfig.Builder().breakDistance(10).build());
+            walkToPotion();
             return;
         }
         boolean isGameScreen = false;
         Polygon tilePoly = potionTile.getTilePoly();
         if (tilePoly == null) {
             log(NightmareZone.class, "Potion tile polygon is null.");
-            getWalker().walkTo(POTION_TILE, new WalkConfig.Builder().breakDistance(10).build());
+            getWalker().walkTo(POTION_TILE, new WalkConfig.Builder().breakDistance(1).build());
             return;
         }
         Polygon tilePolyResized = tilePoly.getResized(0.7);
@@ -975,21 +977,7 @@ public class NightmareZone extends Script {
         }
         // walk to if distance is > 14 as the max render distance is 15
         if (!isGameScreen || DOMINIC_POSITION.distanceTo(myPosition) > 13) {
-            log(NightmareZone.class, "Walking to potion tile");
-            // walk to tile
-            WalkConfig.Builder builder = new WalkConfig.Builder();
-            builder.breakCondition(() -> {
-                if (getWorldPosition() == null) {
-                    return false;
-                }
-                Polygon tilePoly2 = potionTile.getTilePoly();
-                if (tilePoly2 != null) {
-                    tilePoly2 = tilePoly2.getResized(0.7);
-                    return getWidgetManager().insideGameScreen(tilePoly2, ChatboxComponent.class);
-                }
-                return false;
-            });
-            getWalker().walkTo(POTION_TILE, builder.build());
+            walkToPotion();
             return;
         }
         if (!getFinger().tap(tilePolyResized, menuEntries -> {
@@ -1026,6 +1014,29 @@ public class NightmareZone extends Script {
 
             return potionInterface.isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
         }, 15000);
+    }
+
+    private void walkToPotion() {
+        log(NightmareZone.class, "Walking to dominic tile");
+        // walk to tile
+        WalkConfig.Builder builder = new WalkConfig.Builder();
+        builder.breakCondition(() -> {
+            if (getWorldPosition() == null) {
+                return false;
+            }
+            RSTile potionTile = getSceneManager().getTile(POTION_TILE);
+            if (potionTile == null) {
+                return false;
+            }
+            Polygon tilePoly2 = potionTile.getTilePoly();
+            if (tilePoly2 != null) {
+                tilePoly2 = tilePoly2.getResized(0.7);
+                return getWidgetManager().insideGameScreen(tilePoly2, ChatboxComponent.class);
+            }
+            return false;
+        });
+        getWalker().walkTo(POTION_TILE, builder.build());
+        return;
     }
 
     private void handleChest() {
