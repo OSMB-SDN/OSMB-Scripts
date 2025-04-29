@@ -17,9 +17,13 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.StringConverter;
 
+import java.util.prefs.Preferences;
+
 public class ScriptOptions extends VBox {
 
     private final VBox scriptContentBox;
+    private final Preferences prefs = Preferences.userNodeForPackage(ScriptOptions.class);
+    private static final String PREF_SELECTED_MIXER = "aiopotionmaker_selected_mixer";
 
     public ScriptOptions(AIOHerblore script, PotionMixer[] potionMixers) {
         setAlignment(Pos.CENTER_LEFT);
@@ -32,6 +36,9 @@ public class ScriptOptions extends VBox {
         ComboBox<PotionMixer> comboBox = new ComboBox<>();
         comboBox.setPrefWidth(200);
         comboBox.getItems().addAll(potionMixers);
+
+        loadSavedMixer(comboBox, potionMixers);
+
         comboBox.setOnAction(actionEvent -> {
             PotionMixer selectedPotionMixer = comboBox.getSelectionModel().getSelectedItem();
             if (selectedPotionMixer == null) return;
@@ -41,14 +48,11 @@ public class ScriptOptions extends VBox {
                 selectedPotionMixer.provideUIOptions(scriptContentBox);
                 scriptContentBox.setAlignment(Pos.CENTER_LEFT);
                 Stage stage = null;
-
                 if (getScene() != null && getScene().getWindow() instanceof Stage) {
                     stage = (Stage) getScene().getWindow();
                 }
             });
         });
-        comboBox.getSelectionModel().select(0);
-        comboBox.fireEvent(new ActionEvent());
 
         Button button = new Button("Confirm");
         button.setOnAction(actionEvent -> {
@@ -64,6 +68,7 @@ public class ScriptOptions extends VBox {
                 }
                 script.setSelectedMethod(selectedPotionMixer);
                 //stage.close();
+                saveSelectedMixer(selectedPotionMixer);
                 ((Stage) button.getScene().getWindow()).close();
             }
         });
@@ -113,5 +118,31 @@ public class ScriptOptions extends VBox {
         });
         productComboBox.getItems().addAll(values);
         return productComboBox;
+    }
+
+    private void saveSelectedMixer(PotionMixer method) {
+        if (method != null) {
+            prefs.put(PREF_SELECTED_MIXER, method.name());
+        }
+    }
+
+    private void loadSavedMixer(ComboBox<PotionMixer> comboBox, PotionMixer[] availableMixers) {
+        String saved = prefs.get(PREF_SELECTED_MIXER, null);
+        if (saved != null) {
+            for (PotionMixer mixer : availableMixers) {
+                if (mixer.name().equals(saved)) {
+                    comboBox.getSelectionModel().select(mixer);
+                    Platform.runLater(() -> {
+                        scriptContentBox.getChildren().clear();
+                        mixer.provideUIOptions(scriptContentBox);
+                        scriptContentBox.setAlignment(Pos.CENTER_LEFT);
+                    });
+                    return;
+                }
+            }
+        } else {
+            comboBox.getSelectionModel().selectFirst();
+            comboBox.fireEvent(new ActionEvent());
+        }
     }
 }
