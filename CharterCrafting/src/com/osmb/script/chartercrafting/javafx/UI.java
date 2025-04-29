@@ -15,6 +15,7 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.util.Arrays;
+import java.util.prefs.Preferences;
 import java.util.stream.Collectors;
 
 public class UI extends VBox {
@@ -24,6 +25,11 @@ public class UI extends VBox {
     private final ComboBox<Integer> itemToMakeComboBox;
     private final Label itemLabel;
     private VBox itemToMakeBox = null;
+
+    private static final Preferences prefs = Preferences.userNodeForPackage(UI.class);
+    private static final String PREF_SELECTED_METHOD = "chartercrafting_selected_method";
+    private static final String PREF_SELECTED_DOCK = "chartercrafting_selected_dock";
+    private static final String PREF_SELECTED_ITEM = "chartercrafting_selected_item";
 
     public UI(ScriptCore core) {
         setStyle("-fx-spacing: 10; -fx-alignment: left; -fx-padding: 5; -fx-background-color: #636E72");
@@ -38,7 +44,12 @@ public class UI extends VBox {
                                 .filter(dock -> isDockValidForMethod(dock, newMethod))
                                 .collect(Collectors.toList())
                 );
-                dockComboBox.getSelectionModel().select(0);
+                Dock savedDock = getSavedDock(newMethod);
+                if (savedDock != null) {
+                    dockComboBox.getSelectionModel().select(savedDock);
+                } else {
+                    dockComboBox.getSelectionModel().select(0);
+                }
                 if (itemToMakeBox != null)
                     itemToMakeBox.setVisible(newMethod != Method.BUY_AND_BANK);
                 Scene scene = methodComboBox.getScene();
@@ -47,19 +58,28 @@ public class UI extends VBox {
                 }
             });
         });
-        methodComboBox.getSelectionModel().select(0);
+
+        Method savedMethod = getSavedMethod();
+        methodComboBox.getSelectionModel().select(savedMethod != null ? savedMethod : Method.BUY_AND_BANK);
         getChildren().add(methodComboBox);
 
         Label dockLabel = new Label("Dock");
         getChildren().add(dockLabel);
         dockComboBox.getItems().addAll(Dock.values());
-        dockComboBox.getSelectionModel().select(0);
+        dockComboBox.getSelectionModel().select(getSavedDock(savedMethod));
         getChildren().add(dockComboBox);
 
         itemLabel = new Label("Item to make");
         getChildren().add(itemLabel);
         itemToMakeComboBox = JavaFXUtils.createItemCombobox(core, GlassBlowingItem.getItemIds());
-        itemToMakeComboBox.getSelectionModel().select(0);
+
+        int savedItemId = prefs.getInt(PREF_SELECTED_ITEM, GlassBlowingItem.GLASS_ORB.getItemId());
+        for (Integer id : GlassBlowingItem.getItemIds()) {
+            if (id == savedItemId) {
+                itemToMakeComboBox.getSelectionModel().select(id);
+                break;
+            }
+        }
 
         itemToMakeBox = new VBox(itemLabel, itemToMakeComboBox);
         itemToMakeBox.setStyle("-fx-spacing: 10; -fx-padding: 0 0 20 0");
@@ -73,10 +93,14 @@ public class UI extends VBox {
             if (getSelectedDock() == null || getSelectedMethod() == null || getSelectedGlassBlowingItem() == null) {
                 return;
             }
+
+            prefs.put(PREF_SELECTED_METHOD, getSelectedMethod().name());
+            prefs.put(PREF_SELECTED_DOCK, getSelectedDock().name());
+            prefs.putInt(PREF_SELECTED_ITEM, getSelectedGlassBlowingItem().getItemId());
+
             ((Stage) confirmButton.getScene().getWindow()).close();
             return;
         });
-
     }
 
     public Dock getSelectedDock() {
@@ -102,5 +126,26 @@ public class UI extends VBox {
             case BUY_AND_FURNACE_CRAFT -> dock.getFurnaceArea() != null;
             default -> true;
         };
+    }
+
+    private Method getSavedMethod() {
+        try {
+            return Method.valueOf(prefs.get(PREF_SELECTED_METHOD, Method.BUY_AND_BANK.name()));
+        } catch (IllegalArgumentException e) {
+            return Method.BUY_AND_BANK;
+        }
+    }
+
+    private Dock getSavedDock(Method method) {
+        try {
+            String saved = prefs.get(PREF_SELECTED_DOCK, "");
+            if (!saved.isEmpty()) {
+                Dock dock = Dock.valueOf(saved);
+                if (isDockValidForMethod(dock, method)) {
+                    return dock;
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }
