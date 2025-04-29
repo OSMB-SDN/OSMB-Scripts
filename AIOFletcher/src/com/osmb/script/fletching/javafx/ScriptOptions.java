@@ -4,6 +4,7 @@ import com.osmb.api.ScriptCore;
 import com.osmb.script.fletching.AIOFletcher;
 import com.osmb.script.fletching.data.ItemIdentifier;
 import com.osmb.script.fletching.method.Method;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -12,9 +13,13 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.StringConverter;
 
+import java.util.prefs.Preferences;
+
 public class ScriptOptions extends VBox {
 
     private final VBox scriptContentBox;
+    private final Preferences prefs = Preferences.userNodeForPackage(ScriptOptions.class);
+    private static final String PREF_SELECTED_METHOD = "aiofletcher_selected_method";
 
     public ScriptOptions(AIOFletcher script, Method[] methods) {
         setAlignment(Pos.TOP_CENTER);
@@ -28,6 +33,10 @@ public class ScriptOptions extends VBox {
         Label label = new Label("Choose your desired fletching method");
         ComboBox<Method> comboBox = new ComboBox<>();
         comboBox.getItems().addAll(methods);
+
+        // Load saved method
+        loadSavedMethod(comboBox, methods);
+
         comboBox.setOnAction(actionEvent -> {
             Method selectedMethod = comboBox.getSelectionModel().getSelectedItem();
             if (selectedMethod == null) return;
@@ -56,7 +65,7 @@ public class ScriptOptions extends VBox {
                     return;
                 }
                 script.setSelectedMethod(selectedMethod);
-                //stage.close();
+                saveSelectedMethod(selectedMethod);
                 ((Stage) button.getScene().getWindow()).close();
             }
         });
@@ -97,4 +106,32 @@ public class ScriptOptions extends VBox {
         return productComboBox;
     }
 
+    private void saveSelectedMethod(Method method) {
+        if (method != null) {
+            prefs.put(PREF_SELECTED_METHOD, method.name());
+        }
+    }
+
+    private void loadSavedMethod(ComboBox<Method> comboBox, Method[] availableMethods) {
+        String savedMethodName = prefs.get(PREF_SELECTED_METHOD, null);
+        if (savedMethodName != null) {
+            for (Method method : availableMethods) {
+                if (method.name().equals(savedMethodName)) {
+                    comboBox.getSelectionModel().select(method);
+                    Platform.runLater(() -> {
+                        scriptContentBox.getChildren().clear();
+                        scriptContentBox.setStyle("-fx-border-color: black; -fx-border-width: 1; -fx-background-color: #495449;");
+                        method.provideUIOptions(scriptContentBox);
+                        scriptContentBox.setAlignment(Pos.TOP_CENTER);
+                        Stage stage = null;
+                        if (getScene() != null && getScene().getWindow() instanceof Stage) {
+                            stage = (Stage) getScene().getWindow();
+                            stage.sizeToScene();
+                        }
+                    });
+                    break;
+                }
+            }
+        }
+    }
 }
