@@ -19,10 +19,16 @@ import javafx.util.StringConverter;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.util.prefs.Preferences;
 
 public class ScriptOptions extends VBox {
 
+    private static final String PREF_SELECTED_BAR = "aioanvil_selected_bar";
+    private static final String PREF_SELECTED_PRODUCT = "aioanvil_selected_product";
+
     public static final Color MENU_COLOR_BACKGROUND = new Color(58, 65, 66);
+    private final Preferences prefs = Preferences.userNodeForPackage(ScriptOptions.class);
+
     private final ComboBox<Integer> productComboBox;
     private final ComboBox<Integer> barComboBox;
 
@@ -33,6 +39,9 @@ public class ScriptOptions extends VBox {
         Label label = new Label("Select type of bar to use");
         barComboBox = createItemCombobox(script, Bar.getIDValues());
         productComboBox = createItemCombobox(script, new Integer[0]);
+
+        // Load previous settings if they exist
+        loadPreferences(script);
 
         barComboBox.setOnAction(actionEvent -> {
             Integer selectedBarID = barComboBox.getSelectionModel().getSelectedItem();
@@ -64,9 +73,51 @@ public class ScriptOptions extends VBox {
                 return;
             }
             //stage.close();
+            savePreferences();
             ((Stage) button.getScene().getWindow()).close();
         });
         getChildren().addAll(label, barComboBox, productComboBox, button);
+    }
+
+    private void loadPreferences(ScriptCore core) {
+        int savedBar = prefs.getInt(PREF_SELECTED_BAR, -1);
+        int savedProduct = prefs.getInt(PREF_SELECTED_PRODUCT, -1);
+
+        if (savedBar != -1) {
+            barComboBox.getSelectionModel().select(savedBar);
+
+            // Now simulate bar selection to populate product combobox
+            int barIndex = 0;
+            for (int i = 0; i < Bar.values().length; i++) {
+                if (Bar.values()[i].getItemID() == savedBar) {
+                    barIndex = i;
+                    break;
+                }
+            }
+
+            Integer[] products = new Integer[Product.values().length];
+            for (int i = 0; i < Product.values().length; i++) {
+                products[i] = Product.values()[i].getIds()[barIndex];
+            }
+
+            productComboBox.getItems().clear();
+            productComboBox.getItems().addAll(products);
+
+            if (savedProduct != -1) {
+                productComboBox.getSelectionModel().select(savedProduct);
+            }
+        }
+    }
+
+    private void savePreferences() {
+        Integer selectedBar = barComboBox.getSelectionModel().getSelectedItem();
+        Integer selectedProduct = productComboBox.getSelectionModel().getSelectedItem();
+        if (selectedBar != null) {
+            prefs.putInt(PREF_SELECTED_BAR, selectedBar);
+        }
+        if (selectedProduct != null) {
+            prefs.putInt(PREF_SELECTED_PRODUCT, selectedProduct);
+        }
     }
 
     public static ImageView getUIImage(ScriptCore core, int itemID) {
