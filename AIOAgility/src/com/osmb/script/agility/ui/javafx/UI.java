@@ -44,6 +44,7 @@ public class UI {
     private CheckBox foodCheckbox;
 
     private int foodID = -1;
+    private VBox foodBox;
 
     public int getFoodID() {
         return foodID;
@@ -120,7 +121,7 @@ public class UI {
         eatHigh.setPrefWidth(40);
         hBox2.getChildren().addAll(eatBetweenLabel, eatLow, eatBetweenLabel2, eatHigh);
 
-        VBox foodBox = new VBox(hBox, hBox2);
+        foodBox = new VBox(hBox, hBox2);
         foodBox.setSpacing(10);
 
         foodCheckbox = new CheckBox("Use food");
@@ -157,9 +158,11 @@ public class UI {
         int high = prefs.getInt(PREF_EAT_HIGH, 80);
 
         foodCheckbox.setSelected(useFood);
+        foodBox.setDisable(!useFood);
         eatLow.setText(String.valueOf(low));
         eatHigh.setText(String.valueOf(high));
         foodImageView.setImage(JavaFXUtils.getItemImageView(core, foodID).getImage());
+
     }
 
     private void savePreferences() {

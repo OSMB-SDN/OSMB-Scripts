@@ -12,6 +12,8 @@ import com.osmb.script.agility.ObstacleHandleResponse;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
+import java.util.List;
+
 public class Varrock implements Course {
 
     private static final Area START_AREA = new RectangleArea(3221, 3413, 5, 5, 0);
@@ -19,7 +21,7 @@ public class Varrock implements Course {
     private static final Area AREA_2 = new RectangleArea(3201, 3413, 7, 7, 3);
     private static final Area AREA_3 = new RectangleArea(3194, 3416, 3, 0, 1);
     private static final Area AREA_4 = new RectangleArea(3192, 3402, 6, 4, 3);
-    private static final PolyArea AREA_5 = new PolyArea(new int[][]{{3181, 3382}, {3181, 3399}, {3201, 3399}, {3201, 3404}, {3209, 3404}, {3209, 3395}, {3190, 3382}}, 3);
+    private static final PolyArea AREA_5 = new PolyArea(List.of(new WorldPosition(3181, 3382,3), new WorldPosition(3181, 3399,3), new WorldPosition(3201, 3399,3), new WorldPosition(3201, 3404,3), new WorldPosition(3209, 3404,3), new WorldPosition(3209, 3395,3), new WorldPosition(3190, 3382,3)));
     private static final Area AREA_6 = new RectangleArea(3218, 3393, 14, 10, 3);
     private static final Area AREA_7 = new RectangleArea(3236, 3403, 4, 5, 3);
     private static final Area AREA_8 = new RectangleArea(3236, 3410, 4, 5, 3);

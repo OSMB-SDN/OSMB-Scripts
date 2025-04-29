@@ -316,13 +316,17 @@ public class AIOAgility extends Script {
         this.eatLow = ui.getEatLow();
         this.hitpointsToEat = random(eatLow, eatHigh);
         this.nextRunActivate = random(30, 70);
-        int foodItemID = ui.getFoodID();
+        if(ui.shouldUseFood()) {
+            int foodItemID = ui.getFoodID();
 
-        this.multiConsumable = MultiConsumable.getMultiConsumable(foodItemID);
-        if (multiConsumable != null) {
-            this.foodItemID = multiConsumable.getItemIDs();
-        } else if (foodItemID != -1) {
-            this.foodItemID = new int[]{foodItemID};
+            this.multiConsumable = MultiConsumable.getMultiConsumable(foodItemID);
+            if (multiConsumable != null) {
+                this.foodItemID = multiConsumable.getItemIDs();
+            } else if (foodItemID != -1) {
+                this.foodItemID = new int[]{foodItemID};
+            }
+        } else {
+            this.foodItemID = null;
         }
 
     }
