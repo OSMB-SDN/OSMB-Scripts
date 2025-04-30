@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ArtifactsWorkspaceSettings">
+    <artifacts-to-build>
+      <artifact name="AIOFletcher:jar" />
+    </artifacts-to-build>
+  </component>
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="3c446d61-4568-4907-aa89-bd552b904950" name="Changes" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Enum" />
+        <option value="Class" />
+        <option value="Interface" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3
+}</component>
+  <component name="ProjectId" id="2oHP70RSOQHLAIdCyUjewHTf7vR" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Application.DialogPanelExample.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "ignore.virus.scanning.warn.message": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "C:/Users/joeta/OneDrive/Desktop/PC backup/IdeaProjects/AIOFletcher",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "Modules",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.2",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RunManager">
+    <configuration name="DialogPanelExample" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="com.osmb.script.fletching.javafx.DialogPanelExample" />
+      <module name="AIOFletcher" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.osmb.script.fletching.javafx.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Application.DialogPanelExample" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-a94e463ab2e7-intellij.indexing.shared.core-IU-243.26053.27" />
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-IU-243.26053.27" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="3c446d61-4568-4907-aa89-bd552b904950" name="Changes" comment="" />
+      <created>1730523356528</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1730523356528</updated>
+      <workItem from="1730523357553" duration="8009000" />
+      <workItem from="1730683559110" duration="2962000" />
+      <workItem from="1730686530004" duration="1961000" />
+      <workItem from="1730690145845" duration="4196000" />
+      <workItem from="1730697313692" duration="302000" />
+      <workItem from="1730697619862" duration="5422000" />
+      <workItem from="1730752957354" duration="923000" />
+      <workItem from="1730756857638" duration="2045000" />
+      <workItem from="1730764082472" duration="2700000" />
+      <workItem from="1730769695051" duration="609000" />
+      <workItem from="1730773266327" duration="9011000" />
+      <workItem from="1730786748623" duration="142000" />
+      <workItem from="1730786896450" duration="8237000" />
+      <workItem from="1730827737920" duration="9209000" />
+      <workItem from="1730838108600" duration="5464000" />
+      <workItem from="1730858704086" duration="9910000" />
+      <workItem from="1733365560166" duration="714000" />
+      <workItem from="1736302698378" duration="2444000" />
+      <workItem from="1736305636998" duration="248000" />
+      <workItem from="1736305890917" duration="924000" />
+      <workItem from="1736306826163" duration="6448000" />
+      <workItem from="1736359487296" duration="4541000" />
+      <workItem from="1736388486145" duration="649000" />
+      <workItem from="1736395117991" duration="3222000" />
+      <workItem from="1736402223439" duration="17142000" />
+      <workItem from="1736507058388" duration="320000" />
+      <workItem from="1736507384063" duration="8488000" />
+      <workItem from="1736517808718" duration="1684000" />
+      <workItem from="1736519629233" duration="9677000" />
+      <workItem from="1736564209926" duration="2257000" />
+      <workItem from="1736566599374" duration="81000" />
+      <workItem from="1736566686073" duration="1103000" />
+      <workItem from="1736567794402" duration="5466000" />
+      <workItem from="1736625083280" duration="812000" />
+      <workItem from="1736626533855" duration="10506000" />
+      <workItem from="1736764637229" duration="14476000" />
+      <workItem from="1736875057992" duration="3398000" />
+      <workItem from="1736932740943" duration="2716000" />
+      <workItem from="1736973622982" duration="7782000" />
+      <workItem from="1737105951399" duration="3734000" />
+      <workItem from="1737642954521" duration="823000" />
+      <workItem from="1737647816669" duration="427000" />
+      <workItem from="1737649984621" duration="2657000" />
+      <workItem from="1737675028930" duration="2479000" />
+      <workItem from="1737762886162" duration="8000" />
+      <workItem from="1737859441779" duration="5602000" />
+      <workItem from="1738341450485" duration="3867000" />
+      <workItem from="1738704906575" duration="3962000" />
+      <workItem from="1739114793731" duration="175000" />
+      <workItem from="1739114976752" duration="11290000" />
+      <workItem from="1740016806675" duration="599000" />
+      <workItem from="1740045128925" duration="1656000" />
+      <workItem from="1740876302270" duration="2752000" />
+      <workItem from="1741026452026" duration="743000" />
+      <workItem from="1741144147586" duration="2999000" />
+      <workItem from="1742906767135" duration="10992000" />
+      <workItem from="1743792714339" duration="1079000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>

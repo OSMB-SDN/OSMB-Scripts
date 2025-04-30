@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/AIOAgility/AIOAgility.iml" filepath="$PROJECT_DIR$/AIOAgility/AIOAgility.iml" />
+      <module fileurl="file://$PROJECT_DIR$/AIOAnvil/AIOAnvil.iml" filepath="$PROJECT_DIR$/AIOAnvil/AIOAnvil.iml" />
+      <module fileurl="file://$PROJECT_DIR$/AIOCrafter/AIOCrafter.iml" filepath="$PROJECT_DIR$/AIOCrafter/AIOCrafter.iml" />
+      <module fileurl="file://$PROJECT_DIR$/AIOFletcher/AIOFletcher.iml" filepath="$PROJECT_DIR$/AIOFletcher/AIOFletcher.iml" />
+      <module fileurl="file://$PROJECT_DIR$/AIOPotionMaker/AIOPotionMaker.iml" filepath="$PROJECT_DIR$/AIOPotionMaker/AIOPotionMaker.iml" />
+      <module fileurl="file://$PROJECT_DIR$/BonfireMaker/BonfireMaker.iml" filepath="$PROJECT_DIR$/BonfireMaker/BonfireMaker.iml" />
+      <module fileurl="file://$PROJECT_DIR$/CharterCrafting/CharterCrafting.iml" filepath="$PROJECT_DIR$/CharterCrafting/CharterCrafting.iml" />
+      <module fileurl="file://$PROJECT_DIR$/MasterFarmerThiever/MasterFarmerThiever.iml" filepath="$PROJECT_DIR$/MasterFarmerThiever/MasterFarmerThiever.iml" />
+      <module fileurl="file://$PROJECT_DIR$/MotherloadMine/MotherloadMine.iml" filepath="$PROJECT_DIR$/MotherloadMine/MotherloadMine.iml" />
+      <module fileurl="file://$PROJECT_DIR$/NightmareZone/NightmareZone.iml" filepath="$PROJECT_DIR$/NightmareZone/NightmareZone.iml" />
+      <module fileurl="file://$PROJECT_DIR$/OSMB Scripts.iml" filepath="$PROJECT_DIR$/OSMB Scripts.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Pickpocketer/Pickpocketer.iml" filepath="$PROJECT_DIR$/Pickpocketer/Pickpocketer.iml" />
+      <module fileurl="file://$PROJECT_DIR$/PlaygroundScript/PlaygroundScript.iml" filepath="$PROJECT_DIR$/PlaygroundScript/PlaygroundScript.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Wintertodt/Wintertodt.iml" filepath="$PROJECT_DIR$/Wintertodt/Wintertodt.iml" />
+    </modules>
+  </component>
+</project>

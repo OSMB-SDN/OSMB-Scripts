@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ArtifactsWorkspaceSettings">
+    <artifacts-to-build>
+      <artifact name="AIOAgility:jar" />
+    </artifacts-to-build>
+  </component>
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="3deb6fd8-eb63-40a0-9cca-8afc465b87c0" name="Changes" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Class" />
+      </list>
+    </option>
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="jar://$PROJECT_DIR$/../OSMBProject/out/artifacts/OSMBProject/API.jar!/com/osmb/api/item/ItemID.class" root0="SKIP_INSPECTION" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7
+}</component>
+  <component name="ProjectId" id="2pmKLxX6zocqA1S1WDDzMJ1Am4k" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Application.AIOAgility.executor": "Run",
+    "Application.ImageSearcher.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "ignore.virus.scanning.warn.message": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "C:/Users/joeta/OneDrive/Desktop/PC backup/IdeaProjects/AIOAnvil",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "Artifacts",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.2",
+    "settings.editor.selected.configurable": "reference.settingsdialog.IDE.editor.colors.General",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\joeta\Desktop\IdeaProjects\AIOAgil\src" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Application.AIOAgility">
+    <configuration name="AIOAgility" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="com.osmb.script.agility.AIOAgility" />
+      <module name="AIOAgility" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.osmb.script.agility.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="ImageSearcher" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="com.osmb.script.agility.ImageSearcher" />
+      <module name="AIOAgility" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.osmb.script.agility.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Application.AIOAgility" />
+        <item itemvalue="Application.ImageSearcher" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-a94e463ab2e7-intellij.indexing.shared.core-IU-243.26053.27" />
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-IU-243.26053.27" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="3deb6fd8-eb63-40a0-9cca-8afc465b87c0" name="Changes" comment="" />
+      <created>1733365758977</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1733365758977</updated>
+      <workItem from="1733365759987" duration="5110000" />
+      <workItem from="1733874514708" duration="1201000" />
+      <workItem from="1734315379180" duration="652000" />
+      <workItem from="1734319547760" duration="2003000" />
+      <workItem from="1734321604841" duration="2846000" />
+      <workItem from="1732737120538" duration="598000" />
+      <workItem from="1734686296000" duration="372000" />
+      <workItem from="1734686890822" duration="595000" />
+      <workItem from="1734705735354" duration="4052000" />
+      <workItem from="1734999457890" duration="719000" />
+      <workItem from="1735000185343" duration="758000" />
+      <workItem from="1735000951062" duration="568000" />
+      <workItem from="1735001540263" duration="4275000" />
+      <workItem from="1735054660930" duration="8260000" />
+      <workItem from="1735591549210" duration="3297000" />
+      <workItem from="1735601934713" duration="30055000" />
+      <workItem from="1736033635281" duration="6758000" />
+      <workItem from="1736138155100" duration="7296000" />
+      <workItem from="1736445212836" duration="1950000" />
+      <workItem from="1736645040254" duration="35036000" />
+      <workItem from="1736875061281" duration="665000" />
+      <workItem from="1736903894088" duration="2009000" />
+      <workItem from="1736907310929" duration="609000" />
+      <workItem from="1737106160630" duration="146000" />
+      <workItem from="1737655726760" duration="3164000" />
+      <workItem from="1737859480483" duration="110000" />
+      <workItem from="1737899955009" duration="27024000" />
+      <workItem from="1738115346206" duration="3785000" />
+      <workItem from="1738330694587" duration="2133000" />
+      <workItem from="1738550819487" duration="1212000" />
+      <workItem from="1738667627609" duration="875000" />
+      <workItem from="1738699079775" duration="2774000" />
+      <workItem from="1738705186015" duration="3105000" />
+      <workItem from="1738714800744" duration="613000" />
+      <workItem from="1738715419331" duration="8665000" />
+      <workItem from="1739038318428" duration="1880000" />
+      <workItem from="1739214638776" duration="12524000" />
+      <workItem from="1740031905620" duration="1008000" />
+      <workItem from="1740045120802" duration="2180000" />
+      <workItem from="1740457953833" duration="865000" />
+      <workItem from="1740541985851" duration="3551000" />
+      <workItem from="1740653058263" duration="4863000" />
+      <workItem from="1741028571384" duration="11334000" />
+      <workItem from="1741138612529" duration="10816000" />
+      <workItem from="1741305376089" duration="1382000" />
+      <workItem from="1741468653290" duration="3182000" />
+      <workItem from="1742045606672" duration="9059000" />
+      <workItem from="1742239519211" duration="20726000" />
+      <workItem from="1743157608809" duration="1832000" />
+      <workItem from="1743348016117" duration="2017000" />
+      <workItem from="1743350165975" duration="11441000" />
+      <workItem from="1743466237957" duration="1580000" />
+      <workItem from="1743971229851" duration="6727000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
