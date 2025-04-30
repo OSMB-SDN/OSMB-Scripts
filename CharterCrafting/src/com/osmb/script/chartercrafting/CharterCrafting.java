@@ -3,7 +3,6 @@ package com.osmb.script.chartercrafting;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.location.area.Area;
-import com.osmb.api.location.position.types.LocalPosition;
 import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.scene.RSObject;
 import com.osmb.api.scene.RSTile;
@@ -46,6 +45,43 @@ public class CharterCrafting extends Script {
     private static final SearchablePixel SELECTED_HIGHLIGHT_COLOR = new SearchablePixel(-2171877, TOLERANCE_COMPARATOR_2, ColorModel.RGB);
     private static final ToleranceComparator TOLERANCE_COMPARATOR = new SingleThresholdComparator(3);
     private Dock selectedDock;
+    // Find bank and open it
+    private final Predicate<RSObject> bankQuery = gameObject -> {
+        // if object has no name
+        String name = gameObject.getName();
+
+        if (name == null) {
+            return false;
+        }
+
+
+        if (selectedDock == Dock.CORSAIR_COVE) {
+            // handle closed bank
+            if (gameObject.getWorldX() != 2569 || gameObject.getWorldY() != 2865) {
+                return false;
+            }
+            if (!name.equalsIgnoreCase("Closed booth")) {
+                return false;
+            }
+
+        } else {
+            // has no interact options (eg. bank, open etc.)
+            if (gameObject.getActions() == null) {
+                return false;
+            }
+
+            if (!Arrays.stream(BANK_NAMES).anyMatch(bankName -> bankName.equalsIgnoreCase(name))) {
+                return false;
+            }
+
+            // if no actions contain bank or open
+            if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
+                return false;
+            }
+        }
+        // final check is if the object is reachable
+        return gameObject.canReach();
+    };
     private ShopInterface shopInterface;
     private GlassBlowingItem selectedGlassBlowingItem;
     private Method selectedMethod;
@@ -181,47 +217,33 @@ public class CharterCrafting extends Script {
             return;
         }
         List<WorldPosition> npcPositions = npcPositionsResult.asList();
+
+        // remove positions which aren't in the wander area
         npcPositions.removeIf(worldPosition -> !selectedDock.getWanderArea().contains(worldPosition));
 
+        // get tile cubes for positions & scan for npc pixels
         List<WorldPosition> validNPCPositions = getValidNPCPositions(npcPositions);
         if (validNPCPositions.isEmpty()) {
             // walk to the furthest if there is none visible on screen
             walkToFurthestNPC(myPosition, npcPositions);
             return;
         }
-        // interact
+
+        // interact - get closest position from valid npc's
         WorldPosition closestPosition = (WorldPosition) Utils.getClosestPosition(myPosition, validNPCPositions.toArray(new WorldPosition[0]));
+
+        // create a cube poly
         Polygon cubePoly = getSceneProjector().getTileCube(closestPosition, 130);
         if (cubePoly == null) {
             return;
         }
-
-        // highlights aren't working for charter npc's idk why. but this is how you would do it if not & works sooo much better.
-//        Rectangle highlightBounds = getUtils().getHighlightBounds(cubePoly, highlightColor, SELECTED_HIGHLIGHT_COLOR);
-//        if (highlightBounds == null) {
-//            log(CharterCrafting.class, "No highlight bounds!");
-//            return;
-//        }
-//        if(!getFinger().tap(highlightBounds, "Trade")) {
-//            return;
-//        }
-
-        // Search for npc's pixels instead of highlight pixels
-        List<Point> pixels = List.of();
-        for (NPC npc : npcs) {
-            pixels = getPixelAnalyzer().findPixels(cubePoly, npc.getSearchablePixels());
-            if (!pixels.isEmpty()) {
-                break;
-            }
-        }
-        if (pixels.isEmpty()) {
-            return;
-        }
+        //shrink the poly towards the center, this will make it more accurate to the npc - you can check this with the tile picking in the debug tool (scale).
+        cubePoly = cubePoly.getResized(0.5);
         // tap one of the pixels
-        if (!getFinger().tap(pixels.get(random(pixels.size())), "trade trader crewmember")) {
+        if (!getFinger().tap(cubePoly, "trade trader crewmember")) {
             return;
         }
-
+        // wait for shop interface + human reaction time after
         submitHumanTask(() -> shopInterface.isVisible(), random(6000, 9000));
     }
 
@@ -518,43 +540,6 @@ public class CharterCrafting extends Script {
             submitHumanTask(() -> getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION, random(2000, 7000));
         }
     }
-    // Find bank and open it
-    private final Predicate<RSObject> bankQuery = gameObject -> {
-        // if object has no name
-        String name = gameObject.getName();
-
-        if (name == null) {
-            return false;
-        }
-
-
-        if (selectedDock == Dock.CORSAIR_COVE) {
-            // handle closed bank
-            if (gameObject.getWorldX() != 2569 || gameObject.getWorldY() != 2865) {
-                return false;
-            }
-            if (!name.equalsIgnoreCase("Closed booth")) {
-                return false;
-            }
-
-        } else {
-            // has no interact options (eg. bank, open etc.)
-            if (gameObject.getActions() == null) {
-                return false;
-            }
-
-            if (!Arrays.stream(BANK_NAMES).anyMatch(bankName -> bankName.equalsIgnoreCase(name))) {
-                return false;
-            }
-
-            // if no actions contain bank or open
-            if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
-                return false;
-            }
-        }
-        // final check is if the object is reachable
-        return gameObject.canReach();
-    };
 
     private void openBank() {
         log(getClass().getSimpleName(), "Searching for a bank...");
@@ -800,6 +785,17 @@ public class CharterCrafting extends Script {
             }
             // check for highlight pixel
             for (NPC npc : npcs) {
+
+//  -------------- highlights aren't working for charter npc's idk why. but this is how you would do it if not & works sooo much better.
+//                Rectangle highlightBounds = getUtils().getHighlightBounds(poly, highlightColor, SELECTED_HIGHLIGHT_COLOR);
+//                if (highlightBounds == null) {
+//                    log(CharterCrafting.class, "No highlight bounds!");
+//                    return;
+//                }
+//                if (!getFinger().tap(highlightBounds, "Trade")) {
+//                    return;
+//                }
+
                 if (getPixelAnalyzer().findPixel(poly, npc.getSearchablePixels()) != null) {
                     // add to our separate list if we find the npc's pixels inside the tile cube
                     validPositions.add(position);
