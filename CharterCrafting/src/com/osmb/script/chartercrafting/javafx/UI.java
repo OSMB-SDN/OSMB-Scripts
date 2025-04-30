@@ -73,7 +73,7 @@ public class UI extends VBox {
         getChildren().add(itemLabel);
         itemToMakeComboBox = JavaFXUtils.createItemCombobox(core, GlassBlowingItem.getItemIds());
 
-        int savedItemId = prefs.getInt(PREF_SELECTED_ITEM, GlassBlowingItem.GLASS_ORB.getItemId());
+        int savedItemId = prefs.getInt(PREF_SELECTED_ITEM, GlassBlowingItem.BEER_GLASS.getItemId());
         for (Integer id : GlassBlowingItem.getItemIds()) {
             if (id == savedItemId) {
                 itemToMakeComboBox.getSelectionModel().select(id);

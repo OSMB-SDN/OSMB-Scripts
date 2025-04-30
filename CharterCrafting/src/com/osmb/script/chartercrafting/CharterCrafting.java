@@ -196,10 +196,13 @@ public class CharterCrafting extends Script {
             return;
         }
 
-        // highlights aren't working for charter npc's idk why
+        // highlights aren't working for charter npc's idk why. but this is how you would do it if not & works sooo much better.
 //        Rectangle highlightBounds = getUtils().getHighlightBounds(cubePoly, highlightColor, SELECTED_HIGHLIGHT_COLOR);
 //        if (highlightBounds == null) {
 //            log(CharterCrafting.class, "No highlight bounds!");
+//            return;
+//        }
+//        if(!getFinger().tap(highlightBounds, "Trade")) {
 //            return;
 //        }
 
