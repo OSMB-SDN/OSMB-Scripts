@@ -171,46 +171,22 @@ public class CharterCrafting extends Script {
 
         if (!selectedDock.getWanderArea().contains(myPosition)) {
             // walk to area
-            log(CharterCrafting.class, "Walking to npc area...");
-            WorldPosition randomPos = selectedDock.getWanderArea().getRandomPosition();
-            WalkConfig.Builder walkConfig = new WalkConfig.Builder();
-            walkConfig.breakCondition(() -> {
-                WorldPosition myPosition2 = getWorldPosition();
-                if (myPosition2 == null) {
-                    log(CharterCrafting.class, "Position is null!");
-                    return false;
-                }
-                return selectedDock.getWanderArea().contains(myPosition2);
-            });
-            getWalker().walkTo(randomPos, walkConfig.build());
+            walkToNPCWanderArea();
             return;
         }
 
-        UIResultList<WorldPosition> npcPositions = getWidgetManager().getMinimap().getNPCPositions();
-        if (npcPositions.isNotVisible()) {
-            return;
-        }
-        if (npcPositions.isNotFound()) {
+        UIResultList<WorldPosition> npcPositionsResult = getWidgetManager().getMinimap().getNPCPositions();
+        if (npcPositionsResult.isNotFound()) {
             log(getClass().getSimpleName(), "No NPC's found nearby...");
             return;
         }
+        List<WorldPosition> npcPositions = npcPositionsResult.asList();
+        npcPositions.removeIf(worldPosition -> !selectedDock.getWanderArea().contains(worldPosition));
+
         List<WorldPosition> validNPCPositions = getValidNPCPositions(npcPositions);
         if (validNPCPositions.isEmpty()) {
-            // walk to furthest if none are visible on screen
-            WorldPosition furthestNPCPosition = getFurthestNPC(myPosition, npcPositions);
-            if (furthestNPCPosition == null) {
-                log(CharterCrafting.class, "Furthest npc position is null");
-                return;
-            }
-            WalkConfig.Builder walkConfig = new WalkConfig.Builder();
-            walkConfig.breakCondition(() -> {
-                RSTile tile = getSceneManager().getTile(furthestNPCPosition);
-                if (tile == null) {
-                    return false;
-                }
-                return tile.isOnGameScreen();
-            });
-            getWalker().walkTo(furthestNPCPosition, walkConfig.build());
+            // walk to the furthest if there is none visible on screen
+            walkToFurthestNPC(myPosition, npcPositions);
             return;
         }
         // interact
@@ -219,12 +195,14 @@ public class CharterCrafting extends Script {
         if (cubePoly == null) {
             return;
         }
+
         // highlights aren't working for charter npc's idk why
 //        Rectangle highlightBounds = getUtils().getHighlightBounds(cubePoly, highlightColor, SELECTED_HIGHLIGHT_COLOR);
 //        if (highlightBounds == null) {
 //            log(CharterCrafting.class, "No highlight bounds!");
 //            return;
 //        }
+
         // Search for npc's pixels instead of highlight pixels
         List<Point> pixels = List.of();
         for (NPC npc : npcs) {
@@ -236,6 +214,7 @@ public class CharterCrafting extends Script {
         if (pixels.isEmpty()) {
             return;
         }
+        // tap one of the pixels
         if (!getFinger().tap(pixels.get(random(pixels.size())), "trade trader crewmember")) {
             return;
         }
@@ -243,12 +222,42 @@ public class CharterCrafting extends Script {
         submitHumanTask(() -> shopInterface.isVisible(), random(6000, 9000));
     }
 
-    private WorldPosition getFurthestNPC(WorldPosition myPosition, UIResultList<WorldPosition> npcPositions) {
-        // instantiate an arraylist as asList returns an unmodifiable list.
-        List<WorldPosition> positionList = new ArrayList<>(npcPositions.asList());
-        positionList.removeIf(position -> !selectedDock.getWanderArea().contains(position));
+    private void walkToFurthestNPC(WorldPosition myPosition, List<WorldPosition> npcPositions) {
+        WorldPosition furthestNPCPosition = getFurthestNPC(myPosition, npcPositions);
+        if (furthestNPCPosition == null) {
+            log(CharterCrafting.class, "Furthest npc position is null");
+            return;
+        }
+        WalkConfig.Builder walkConfig = new WalkConfig.Builder();
+        walkConfig.breakCondition(() -> {
+            // break out when they are on screen, so we're not breaking out when we reach the specific tile... looks a lot more fluent
+            RSTile tile = getSceneManager().getTile(furthestNPCPosition);
+            if (tile == null) {
+                return false;
+            }
+            return tile.isOnGameScreen();
+        });
+        getWalker().walkTo(furthestNPCPosition, walkConfig.build());
+    }
+
+    private void walkToNPCWanderArea() {
+        log(CharterCrafting.class, "Walking to npc area...");
+        WorldPosition randomPos = selectedDock.getWanderArea().getRandomPosition();
+        WalkConfig.Builder walkConfig = new WalkConfig.Builder();
+        walkConfig.breakCondition(() -> {
+            WorldPosition myPosition2 = getWorldPosition();
+            if (myPosition2 == null) {
+                log(CharterCrafting.class, "Position is null!");
+                return false;
+            }
+            return selectedDock.getWanderArea().contains(myPosition2);
+        });
+        getWalker().walkTo(randomPos, walkConfig.build());
+    }
+
+    private WorldPosition getFurthestNPC(WorldPosition myPosition, List<WorldPosition> npcPositions) {
         // get furthest npc
-        return positionList.stream().max(Comparator.comparingDouble(npc -> npc.distanceTo(myPosition))).orElse(null);
+        return npcPositions.stream().max(Comparator.comparingDouble(npc -> npc.distanceTo(myPosition))).orElse(null);
     }
 
     private boolean shouldOpenShop(UIResultList<ItemSearchResult> bucketOfSand, UIResultList<ItemSearchResult> combinationItem, int freeSlots) {
@@ -774,30 +783,27 @@ public class CharterCrafting extends Script {
         return false;
     }
 
-    private List<WorldPosition> getValidNPCPositions(UIResultList<WorldPosition> npcPositions) {
+    private List<WorldPosition> getValidNPCPositions(List<WorldPosition> npcPositions) {
         List<WorldPosition> validPositions = new ArrayList<>();
         npcPositions.forEach(position -> {
             // check if npc is in wander area
             if (!selectedDock.getWanderArea().contains(position)) {
                 return;
             }
-            // convert to local
-            LocalPosition localPosition = position.toLocalPosition(this);
-            // get poly for position
-            Polygon poly = getSceneProjector().getTileCube(localPosition.getX(), localPosition.getY(), localPosition.getPlane(), 150);
+            // create a tile cube, we will analyse this for the npc's pixels
+            Polygon poly = getSceneProjector().getTileCube(position, 150);
             if (poly == null) {
                 return;
             }
-            poly = poly.getResized(1.5);
             // check for highlight pixel
             for (NPC npc : npcs) {
                 if (getPixelAnalyzer().findPixel(poly, npc.getSearchablePixels()) != null) {
+                    // add to our separate list if we find the npc's pixels inside the tile cube
                     validPositions.add(position);
                     getScreen().getDrawableCanvas().drawPolygon(poly.getXPoints(), poly.getYPoints(), poly.numVertices(), Color.GREEN.getRGB(), 1);
                     break;
                 }
             }
-
         });
         return validPositions;
     }
