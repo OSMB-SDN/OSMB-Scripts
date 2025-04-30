@@ -31,9 +31,8 @@ bin/
 /Pickpocketer/
 /.idea/artifacts/
 # IntelliJ IDEA
-.idea/
-*.iml
 *.iws
+*.jar
 *.ipr
 *.ids
 *.orig
