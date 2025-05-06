@@ -23,7 +23,7 @@ public class AIOHerblore extends Script {
     public static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 6;
 
     // names of possible banks
-    public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
+    public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth", "Bank counter", "Bank table"};
     public static final String[] BANK_ACTIONS = {"bank", "open"};
     private PotionMixer selectedPotionMixer;
     private boolean bank = false;

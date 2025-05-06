@@ -32,7 +32,7 @@ public class AIOCrafter extends Script {
     public static final Color MENU_COLOR_BACKGROUND = new Color(58, 65, 66);
 
     // names of possible banks
-    public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
+    public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth", "Bank counter", "Bank table"};
     public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
     private final Predicate<RSObject> bankQuery = gameObject -> {
         // if object has no name
