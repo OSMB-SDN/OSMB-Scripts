@@ -113,15 +113,6 @@ public class StringBows extends Method {
         }
     }
 
-    private boolean depositIfNotEqualsAmount(AIOFletcher script, UIResultList<ItemSearchResult> items, int amount) {
-        if (items.size() <= amount) {
-            return true;
-        }
-        int amountToDeposit = items.size() - amount;
-        // just deposit all if too many as we want to use withdraw X anyways in the script
-        return script.getWidgetManager().getBank().deposit(items.get(0).getId(), amountToDeposit);
-    }
-
     @Override
     public String getMethodName() {
         return "String bows";
