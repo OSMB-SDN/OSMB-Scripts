@@ -12,12 +12,13 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
+import java.util.HashSet;
 import java.util.Set;
 
 public class CutGems extends Method {
     ComboBox<ItemIdentifier> itemComboBox;
     private Gem selectedGem;
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of(ItemID.CHISEL);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.CHISEL));
     private ItemGroupResult inventorySnapshot;
 
     public CutGems(AIOCrafter script) {

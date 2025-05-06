@@ -40,13 +40,13 @@ public class MotherloadMine extends Script {
 
     public static final int RESPAWN_CIRCLE_HEIGHT = 160;
     public static final int BLACKLIST_TIMEOUT = 15000;
-    public static final Set<Integer> ITEM_IDS_TO_NOT_DEPOSIT = Set.of(
+    public static final Set<Integer> ITEM_IDS_TO_NOT_DEPOSIT = new HashSet<>(Set.of(
             ItemID.PAYDIRT, ItemID.BRONZE_PICKAXE, ItemID.IRON_PICKAXE,
             ItemID.STEEL_PICKAXE, ItemID.BLACK_PICKAXE, ItemID.MITHRIL_PICKAXE,
             ItemID.ADAMANT_PICKAXE, ItemID.RUNE_PICKAXE, ItemID.DRAGON_PICKAXE,
             ItemID.DRAGON_PICKAXE_OR, ItemID.CRYSTAL_PICKAXE, ItemID.INFERNAL_PICKAXE,
             ItemID.INFERNAL_PICKAXE_OR
-    );
+    ));
     public static final Predicate<RSObject> LADDER_QUERY = (rsObject) -> {
         String name = rsObject.getName();
         if (name == null) {
@@ -168,7 +168,7 @@ public class MotherloadMine extends Script {
             new WorldPosition(3756, 5676, 0),
             new WorldPosition(3757, 5676, 0),
             new WorldPosition(3758, 5676, 0)));
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of(ItemID.PAYDIRT, ItemID.HAMMER);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.PAYDIRT, ItemID.HAMMER));
     /**
      * This is used as a failsafe to temporarily block interacting with a vein if the respawn circle isn't visible but the object is.
      * For example. The object is half on the game screen, but the respawn circle isn't (covered by a UI component etc.)
@@ -219,15 +219,15 @@ public class MotherloadMine extends Script {
         this.sackOverlay = new SackOverlay(this);
         this.selectedMineArea = MineArea.TOP;
 
-        for (int ore : ORES) {
-            this.ITEM_IDS_TO_RECOGNISE.add(ore);
+        for (Integer ore : ORES) {
+            ITEM_IDS_TO_RECOGNISE.add(ore);
         }
 
         for (int pickaxe : ITEM_IDS_TO_NOT_DEPOSIT) {
             if (ITEM_IDS_TO_RECOGNISE.contains(pickaxe)) {
                 continue;
             }
-            this.ITEM_IDS_TO_RECOGNISE.add(pickaxe);
+            ITEM_IDS_TO_RECOGNISE.add(pickaxe);
         }
     }
 

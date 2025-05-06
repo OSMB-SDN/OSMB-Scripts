@@ -45,7 +45,7 @@ public class CharterCrafting extends Script {
     private static final ToleranceComparator TOLERANCE_COMPARATOR_2 = new SingleThresholdComparator(5);
     private static final SearchablePixel SELECTED_HIGHLIGHT_COLOR = new SearchablePixel(-2171877, TOLERANCE_COMPARATOR_2, ColorModel.RGB);
     private static final ToleranceComparator TOLERANCE_COMPARATOR = new SingleThresholdComparator(3);
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of(ItemID.GLASSBLOWING_PIPE, ItemID.MOLTEN_GLASS, ItemID.BUCKET_OF_SAND, ItemID.SODA_ASH, ItemID.SEAWEED);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.GLASSBLOWING_PIPE, ItemID.MOLTEN_GLASS, ItemID.BUCKET_OF_SAND, ItemID.SODA_ASH, ItemID.SEAWEED));
     private Dock selectedDock;
     // Find bank and open it
     private final Predicate<RSObject> bankQuery = gameObject -> {

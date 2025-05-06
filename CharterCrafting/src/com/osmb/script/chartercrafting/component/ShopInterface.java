@@ -147,4 +147,9 @@ public class ShopInterface extends ComponentCentered implements ItemGroup {
     public Rectangle getGroupBounds() {
         return getBounds();
     }
+
+    @Override
+    public ScriptCore getCore() {
+        return core;
+    }
 }

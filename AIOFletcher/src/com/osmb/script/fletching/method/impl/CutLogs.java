@@ -12,12 +12,13 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
+import java.util.HashSet;
 import java.util.Set;
 
 public class CutLogs extends Method {
 
 
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of(ItemID.KNIFE);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.KNIFE));
     private Log selectedLog;
     private Product itemToCreate;
     private ComboBox<Integer> logComboBox;

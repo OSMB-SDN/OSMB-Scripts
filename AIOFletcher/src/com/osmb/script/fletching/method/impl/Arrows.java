@@ -13,6 +13,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -20,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class Arrows extends Method {
 
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of();
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of());
     private int amountChangeTimeoutSeconds;
     private Arrow selectedArrow;
     private ComboBox<ItemIdentifier> itemComboBox;

@@ -14,15 +14,12 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 
 public class StringBows extends Method {
 
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of(ItemID.BOW_STRING);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.BOW_STRING));
     private Bow selectedBow;
     private ComboBox<ItemIdentifier> itemComboBox;
     private ItemGroupResult inventorySnapshot;
@@ -76,8 +73,6 @@ public class StringBows extends Method {
         }
         // work out how many slots per item
         int targetAmount = 28 / 2;
-
-        // if we have the correct amount of items
 
         // if supplies not found in bank, then stop the script
         if (!bankSnapshot.contains(ItemID.BOW_STRING) || !bankSnapshot.contains(selectedBow.getUnfinishedID())) {

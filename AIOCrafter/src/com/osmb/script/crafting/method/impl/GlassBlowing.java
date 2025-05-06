@@ -14,12 +14,13 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
 public class GlassBlowing extends Method {
 
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of(ItemID.GLASSBLOWING_PIPE, ItemID.MOLTEN_GLASS);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.GLASSBLOWING_PIPE, ItemID.MOLTEN_GLASS));
     private ItemIdentifier itemToMake;
     private ComboBox<ItemIdentifier> itemComboBox;
     private ItemGroupResult inventorySnapshot;

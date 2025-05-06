@@ -13,12 +13,13 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
+import java.util.HashSet;
 import java.util.Set;
 
 
 public class CraftHide extends Method {
 
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of(ItemID.COSTUME_NEEDLE, ItemID.THREAD, ItemID.NEEDLE);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.COSTUME_NEEDLE, ItemID.THREAD, ItemID.NEEDLE));
     private Product itemToMake = null;
     private int hideID;
     private ComboBox<ItemIdentifier> hideComboBox;

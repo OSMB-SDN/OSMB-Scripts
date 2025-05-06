@@ -17,10 +17,7 @@ import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.walker.WalkConfig;
 import javafx.scene.Scene;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -61,7 +58,7 @@ public class BonfireMaker extends Script {
     private String logName;
     private boolean forceNewPosition = false;
     private ItemGroupResult inventorySnapshot;
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of(ItemID.TINDERBOX);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.TINDERBOX));
 
     public BonfireMaker(Object scriptCore) {
         super(scriptCore);
