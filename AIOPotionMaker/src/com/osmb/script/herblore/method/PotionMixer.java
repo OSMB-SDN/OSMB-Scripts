@@ -1,14 +1,11 @@
 package com.osmb.script.herblore.method;
 
-import com.osmb.api.definition.ItemDefinition;
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.ui.GameState;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
-import com.osmb.api.utils.Result;
-import com.osmb.api.utils.UIResult;
-import com.osmb.api.utils.UIResultList;
 import com.osmb.api.utils.timing.Timer;
-import com.osmb.script.herblore.AIOHerblore;
+import com.osmb.script.herblore.AIOPotionMaker;
 import com.osmb.script.herblore.data.Ingredient;
 import com.osmb.script.herblore.data.ItemIdentifier;
 import com.osmb.script.herblore.data.Potion;
@@ -21,21 +18,22 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.osmb.script.herblore.AIOHerblore.AMOUNT_CHANGE_TIMEOUT_SECONDS;
+import static com.osmb.script.herblore.AIOPotionMaker.AMOUNT_CHANGE_TIMEOUT_SECONDS;
 
 public class PotionMixer {
-    public final AIOHerblore script;
+    public final AIOPotionMaker script;
     private final String name;
     private final Potion[] values;
     private Potion selectedPotion;
     private ComboBox<ItemIdentifier> itemComboBox;
+    private ItemGroupResult inventorySnapshot;
 
     /**
      * @param script
      * @param name   - The name of the potion mixer
      * @param values - The potions that the method provides
      */
-    public PotionMixer(AIOHerblore script, String name, Potion[] values) {
+    public PotionMixer(AIOPotionMaker script, String name, Potion[] values) {
         this.script = script;
         this.name = name;
         this.values = values;
@@ -46,37 +44,44 @@ public class PotionMixer {
         return name;
     }
 
-    public int poll() {
+    public void poll() {
         // if item action dialogue is visible, select which item
         DialogueType dialogueType = script.getWidgetManager().getDialogue().getDialogueType();
         if (dialogueType == DialogueType.ITEM_OPTION) {
-            int[] dialogueIds = new int[selectedPotion.getIngredients().length + 1];
-            for (int i = 0; i < selectedPotion.getIngredients().length; i++) {
-                dialogueIds[i] = selectedPotion.getIngredients()[i].getItemID();
-            }
-            dialogueIds[dialogueIds.length - 1] = selectedPotion.getItemID();
-
-            boolean selectedOption = script.getWidgetManager().getDialogue().selectItem(dialogueIds);
-            if (!selectedOption) {
-                script.log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
-            } else {
-                waitUntilFinishedProducing(selectedPotion.getIngredients());
-                return 0;
-            }
+            interactWithItemDialogue();
+            return;
+        }
+        inventorySnapshot = script.getWidgetManager().getInventory().search(selectedPotion.getIngredientIds());
+        if(inventorySnapshot == null) {
+            return;
         }
         // calculate how many slots it takes to make a single potion
         Boolean hasIngredients = hasIngredients();
-        if (hasIngredients == null) {
-            script.log(PotionMixer.class, "Inventory isn't visible..");
-            return 0;
-        } else if (hasIngredients) {
+        if (hasIngredients) {
             script.log(PotionMixer.class, "We have ingredients...");
             mixPotions(selectedPotion.getIngredients());
         } else {
             script.log(PotionMixer.class, "We have no ingredients... banking!");
             script.setBank(true);
         }
-        return 0;
+    }
+
+    private boolean interactWithItemDialogue() {
+        script.log(PotionMixer.class, "Interacting with item dialogue");
+        int[] dialogueIds = new int[selectedPotion.getIngredients().length + 1];
+        for (int i = 0; i < selectedPotion.getIngredients().length; i++) {
+            dialogueIds[i] = selectedPotion.getIngredients()[i].getItemID();
+        }
+        dialogueIds[dialogueIds.length - 1] = selectedPotion.getItemID();
+
+        boolean selectedOption = script.getWidgetManager().getDialogue().selectItem(dialogueIds);
+        if (!selectedOption) {
+            script.log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
+        } else {
+            waitUntilFinishedProducing(selectedPotion.getIngredients());
+            return true;
+        }
+        return false;
     }
 
 
@@ -85,17 +90,9 @@ public class PotionMixer {
         for (int i = 0; i < ingredients.length; i++) {
             Ingredient ingredient = ingredients[i];
             if (!script.getItemManager().isStackable(ingredient.getItemID())) {
-                UIResultList<ItemSearchResult> items = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), ingredient.getItemID());
-                if (!checkItemResult(items)) {
-                    return;
-                }
-                ingredientResults[i] = items.getRandom();
+                ingredientResults[i] = inventorySnapshot.getRandomItem(ingredient.getItemID());
             } else {
-                UIResult<ItemSearchResult> items = script.getItemManager().findItem(script.getWidgetManager().getInventory(), ingredient.getItemID());
-                if (!checkItemResult(items)) {
-                    return;
-                }
-                ingredientResults[i] = items.get();
+                ingredientResults[i] = inventorySnapshot.getItem(ingredient.getItemID());
             }
         }
         Ingredient mandatoryIngredient = null;
@@ -132,21 +129,11 @@ public class PotionMixer {
         Ingredient[] ingredientsList = selectedPotion.getIngredients();
         for (Ingredient ingredient : ingredientsList) {
             if (script.getItemManager().isStackable(ingredient.getItemID())) {
-                UIResult<ItemSearchResult> ingredientsInventory = script.getItemManager().findItem(script.getWidgetManager().getInventory(), ingredient.getItemID());
-                if (ingredientsInventory.isNotVisible()) {
-                    script.log(PotionMixer.class, "Inventory not visible");
-                    return null;
-                }
-                if (ingredientsInventory.isNotFound()) {
+                if (!inventorySnapshot.contains(ingredient.getItemID())) {
                     return false;
                 }
             } else {
-                UIResultList<ItemSearchResult> ingredientsInventory = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), ingredient.getItemID());
-                if (ingredientsInventory.isNotVisible()) {
-                    script.log(PotionMixer.class, "Inventory not visible");
-                    return null;
-                }
-                if (ingredientsInventory.size() < ingredient.getAmount()) {
+                if (inventorySnapshot.getAmount(ingredient.getItemID()) < ingredient.getAmount()) {
                     return false;
                 }
             }
@@ -172,29 +159,31 @@ public class PotionMixer {
     public void onGamestateChanged(GameState gameState) {
     }
 
-    private int[] getItemsToNotDeposit() {
+    private Set<Integer> getItemsToNotDeposit() {
         Ingredient[] ingredients = selectedPotion.getIngredients();
         List<Ingredient> ingredientsList = Arrays.asList(ingredients);
         ingredients = ingredientsList.toArray(new Ingredient[0]);
 
-        int[] itemsToIgnore = new int[ingredients.length];
+        Set<Integer> itemsToIgnore = new HashSet<>();
 
-        for (int i = 0; i < ingredients.length; i++) {
-            itemsToIgnore[i] = ingredients[i].getItemID();
+        for (Ingredient ingredient : ingredients) {
+            itemsToIgnore.add(ingredient.getItemID());
         }
         return itemsToIgnore;
     }
 
-    public int handleBankInterface() {
-        int[] itemsToIgnore = getItemsToNotDeposit();
+    public void handleBankInterface() {
+        Set<Integer> itemsToIgnore = getItemsToNotDeposit();
 
         if (!script.getWidgetManager().getBank().depositAll(itemsToIgnore)) {
-            return 0;
+            return;
         }
 
-        Optional<Integer> freeSlotsInventory = script.getItemManager().getFreeSlotsInteger(script.getWidgetManager().getInventory(), itemsToIgnore);
-        if (!freeSlotsInventory.isPresent()) {
-            return 0;
+        ItemGroupResult bankSnapshot = script.getWidgetManager().getBank().search(selectedPotion.getIngredientIds());
+        inventorySnapshot = script.getWidgetManager().getInventory().search(selectedPotion.getIngredientIds());
+
+        if (bankSnapshot == null || inventorySnapshot == null) {
+            return;
         }
 
 
@@ -211,21 +200,19 @@ public class PotionMixer {
         }
 
         // work out how many potions we can make
-        int amountOfPotions = (freeSlotsInventory.get() - stackableIngredients) / slotsPerPotion;
+        int amountOfPotions = (inventorySnapshot.getFreeSlots() - stackableIngredients) / slotsPerPotion;
 
         List<BankEntry> bankEntries = new ArrayList<>();
         // go over and check if we have too many
         for (Ingredient ingredient : ingredientsList) {
-            UIResultList<ItemSearchResult> ingredientsInventory = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), ingredient.getItemID());
-            if (ingredientsInventory.isNotVisible()) {
-                // inventory not visible
-                return 0;
-            }
             if (script.getItemManager().isStackable(ingredient.getItemID())) {
-                if (ingredientsInventory.isEmpty() || ingredientsInventory.get(0).getStackAmount() < ingredient.getAmount()) {
+
+                ItemSearchResult stackableIngredient = inventorySnapshot.getItem(ingredient.getItemID());
+                if (stackableIngredient == null || stackableIngredient.getStackAmount() < ingredient.getAmount()) {
                     bankEntries.add(new BankEntry(ingredient.getItemID(), Integer.MAX_VALUE));
                 }
             } else {
+                Set<ItemSearchResult> ingredientsInventory = inventorySnapshot.getAllOfItem(ingredient.getItemID());
                 int inventoryAmount = ingredientsInventory.size();
                 int amountNeeded = (ingredient.getAmount() * amountOfPotions) - inventoryAmount;
                 if (amountNeeded == 0) continue;
@@ -247,30 +234,6 @@ public class PotionMixer {
                 script.getWidgetManager().getBank().deposit(bankEntry.itemID, bankEntry.amount);
             }
         }
-        return 0;
-    }
-
-    private Optional<Integer> getItemAmount(Ingredient ingredient) {
-        ItemDefinition def = script.getItemManager().getItemDefinition(ingredient.getItemID());
-        if (def.stackable == 0) {
-            UIResultList<ItemSearchResult> items = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), ingredient.getItemID());
-            if (items.isNotVisible()) {
-                return Optional.empty();
-            }
-            if (items.isNotFound()) {
-                return Optional.of(0);
-            }
-            return Optional.of(items.size());
-        } else {
-            UIResult<ItemSearchResult> items = script.getItemManager().findItem(script.getWidgetManager().getInventory(), ingredient.getItemID());
-            if (items.isNotVisible()) {
-                return Optional.empty();
-            }
-            if (items.isNotFound()) {
-                return Optional.of(0);
-            }
-            return Optional.of(items.get().getStackAmount());
-        }
     }
 
     public boolean interactAndWaitForDialogue(ItemSearchResult item1, ItemSearchResult item2) {
@@ -286,17 +249,6 @@ public class PotionMixer {
             }, 3000);
         }
         return false;
-    }
-
-    public boolean checkItemResult(Result uiResult) {
-        if (uiResult.isNotVisible()) {
-            return false;
-        }
-        if (uiResult.isNotFound()) {
-            script.setBank(true);
-            return false;
-        }
-        return true;
     }
 
     public void waitUntilFinishedProducing(Ingredient... resources) {
@@ -321,28 +273,21 @@ public class PotionMixer {
             if (amountChangeTimer.timeElapsed() > TimeUnit.SECONDS.toMillis(AMOUNT_CHANGE_TIMEOUT_SECONDS)) {
                 return true;
             }
-            if (!script.getWidgetManager().getInventory().open()) {
+
+            inventorySnapshot = script.getWidgetManager().getInventory().search(selectedPotion.getIngredientIds());
+            if (inventorySnapshot == null) {
                 return false;
             }
-
             for (Ingredient resource : resources) {
-                ItemDefinition def = script.getItemManager().getItemDefinition(resource.getItemID());
-                if (def == null) {
-                    throw new RuntimeException("Definition is null for ID: " + resource);
-                }
-                int amount;
-                if (def.stackable == 0) {
-                    UIResultList<ItemSearchResult> resourceResult = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), resource.getItemID());
-                    if (resourceResult.isNotFound()) {
-                        return false;
+                int amount = 0;
+                ItemSearchResult ingredientResult = inventorySnapshot.getItem(resource.getItemID());
+                if (script.getItemManager().isStackable(resource.getItemID())) {
+                    ItemSearchResult itemResult = inventorySnapshot.getItem(resource.getItemID());
+                    if (itemResult != null) {
+                        amount = ingredientResult.getStackAmount();
                     }
-                    amount = resourceResult.size();
                 } else {
-                    UIResult<ItemSearchResult> resourceResult = script.getItemManager().findItem(script.getWidgetManager().getInventory(), resource.getItemID());
-                    if (!resourceResult.isFound()) {
-                        return false;
-                    }
-                    amount = resourceResult.get().getStackAmount();
+                    amount = inventorySnapshot.getAmount(resource.getItemID());
                 }
                 if (amount == 0) {
                     return true;
@@ -354,7 +299,7 @@ public class PotionMixer {
                 }
             }
             return false;
-        }, 60000, true, false, true);
+        }, 60000, false, true);
     }
 
     enum Task {

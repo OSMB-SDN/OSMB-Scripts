@@ -1,5 +1,6 @@
 package com.osmb.script.agility;
 
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.location.area.Area;
@@ -15,7 +16,6 @@ import com.osmb.api.ui.component.chatbox.ChatboxComponent;
 import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
-import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Stopwatch;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.visual.SearchablePixel;
@@ -28,10 +28,9 @@ import com.osmb.script.agility.courses.pollnivneach.Pollnivneach;
 import com.osmb.script.agility.ui.javafx.UI;
 import javafx.scene.Scene;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 @ScriptDefinition(name = "AIO Agility", author = "Joe", version = 1.0, description = "Provides support over a range of agility courses.", skillCategory = SkillCategory.AGILITY)
 public class AIOAgility extends Script {
@@ -43,6 +42,7 @@ public class AIOAgility extends Script {
     private static final int[] ITEMS_TO_IGNORE = new int[]{ItemID.MARK_OF_GRACE, ItemID.LAW_RUNE, ItemID.AIR_RUNE, ItemID.FIRE_RUNE};
     private static final WorldPosition ARDY_MOG_POS = new WorldPosition(2657, 3318, 3);
     private static final WorldPosition POLL_MOG_POS = new WorldPosition(3359, 2983, 2);
+    private static boolean handlingObstacle = false;
     private final Stopwatch eatBlockTimer = new Stopwatch();
     private Course selectedCourse;
     private int[] foodItemID = null;
@@ -52,10 +52,7 @@ public class AIOAgility extends Script {
     private int nextRunActivate;
     private int noMovementTimeout = RandomUtils.weightedRandom(3000, 6000);
     private MultiConsumable multiConsumable = null;
-
-    // to handle the osrs glitch where the position doesn't update
-    private int failThreshold = random(2, 3);
-    private int failCount = 0;
+    private ItemGroupResult inventorySnapshot;
 
     public AIOAgility(Object object) {
         super(object);
@@ -102,19 +99,23 @@ public class AIOAgility extends Script {
             if (core.getPixelAnalyzer().findPixel(tilePoly, MOG_PIXELS_GOLD) == null || core.getPixelAnalyzer().findPixel(tilePoly, MOG_PIXELS_RED) == null) {
                 continue;
             }
-            UIResult<ItemSearchResult> mog = core.getItemManager().findItem(core.getWidgetManager().getInventory(), ItemID.MARK_OF_GRACE);
-            if (mog.isNotFound()) {
+            Set<Integer> itemsToRecognise = new HashSet<>();
+            for (int foodId : core.foodItemID) {
+                itemsToRecognise.add(foodId);
+            }
+            itemsToRecognise.add(ItemID.MARK_OF_GRACE);
+            ItemGroupResult inventorySnapshot = core.getWidgetManager().getInventory().search(itemsToRecognise);
+            if (inventorySnapshot == null) {
+                return false;
+            }
+            if (!inventorySnapshot.contains(ItemID.MARK_OF_GRACE)) {
                 // check if we have free spaces
-                Optional<Integer> freeSlots = core.getItemManager().getFreeSlotsInteger(core.getWidgetManager().getInventory());
-                if (freeSlots.isPresent() && freeSlots.get() <= 0) {
+                if (inventorySnapshot.isFull()) {
                     core.log(AIOAgility.class.getSimpleName(), "MOG Found but no inventory slots free in the inventory...");
-                    UIResultList<ItemSearchResult> food = core.getItemManager().findAllOfItem(core.getWidgetManager().getInventory(), core.foodItemID);
-                    if (food.isNotVisible()) {
-                        return false;
-                    }
-                    if (!food.isEmpty()) {
+                    ItemSearchResult food = inventorySnapshot.getRandomItem(core.foodItemID);
+                    if (food != null) {
                         core.log(AIOAgility.class.getSimpleName(), "Eating food to make space for MOG!");
-                        if (!food.getRandom().interact("eat", "drink")) {
+                        if (!food.interact("eat", "drink")) {
                             return false;
                         }
                     } else {
@@ -125,7 +126,6 @@ public class AIOAgility extends Script {
             }
             core.log(AIOAgility.class.getSimpleName(), "Attempting to interact with MOG");
             if (core.getFinger().tapGameScreen(tilePoly, "Take mark of grace")) {
-
                 // sleep until we picked up the mark
                 core.submitHumanTask(() -> {
                     WorldPosition position = core.getWorldPosition();
@@ -225,6 +225,7 @@ public class AIOAgility extends Script {
         }
         RSObject object = result.get();
         if (object.interact(menuOption)) {
+            AIOAgility.handlingObstacle = true;
             core.log(AIOAgility.class.getSimpleName(), "Interacted successfully, sleeping until conditions are met...");
             Timer noMovementTimer = new Timer();
             AtomicReference<WorldPosition> previousPosition = new AtomicReference<>();
@@ -247,8 +248,6 @@ public class AIOAgility extends Script {
                     if (currentPos.equals(previousPosition.get())) {
                         if (noMovementTimer.timeElapsed() > core.noMovementTimeout) {
                             core.noMovementTimeout = RandomUtils.weightedRandom(2000, 6000);
-                            core.printFail();
-                            core.failCount++;
                             return true;
                         }
                     } else {
@@ -265,33 +264,23 @@ public class AIOAgility extends Script {
                     return false;
                 }
                 if (end instanceof Area area) {
-                    if (area.contains(currentPos)) {
-                        core.failThreshold = Utils.random(2, 3);
-                        return true;
-                    }
+                    return area.contains(currentPos);
                 } else if (end instanceof Position pos) {
-                    if (currentPos.equals(pos)) {
-                        core.failThreshold = Utils.random(2, 3);
-                        return true;
-                    }
+                    return currentPos.equals(pos);
                 }
                 return false;
             }, timeout)) {
+                handlingObstacle = false;
                 return ObstacleHandleResponse.SUCCESS;
             } else {
-                core.failCount++;
-                core.printFail();
+                handlingObstacle = false;
                 return ObstacleHandleResponse.TIMEOUT;
             }
         } else {
             core.log(AIOAgility.class.getSimpleName(), "ERROR: Failed interacting with obstacle (" + obstacleName + ").");
-            core.failCount++;
+            handlingObstacle = false;
             return ObstacleHandleResponse.FAILED_INTERACTION;
         }
-    }
-
-    private void printFail() {
-        log(AIOAgility.class, "Failed to handle obstacle. Fail count: " + failCount + "/" + failThreshold);
     }
 
     @Override
@@ -316,7 +305,7 @@ public class AIOAgility extends Script {
         this.eatLow = ui.getEatLow();
         this.hitpointsToEat = random(eatLow, eatHigh);
         this.nextRunActivate = random(30, 70);
-        if(ui.shouldUseFood()) {
+        if (ui.shouldUseFood()) {
             int foodItemID = ui.getFoodID();
 
             this.multiConsumable = MultiConsumable.getMultiConsumable(foodItemID);
@@ -332,12 +321,6 @@ public class AIOAgility extends Script {
     }
 
     @Override
-    public int onRelog() {
-        failCount = 0;
-        return 0;
-    }
-
-    @Override
     public int poll() {
         // handle eating food & banking
         if (getWidgetManager().getBank().isVisible()) {
@@ -348,20 +331,20 @@ public class AIOAgility extends Script {
             }
             return 0;
         }
-        if (failCount > failThreshold) {
-            log(AIOAgility.class, "Failed object multiple times. Relogging.");
-            getWidgetManager().getLogoutTab().logout();
-            return 0;
-        }
+
         if (foodItemID != null) {
             UIResult<Integer> hpOpt = getWidgetManager().getMinimapOrbs().getHitpointsPercentage();
             if (!hpOpt.isFound()) {
                 log(getClass().getSimpleName(), "Hitpoints orb not visible...");
                 return 0;
             }
-            UIResultList<ItemSearchResult> food = getItemManager().findAllOfItem(getWidgetManager().getInventory(), foodItemID);
+            Set<Integer> itemIdsToRecognise = Arrays.stream(foodItemID).boxed().collect(Collectors.toSet());
+            inventorySnapshot = getWidgetManager().getInventory().search(itemIdsToRecognise);
+            if (inventorySnapshot == null) {
+                return 0;
+            }
             // walk to bank to restock, stop script if course doesn't have a bank
-            if (food.isEmpty()) {
+            if (!inventorySnapshot.containsAny(foodItemID)) {
                 // if on the ground floor
                 WorldPosition position = getWorldPosition();
                 if (position != null && position.getPlane() == 0) {
@@ -375,16 +358,16 @@ public class AIOAgility extends Script {
                         return 0;
                     }
                 }
-            } else if (food.isFound()) {
+            } else {
                 int hitpoints = hpOpt.get();
                 log(getClass().getSimpleName(), "Hitpoints: " + hitpoints + "%" + " Block timer finished: " + eatBlockTimer.hasFinished() + " Eating at: " + hitpoints + "%");
                 if (hitpoints <= hitpointsToEat && eatBlockTimer.hasFinished()) {
                     // eat food
-                    ItemSearchResult foodToEat = null;
+                    ItemSearchResult foodToEat;
                     if (multiConsumable != null) {
-                        foodToEat = MultiConsumable.getSmallestConsumable(multiConsumable, food);
+                        foodToEat = MultiConsumable.getSmallestConsumable(multiConsumable, inventorySnapshot.getAllOfItems(foodItemID));
                     } else {
-                        foodToEat = food.getRandom();
+                        foodToEat = inventorySnapshot.getRandomItem(foodItemID);
                     }
                     foodToEat.interact();
                     eatBlockTimer.reset(3000);
@@ -457,29 +440,48 @@ public class AIOAgility extends Script {
      */
     private void handleBankInterface() {
         if (this.foodItemID == null) {
+            getWidgetManager().getBank().close();
             return;
         }
-        int[] itemsToIgnore = new int[ITEMS_TO_IGNORE.length + this.foodItemID.length];
-        System.arraycopy(ITEMS_TO_IGNORE, 0, itemsToIgnore, 0, ITEMS_TO_IGNORE.length);
-        for (int i = 0; i < foodItemID.length; i++) {
-            itemsToIgnore[ITEMS_TO_IGNORE.length + i] = foodItemID[i];
+        Set<Integer> itemsToIgnore = new HashSet<>();
+        for (int itemToIgnore_ : ITEMS_TO_IGNORE) {
+            itemsToIgnore.add(itemToIgnore_);
         }
-
+        for (int foodItemID : foodItemID) {
+            itemsToIgnore.add(foodItemID);
+        }
         if (!getWidgetManager().getBank().depositAll(itemsToIgnore)) {
             return;
         }
-        UIResult<ItemSearchResult> foodInBank = getItemManager().findItem(getWidgetManager().getBank(), foodItemID);
-        if (foodInBank.isNotVisible()) {
+        Set<Integer> itemIdsToRecognise = Arrays.stream(foodItemID).boxed().collect(Collectors.toSet());
+        ItemGroupResult bankSnapshot = getWidgetManager().getBank().search(itemIdsToRecognise);
+        inventorySnapshot = getWidgetManager().getInventory().search(itemIdsToRecognise);
+        if (bankSnapshot == null || inventorySnapshot == null) {
             return;
         }
-        if (foodInBank.get() == null) {
-            log(getClass().getSimpleName(), "No food left in the bank, stopping script...");
-            stop();
-            return;
+        if (inventorySnapshot.isFull()) {
+            getWidgetManager().getBank().close();
+        } else {
+            if (!bankSnapshot.containsAny(foodItemID)) {
+                log(getClass().getSimpleName(), "No food left in the bank, stopping script...");
+                stop();
+            } else {
+                getWidgetManager().getBank().withdraw(foodItemID[0], Integer.MAX_VALUE);
+            }
         }
-        getWidgetManager().getBank().withdraw(foodItemID[0], 100);
+
     }
 
+
+    @Override
+    public boolean canBreak() {
+        return !handlingObstacle;
+    }
+
+    @Override
+    public boolean canHopWorlds() {
+        return !handlingObstacle;
+    }
 
     @Override
     public int[] regionsToPrioritise() {

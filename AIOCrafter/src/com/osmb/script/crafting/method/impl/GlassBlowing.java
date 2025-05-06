@@ -1,9 +1,9 @@
 package com.osmb.script.crafting.method.impl;
 
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
-import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
 import com.osmb.script.crafting.AIOCrafter;
 import com.osmb.script.crafting.data.GlassBlowingItem;
@@ -15,28 +15,34 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
 import java.util.Optional;
+import java.util.Set;
 
 public class GlassBlowing extends Method {
 
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of(ItemID.GLASSBLOWING_PIPE, ItemID.MOLTEN_GLASS);
     private ItemIdentifier itemToMake;
-
     private ComboBox<ItemIdentifier> itemComboBox;
+    private ItemGroupResult inventorySnapshot;
 
     public GlassBlowing(AIOCrafter script) {
         super(script);
     }
 
     @Override
-    public int poll() {
-        UIResult<ItemSearchResult> pipe = script.getItemManager().findItem(script.getWidgetManager().getInventory(), ItemID.GLASSBLOWING_PIPE);
-        UIResultList<ItemSearchResult> moltenGlass = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), ItemID.MOLTEN_GLASS);
-        if (pipe.isNotFound()) {
+    public void poll() {
+        inventorySnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        if(inventorySnapshot == null) {
+            // inventory is not visible - re-poll
+            return;
+        }
+        if (!inventorySnapshot.contains(ItemID.GLASSBLOWING_PIPE)) {
             script.log(getClass().getSimpleName(), "No Glassblowing pipe found in the inventory, stopping script...");
             script.stop();
-            return 0;
+            return;
         }
-        if (!checkItemResult(pipe) || !checkItemResult(moltenGlass)) {
-            return 0;
+        if(!inventorySnapshot.contains(ItemID.MOLTEN_GLASS)) {
+            script.setBank(true);
+            return;
         }
 
         DialogueType dialogueType = script.getWidgetManager().getDialogue().getDialogueType();
@@ -45,45 +51,38 @@ public class GlassBlowing extends Method {
                 boolean selectedOption = script.getWidgetManager().getDialogue().selectItem(itemToMake.getItemID());
                 if (!selectedOption) {
                     script.log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
-                    return 0;
+                    return;
                 }
                 waitUntilFinishedProducing(ItemID.MOLTEN_GLASS);
-                return 0;
+                return;
             }
         }
-        interactAndWaitForDialogue(pipe.get(), moltenGlass.getRandom());
-        return 0;
+        interactAndWaitForDialogue(inventorySnapshot.getItem(ItemID.GLASSBLOWING_PIPE), inventorySnapshot.getRandomItem(ItemID.MOLTEN_GLASS));
     }
 
     @Override
-    public int handleBankInterface() {
-        // bank everything, ignoring gems and chisel
-        if (!script.getWidgetManager().getBank().depositAll(new int[]{ItemID.MOLTEN_GLASS, ItemID.GLASSBLOWING_PIPE})) {
-            return 0;
+    public void handleBankInterface() {
+        // bank everything, ignoring molten glass and pipe
+        if (!script.getWidgetManager().getBank().depositAll(ITEM_IDS_TO_RECOGNISE)) {
+            return;
         }
-        UIResultList<ItemSearchResult> moltenGlassInventory = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), ItemID.MOLTEN_GLASS);
-        Optional<Integer> freeItemSlots = script.getItemManager().getFreeSlotsInteger(script.getWidgetManager().getInventory());
-        // if no free slots & gems are in the inventory, banking is finished
+        inventorySnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        ItemGroupResult bankSnapshot = script.getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
+        if (bankSnapshot == null || inventorySnapshot == null) {
+            // either not visible - shouldn't happen but good practice to have this check
+            return;
+        }
 
-        if (freeItemSlots.isEmpty() || moltenGlassInventory.isNotVisible()) {
-            return 0;
-        }
-        if (freeItemSlots.get() == 0 && moltenGlassInventory.isFound()) {
+        if (inventorySnapshot.isFull()) {
             script.getWidgetManager().getBank().close();
-            return 0;
+        } else {
+            if(bankSnapshot.contains(ItemID.MOLTEN_GLASS)) {
+                script.getWidgetManager().getBank().withdraw(ItemID.MOLTEN_GLASS, Integer.MAX_VALUE);
+            } else {
+                script.log(getClass().getSimpleName(), "No molten glass found in bank, stopping script.");
+                script.stop();
+            }
         }
-        UIResultList<ItemSearchResult> moltenGlassBank = script.getItemManager().findAllOfItem(script.getWidgetManager().getBank(), ItemID.MOLTEN_GLASS);
-        if (moltenGlassBank.isNotVisible()) {
-            return 0;
-        }
-        if (moltenGlassBank.isNotFound()) {
-            script.log(getClass().getSimpleName(), "No gems found in bank, stopping script.");
-            script.stop();
-            return 0;
-        }
-        // withdraw gems
-        script.getWidgetManager().getBank().withdraw(ItemID.MOLTEN_GLASS, Integer.MAX_VALUE);
-        return 0;
     }
 
     @Override

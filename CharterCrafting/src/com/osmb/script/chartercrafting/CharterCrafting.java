@@ -1,5 +1,6 @@
 package com.osmb.script.chartercrafting;
 
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.location.area.Area;
@@ -44,6 +45,7 @@ public class CharterCrafting extends Script {
     private static final ToleranceComparator TOLERANCE_COMPARATOR_2 = new SingleThresholdComparator(5);
     private static final SearchablePixel SELECTED_HIGHLIGHT_COLOR = new SearchablePixel(-2171877, TOLERANCE_COMPARATOR_2, ColorModel.RGB);
     private static final ToleranceComparator TOLERANCE_COMPARATOR = new SingleThresholdComparator(3);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of(ItemID.GLASSBLOWING_PIPE, ItemID.MOLTEN_GLASS, ItemID.BUCKET_OF_SAND, ItemID.SODA_ASH, ItemID.SEAWEED);
     private Dock selectedDock;
     // Find bank and open it
     private final Predicate<RSObject> bankQuery = gameObject -> {
@@ -90,6 +92,8 @@ public class CharterCrafting extends Script {
     private SearchablePixel highlightColor;
     private boolean hopFlag = false;
     private List<NPC> npcs;
+    private ItemGroupResult inventorySnapshot;
+    private int combinationItemID;
 
     public CharterCrafting(Object scriptCore) {
         super(scriptCore);
@@ -128,6 +132,9 @@ public class CharterCrafting extends Script {
         this.selectedMethod = ui.getSelectedMethod();
         this.selectedGlassBlowingItem = ui.getSelectedGlassBlowingItem();
         this.highlightColor = new SearchablePixel(-14221313, TOLERANCE_COMPARATOR, ColorModel.RGB);
+
+        ITEM_IDS_TO_RECOGNISE.add(selectedGlassBlowingItem.getItemId());
+        combinationItemID = selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH;
     }
 
     @Override
@@ -147,35 +154,25 @@ public class CharterCrafting extends Script {
             handleShopInterface();
             return 0;
         }
+        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        if (inventorySnapshot == null) {
+            // inventory not visible - re-poll
+            return 0;
+        }
         if (selectedMethod != Method.BUY_AND_BANK) {
-            UIResultList<ItemSearchResult> moltenGlass = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.MOLTEN_GLASS);
-            UIResult<ItemSearchResult> glassblowingPipe = getItemManager().findItem(getWidgetManager().getInventory(), ItemID.GLASSBLOWING_PIPE);
-            if (moltenGlass.isNotVisible() || glassblowingPipe.isNotVisible()) {
-                log(CharterCrafting.class, "Inventory not visible...");
-                return 0;
-            }
-            if (glassblowingPipe.isNotFound()) {
+            if (!inventorySnapshot.contains(ItemID.GLASSBLOWING_PIPE)) {
                 log(CharterCrafting.class, "No glassblowing pipe found.");
                 stop();
                 return 0;
             }
-            if (!moltenGlass.isEmpty() && glassblowingPipe.isFound()) {
+            if (inventorySnapshot.contains(ItemID.MOLTEN_GLASS)) {
                 log(CharterCrafting.class, "Crafting molten glass...");
-                craftMoltenGlass(glassblowingPipe, moltenGlass);
+                craftMoltenGlass(inventorySnapshot.getItem(ItemID.GLASSBLOWING_PIPE), inventorySnapshot.getRandomItem(ItemID.MOLTEN_GLASS));
                 return 0;
             }
         }
 
-        UIResultList<ItemSearchResult> combinationItem = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH);
-        UIResultList<ItemSearchResult> bucketOfSand = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BUCKET_OF_SAND);
-
-        Optional<Integer> freeSlots = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory());
-
-        if (combinationItem.isNotVisible() || bucketOfSand.isNotVisible() || freeSlots.isEmpty()) {
-            log(CharterCrafting.class, "Inventory not visible...");
-            return 0;
-        }
-        if (shouldOpenShop(bucketOfSand, combinationItem, freeSlots.get())) {
+        if (shouldOpenShop(inventorySnapshot)) {
             if (hopFlag) {
                 log(CharterCrafting.class, "Hopping worlds");
                 hopWorlds();
@@ -239,7 +236,8 @@ public class CharterCrafting extends Script {
         }
         //shrink the poly towards the center, this will make it more accurate to the npc - you can check this with the tile picking in the debug tool (scale).
         cubePoly = cubePoly.getResized(0.5);
-        // tap one of the pixels
+
+        // tap inside the poly
         if (!getFinger().tap(cubePoly, "trade trader crewmember")) {
             return;
         }
@@ -285,15 +283,17 @@ public class CharterCrafting extends Script {
         return npcPositions.stream().max(Comparator.comparingDouble(npc -> npc.distanceTo(myPosition))).orElse(null);
     }
 
-    private boolean shouldOpenShop(UIResultList<ItemSearchResult> bucketOfSand, UIResultList<ItemSearchResult> combinationItem, int freeSlots) {
+    private boolean shouldOpenShop(ItemGroupResult inventorySnapshot) {
         return switch (selectedMethod) {
-            case BUY_AND_BANK -> freeSlots >= 2;
-            case BUY_AND_FURNACE_CRAFT -> bucketOfSand.isEmpty() || combinationItem.isEmpty() || freeSlots >= 2;
-            case SUPER_GLASS_MAKE -> bucketOfSand.isEmpty() || combinationItem.isEmpty();
+            case BUY_AND_BANK -> inventorySnapshot.getFreeSlots() >= 2;
+            case BUY_AND_FURNACE_CRAFT ->
+                    !inventorySnapshot.contains(ItemID.BUCKET_OF_SAND) || !inventorySnapshot.contains(combinationItemID) || inventorySnapshot.getFreeSlots() >= 2;
+            case SUPER_GLASS_MAKE ->
+                    !inventorySnapshot.contains(ItemID.BUCKET_OF_SAND) || !inventorySnapshot.contains(combinationItemID);
         };
     }
 
-    private void craftMoltenGlass(UIResult<ItemSearchResult> glassblowingPipe, UIResultList<ItemSearchResult> moltenGlass) {
+    private void craftMoltenGlass(ItemSearchResult glassblowingPipe, ItemSearchResult moltenGlass) {
         log(CharterCrafting.class, "Crafting Molten glass...");
         WorldPosition myPosition = getWorldPosition();
         if (myPosition == null) {
@@ -303,39 +303,33 @@ public class CharterCrafting extends Script {
         if (wanderArea.contains(myPosition)) {
             craft(glassblowingPipe, moltenGlass, Integer.MAX_VALUE);
         } else {
+            // walk to wander area and craft
             WalkConfig.Builder walkConfig = new WalkConfig.Builder().disableWalkScreen(true).tileRandomisationRadius(2);
             walkConfig.doWhileWalking(() -> {
                 log(CharterCrafting.class, "Crafting while walking...");
-                // find items
-                if (!getItemManager().unSelectItemIfSelected()) {
+                inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+                if (inventorySnapshot == null) {
+                    // inventory not visible
                     return null;
                 }
-                UIResultList<ItemSearchResult> moltenGlass_ = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.MOLTEN_GLASS);
-                UIResult<ItemSearchResult> glassblowingPipe_ = getItemManager().findItem(getWidgetManager().getInventory(), ItemID.GLASSBLOWING_PIPE);
-                if (moltenGlass_.isNotVisible() || glassblowingPipe_.isNotVisible()) {
-                    log(CharterCrafting.class, "Inventory not visible...");
-                    return null;
-                }
-                if (moltenGlass_.isEmpty()) {
+                if (!inventorySnapshot.contains(ItemID.MOLTEN_GLASS)) {
                     // no molten glass to craft
                     return null;
                 }
-                if (glassblowingPipe_.isNotFound()) {
+                if (!inventorySnapshot.contains(ItemID.GLASSBLOWING_PIPE)) {
                     log(CharterCrafting.class, "No glassblowing pipe found.");
                     stop();
                     return null;
                 }
-
-                craft(glassblowingPipe_, moltenGlass_, random(4000, 12000));
+                craft(inventorySnapshot.getItem(ItemID.GLASSBLOWING_PIPE), inventorySnapshot.getRandomItem(ItemID.MOLTEN_GLASS), random(4000, 12000));
                 return null;
             });
-
             getWalker().walkTo(wanderArea.getRandomPosition(), walkConfig.build());
         }
     }
 
-    private void craft(UIResult<ItemSearchResult> glassblowingPipe, UIResultList<ItemSearchResult> moltenGlass, int timeout) {
-        if (!getItemManager().unSelectItemIfSelected()) {
+    private void craft(ItemSearchResult glassblowingPipe, ItemSearchResult moltenGlass, int timeout) {
+        if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
             return;
         }
         if (validDialogue()) {
@@ -343,8 +337,9 @@ public class CharterCrafting extends Script {
             return;
         }
         log(CharterCrafting.class, "Interacting...");
-        interactAndWaitForDialogue(glassblowingPipe.get(), moltenGlass.getRandom());
+        interactAndWaitForDialogue(glassblowingPipe, moltenGlass);
 
+        // only double call due to the walking method
         if (validDialogue()) {
             waitUntilFinishedProducing(timeout, ItemID.MOLTEN_GLASS);
         }
@@ -400,25 +395,14 @@ public class CharterCrafting extends Script {
                 this.amountChangeTimeout = random(4500, 7000);
                 return true;
             }
-            if (!getWidgetManager().getInventory().open()) {
+
+            inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+            if (inventorySnapshot == null) {
                 return false;
             }
 
             for (int resource : resources) {
-                int amount;
-                if (!getItemManager().isStackable(resource)) {
-                    UIResultList<ItemSearchResult> resourceResult = getItemManager().findAllOfItem(getWidgetManager().getInventory(), resource);
-                    if (resourceResult.isNotVisible()) {
-                        return false;
-                    }
-                    amount = resourceResult.size();
-                } else {
-                    UIResult<ItemSearchResult> resourceResult = getItemManager().findItem(getWidgetManager().getInventory(), resource);
-                    if (resourceResult.isNotVisible()) {
-                        return false;
-                    }
-                    amount = resourceResult.get().getStackAmount();
-                }
+                int amount = inventorySnapshot.getAmount(resource);
                 if (amount == 0) {
                     return true;
                 }
@@ -429,23 +413,22 @@ public class CharterCrafting extends Script {
                 }
             }
             return false;
-        }, 90000, true, false, true);
+        }, 90000, false, true);
     }
 
     public boolean interactAndWaitForDialogue(ItemSearchResult item1, ItemSearchResult item2) {
+        // use chisel on gems and wait for dialogue
         int random = random(1);
         ItemSearchResult interact1 = random == 0 ? item1 : item2;
         ItemSearchResult interact2 = random == 0 ? item2 : item1;
-
-        interact1.interact();
-        sleep(Utils.random(300, 1200));
-        interact2.interact();
-        // sleep until dialogue is visible
-        return submitTask(() -> {
-            DialogueType dialogueType1 = getWidgetManager().getDialogue().getDialogueType();
-            if (dialogueType1 == null) return false;
-            return dialogueType1 == DialogueType.ITEM_OPTION;
-        }, 3000);
+        if (interact1.interact() && interact2.interact()) {
+            return submitHumanTask(() -> {
+                DialogueType dialogueType1 = getWidgetManager().getDialogue().getDialogueType();
+                if (dialogueType1 == null) return false;
+                return dialogueType1 == DialogueType.ITEM_OPTION;
+            }, 3000);
+        }
+        return false;
     }
 
     private void bankSupplies() {
@@ -474,7 +457,7 @@ public class CharterCrafting extends Script {
     }
 
     private void handleBank() {
-        if (!getWidgetManager().getBank().depositAll(new int[]{ItemID.COINS_995})) {
+        if (!getWidgetManager().getBank().depositAll(Set.of(ItemID.COINS_995))) {
             return;
         }
         getWidgetManager().getBank().close();
@@ -483,13 +466,16 @@ public class CharterCrafting extends Script {
     private void superGlassMake() {
         try {
             if (getWidgetManager().getSpellbook().selectSpell(LunarSpellbook.SUPERGLASS_MAKE, null)) {
+                // generate human response after selecting spell
+                submitHumanTask(() -> true, 100);
+                // check inventory
                 submitHumanTask(() -> {
-                    UIResultList<ItemSearchResult> combinationItem = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH);
-                    UIResultList<ItemSearchResult> bucketOfSand = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BUCKET_OF_SAND);
-                    if (bucketOfSand.isNotVisible() || combinationItem.isNotVisible()) {
+                    inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+                    if (inventorySnapshot == null) {
                         return false;
                     }
-                    return combinationItem.isEmpty() || bucketOfSand.isEmpty();
+                    int combinationItem = selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH;
+                    return !inventorySnapshot.contains(combinationItem) || !inventorySnapshot.contains(ItemID.BUCKET_OF_SAND);
                 }, 5000);
             }
         } catch (SpellNotFoundException e) {
@@ -507,15 +493,8 @@ public class CharterCrafting extends Script {
         RSObject furnace = getObjectManager().getClosestObject("Furnace");
         if (furnace == null) {
             // walk to furnace area if no furnace in our loaded scene
-            WalkConfig.Builder walkConfig = new WalkConfig.Builder();
-            walkConfig.breakCondition(() -> {
-                WorldPosition myPosition = getWorldPosition();
-                if (myPosition == null) {
-                    return false;
-                }
-                return selectedDock.getFurnaceArea().contains(myPosition);
-            });
-            getWalker().walkTo(selectedDock.getFurnaceArea().getRandomPosition(), walkConfig.build());
+            walkToFurnace();
+            return;
         }
         WorldPosition position = getWorldPosition();
         if (position == null) {
@@ -541,6 +520,18 @@ public class CharterCrafting extends Script {
         }
     }
 
+    private void walkToFurnace() {
+        WalkConfig.Builder walkConfig = new WalkConfig.Builder();
+        walkConfig.breakCondition(() -> {
+            WorldPosition myPosition = getWorldPosition();
+            if (myPosition == null) {
+                return false;
+            }
+            return selectedDock.getFurnaceArea().contains(myPosition);
+        });
+        getWalker().walkTo(selectedDock.getFurnaceArea().getRandomPosition(), walkConfig.build());
+    }
+
     private void openBank() {
         log(getClass().getSimpleName(), "Searching for a bank...");
 
@@ -560,7 +551,8 @@ public class CharterCrafting extends Script {
         }
         AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
         AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
-        submitTask(() -> {
+        // sleep until bank is open or not moving (failsafe for dud actions)
+        submitHumanTask(() -> {
             WorldPosition position = getWorldPosition();
             if (position == null) {
                 return false;
@@ -572,54 +564,39 @@ public class CharterCrafting extends Script {
 
             return getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
         }, 15000);
-        return;
     }
 
     private void handleShopInterface() {
         log(CharterCrafting.class, "Shop interface is visible.");
         // sell crafted items
-        UIResultList<ItemSearchResult> craftedItems = getItemManager().findAllOfItem(getWidgetManager().getInventory(),
-                selectedGlassBlowingItem.getItemId(), ItemID.BUCKET);
-        Optional<Integer> freeSlots = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory());
-
-        if (craftedItems.isNotVisible() || !freeSlots.isPresent()) {
-            // inventory not visible
+        ItemGroupResult shopSnapshot = shopInterface.search(ITEM_IDS_TO_RECOGNISE);
+        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        if (shopSnapshot == null || inventorySnapshot == null) {
             return;
         }
-        if (craftedItems.isFound()) {
+        if (inventorySnapshot.contains(selectedGlassBlowingItem.getItemId())) {
             log(CharterCrafting.class, "Selling crafted items");
-            sellItems(new SellEntry(craftedItems, 999), freeSlots.get());
+            sellItems(new SellEntry(inventorySnapshot.getRandomItem(selectedGlassBlowingItem.getItemId()), 999), inventorySnapshot.getFreeSlots());
             return;
         }
 
-        // find items in inventory
-        UIResultList<ItemSearchResult> combinationItem = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH);
-        UIResultList<ItemSearchResult> bucketOfSand = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BUCKET_OF_SAND);
-        // find items in shop
-        UIResult<ItemSearchResult> bucketOfSandShop = getItemManager().findItem(shopInterface, ItemID.BUCKET_OF_SAND);
-        UIResult<ItemSearchResult> combinationItemShop = selectedMethod == Method.SUPER_GLASS_MAKE
-                ? getItemManager().findItem(shopInterface, ItemID.SEAWEED)
-                : getItemManager().findItem(shopInterface, ItemID.SODA_ASH);
+        int bucketOfSandInventory = inventorySnapshot.getAmount(ItemID.BUCKET_OF_SAND);
+        int combinationItemInventory = inventorySnapshot.getAmount(combinationItemID);
 
-        if (bucketOfSandShop.isNotVisible() || combinationItemShop.isNotVisible()) {
-            return;
-        }
-
-        Integer[] itemsToIgnore = new Integer[]{ItemID.BUCKET_OF_SAND,
-                selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH};
-
-        int freeSlotsExclBuyItems = freeSlots.get() + combinationItem.size() + bucketOfSand.size();
+        int freeSlotsExclBuyItems = inventorySnapshot.getFreeSlots() + combinationItemInventory + bucketOfSandInventory;
         int moltenGlassToMake = freeSlotsExclBuyItems / 2;
         int excessSlots = freeSlotsExclBuyItems - (moltenGlassToMake * 2);
 
+        ItemSearchResult bucketOfSandShop = shopSnapshot.getItem(ItemID.BUCKET_OF_SAND);
+        ItemSearchResult combinationItemShop = shopSnapshot.getItem(combinationItemID);
         // cache shop stock
-        int bucketOfSandStock = bucketOfSandShop.isFound() ? bucketOfSandShop.get().getStackAmount() : 0;
-        int combinationItemStock = combinationItemShop.isFound() ? combinationItemShop.get().getStackAmount() : 0;
+        int bucketOfSandStock = bucketOfSandShop != null ? bucketOfSandShop.getStackAmount() : 0;
+        int combinationItemStock = combinationItemShop != null ? combinationItemShop.getStackAmount() : 0;
         log(CharterCrafting.class, "Bucket of sand stock: " + bucketOfSandStock + " Combination stock: " + combinationItemStock);
 
         // calculate amount to buy
-        int bucketOfSandToBuy = moltenGlassToMake - bucketOfSand.size();
-        int combinationToBuy = moltenGlassToMake - combinationItem.size();
+        int bucketOfSandToBuy = moltenGlassToMake - bucketOfSandInventory;
+        int combinationToBuy = moltenGlassToMake - combinationItemInventory;
         log(CharterCrafting.class, "Need to buy Bucket of sand: " + bucketOfSandToBuy + " Combination: " + combinationToBuy);
 
 
@@ -627,10 +604,10 @@ public class CharterCrafting extends Script {
 
         // if the number is negative, that means we have too many in our inventory and need to sell
         if (hasTooMany(bucketOfSandToBuy)) {
-            sellEntries.add(new SellEntry(bucketOfSand, Math.abs(bucketOfSandToBuy)));
+            sellEntries.add(new SellEntry(inventorySnapshot.getRandomItem(ItemID.BUCKET_OF_SAND), Math.abs(bucketOfSandToBuy)));
         }
         if (hasTooMany(combinationToBuy)) {
-            sellEntries.add(new SellEntry(combinationItem, Math.abs(combinationToBuy)));
+            sellEntries.add(new SellEntry(inventorySnapshot.getRandomItem(combinationItemID), Math.abs(combinationToBuy)));
         }
         if (!sellEntries.isEmpty()) {
             boolean shouldSkip = sellEntries.size() == 1 &&
@@ -641,20 +618,20 @@ public class CharterCrafting extends Script {
                 bucketOfSandToBuy = Math.max(0, bucketOfSandToBuy);
             } else {
                 SellEntry sellEntry = sellEntries.get(random(sellEntries.size()));
-                sellItems(sellEntry, freeSlots.get());
+                sellItems(sellEntry, inventorySnapshot.getFreeSlots());
                 return;
             }
         }
 
         if (bucketOfSandToBuy > 0) {
             bucketOfSandToBuy += excessSlots;
-            if (bucketOfSandToBuy >= bucketOfSandStock || bucketOfSandToBuy == freeSlots.get()) {
+            if (bucketOfSandToBuy >= bucketOfSandStock || bucketOfSandToBuy == inventorySnapshot.getFreeSlots()) {
                 bucketOfSandToBuy = 999;
             }
         }
         if (combinationToBuy > 0) {
             combinationToBuy += excessSlots;
-            if (combinationToBuy >= combinationItemStock || combinationToBuy == freeSlots.get()) {
+            if (combinationToBuy >= combinationItemStock || combinationToBuy == inventorySnapshot.getFreeSlots()) {
                 combinationToBuy = 999;
             }
         }
@@ -686,14 +663,14 @@ public class CharterCrafting extends Script {
             return;
         }
         BuyEntry randomEntry = buyEntries.get(random(buyEntries.size()));
-        buyItem(randomEntry, freeSlots.get());
+        buyItem(randomEntry, inventorySnapshot.getFreeSlots());
     }
 
     private boolean hasTooMany(int amount) {
         return amount < 0;
     }
 
-    private boolean buyItem(BuyEntry buyEntry, int freeSlots) {
+    private boolean buyItem(BuyEntry buyEntry, int initialFreeSlots) {
         log(CharterCrafting.class, "Buying item. Entry: " + buyEntry);
         int amount = buyEntry.amount;
         boolean all = amount == 999;
@@ -715,22 +692,23 @@ public class CharterCrafting extends Script {
                 }
             }
         }
-        UIResult<ItemSearchResult> item = buyEntry.item;
+        ItemSearchResult item = buyEntry.item;
 
-        if (item.get().interact()) {
+        if (item.interact()) {
+            // wait for inv slots to change
             return submitTask(() -> {
-                        Optional<Integer> freeSlots_ = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory());
-                        if (!freeSlots_.isPresent()) {
+                        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+                        if (inventorySnapshot == null) {
                             return false;
                         }
-                        return freeSlots_.get() < freeSlots;
+                        return inventorySnapshot.getFreeSlots() != initialFreeSlots;
                     },
                     5000);
         }
         return false;
     }
 
-    private boolean sellItems(SellEntry sellEntry, int freeSlots) {
+    private boolean sellItems(SellEntry sellEntry, int initialFreeSlots) {
         log(CharterCrafting.class, "Selling item. Entry: " + sellEntry);
         int amount = sellEntry.amount;
         boolean all = amount == 999;
@@ -755,16 +733,16 @@ public class CharterCrafting extends Script {
             }
         }
         log(CharterCrafting.class, "Selling items...");
-        ItemSearchResult randomItem = sellEntry.items.getRandom();
-        if (randomItem.interact()) {
-            sleep(300);
-            // wait for items to decrement
+        ItemSearchResult item = sellEntry.item;
+        if (item.interact()) {
+            submitTask(() -> false, 300);
+            // wait for inv slots to change
             return submitTask(() -> {
-                        Optional<Integer> freeSlots_ = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory());
-                        if (!freeSlots_.isPresent()) {
+                        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+                        if (inventorySnapshot == null) {
                             return false;
                         }
-                        return freeSlots_.get() > freeSlots;
+                        return inventorySnapshot.getFreeSlots() != initialFreeSlots;
                     },
                     5000);
         }
@@ -813,10 +791,10 @@ public class CharterCrafting extends Script {
     }
 
     public static class BuyEntry {
-        UIResult<ItemSearchResult> item;
+        ItemSearchResult item;
         int amount;
 
-        public BuyEntry(UIResult<ItemSearchResult> item, int amount) {
+        public BuyEntry(ItemSearchResult item, int amount) {
             this.item = item;
             this.amount = amount;
         }
@@ -831,18 +809,18 @@ public class CharterCrafting extends Script {
     }
 
     public static class SellEntry {
-        UIResultList<ItemSearchResult> items;
+        ItemSearchResult item;
         int amount;
 
-        public SellEntry(UIResultList<ItemSearchResult> items, int amount) {
-            this.items = items;
+        public SellEntry(ItemSearchResult item, int amount) {
+            this.item = item;
             this.amount = amount;
         }
 
         @Override
         public String toString() {
             return "SellEntry{" +
-                    "items=" + items +
+                    "item=" + item +
                     ", amount=" + amount +
                     '}';
         }

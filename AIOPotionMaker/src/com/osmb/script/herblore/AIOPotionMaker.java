@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
 @ScriptDefinition(name = "AIO Potion maker", author = "Joe", version = 1.0, description = "Makes potions and unfinished potions", skillCategory = SkillCategory.HERBLORE)
-public class AIOHerblore extends Script {
+public class AIOPotionMaker extends Script {
     public static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 6;
 
     // names of possible banks
@@ -28,7 +28,7 @@ public class AIOHerblore extends Script {
     private PotionMixer selectedPotionMixer;
     private boolean bank = false;
 
-    public AIOHerblore(Object o) {
+    public AIOPotionMaker(Object o) {
         super(o);
     }
 
@@ -112,7 +112,7 @@ public class AIOHerblore extends Script {
         AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
         AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
         // wait for bank interface
-        submitTask(() -> {
+        submitHumanTask(() -> {
             WorldPosition position = getWorldPosition();
             if (position == null) {
                 return false;

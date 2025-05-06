@@ -1,8 +1,5 @@
 package com.osmb.script.crafting;
 
-import com.osmb.api.ScriptCore;
-import com.osmb.api.definition.ItemDefinition;
-import com.osmb.api.item.ZoomType;
 import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.scene.RSObject;
 import com.osmb.api.script.Script;
@@ -15,13 +12,9 @@ import com.osmb.script.crafting.method.Method;
 import com.osmb.script.crafting.method.impl.CraftHide;
 import com.osmb.script.crafting.method.impl.CutGems;
 import com.osmb.script.crafting.method.impl.GlassBlowing;
-import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.Scene;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 
 import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -34,7 +27,7 @@ public class AIOCrafter extends Script {
     // names of possible banks
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
     public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
-    private final Predicate<RSObject> bankQuery = gameObject -> {
+    private static final Predicate<RSObject> BANK_QUERY = gameObject -> {
         // if object has no name
         if (gameObject.getName() == null) {
             return false;
@@ -61,21 +54,6 @@ public class AIOCrafter extends Script {
 
     public AIOCrafter(Object o) {
         super(o);
-    }
-
-    public static String getItemName(ScriptCore core, int itemID) {
-        ItemDefinition def = core.getItemManager().getItemDefinition(itemID);
-        String name = null;
-        if (def != null && def.name != null) {
-            name = def.name;
-        }
-        return name;
-    }
-
-    public static ImageView getUIImage(ScriptCore core, int itemID) {
-        BufferedImage itemImage = core.getItemManager().getItemImage(itemID, 1, ZoomType.SIZE_1, AIOCrafter.MENU_COLOR_BACKGROUND.getRGB()).toBufferedImage();
-        Image fxImage = SwingFXUtils.toFXImage(itemImage, null);
-        return new javafx.scene.image.ImageView(fxImage);
     }
 
     public int getAmountChangeTimeout() {
@@ -127,7 +105,7 @@ public class AIOCrafter extends Script {
         } else if (this.bank) {
             openBank();
         } else {
-            if (!getItemManager().unSelectItemIfSelected()) {
+            if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
                 return 0;
             }
             selectedMethod.poll();
@@ -139,7 +117,7 @@ public class AIOCrafter extends Script {
         log(getClass().getSimpleName(), "Searching for a bank...");
         // Find bank and open it
 
-        List<RSObject> banksFound = getObjectManager().getObjects(bankQuery);
+        List<RSObject> banksFound = getObjectManager().getObjects(BANK_QUERY);
         //can't find a bank
         if (banksFound.isEmpty()) {
             log(getClass().getSimpleName(), "Can't find any banks matching criteria...");
@@ -147,9 +125,13 @@ public class AIOCrafter extends Script {
         }
         RSObject object = (RSObject) getUtils().getClosest(banksFound);
         if (!object.interact(BANK_ACTIONS)) return;
+        waitForBankToOpen();
+    }
+
+    private void waitForBankToOpen() {
         AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
         AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
-        submitTask(() -> {
+        submitHumanTask(() -> {
             WorldPosition position = getWorldPosition();
             if (position == null) {
                 return false;

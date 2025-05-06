@@ -2,13 +2,12 @@ package com.osmb.script.herblore.javafx;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.javafx.JavaFXUtils;
-import com.osmb.script.herblore.AIOHerblore;
+import com.osmb.script.herblore.AIOPotionMaker;
 import com.osmb.script.herblore.data.ItemIdentifier;
 import com.osmb.script.herblore.data.MixedPotion;
 import com.osmb.script.herblore.method.PotionMixer;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.image.ImageView;
@@ -21,11 +20,11 @@ import java.util.prefs.Preferences;
 
 public class ScriptOptions extends VBox {
 
+    private static final String PREF_SELECTED_MIXER = "aiopotionmaker_selected_mixer";
     private final VBox scriptContentBox;
     private final Preferences prefs = Preferences.userNodeForPackage(ScriptOptions.class);
-    private static final String PREF_SELECTED_MIXER = "aiopotionmaker_selected_mixer";
 
-    public ScriptOptions(AIOHerblore script, PotionMixer[] potionMixers) {
+    public ScriptOptions(AIOPotionMaker script, PotionMixer[] potionMixers) {
         setAlignment(Pos.CENTER_LEFT);
         setStyle("-fx-background-color: #636E72; -fx-padding: 10; -fx-spacing: 10");
 
@@ -122,7 +121,7 @@ public class ScriptOptions extends VBox {
 
     private void saveSelectedMixer(PotionMixer method) {
         if (method != null) {
-            prefs.put(PREF_SELECTED_MIXER, method.name());
+            prefs.put(PREF_SELECTED_MIXER, method.toString());
         }
     }
 
@@ -130,7 +129,7 @@ public class ScriptOptions extends VBox {
         String saved = prefs.get(PREF_SELECTED_MIXER, null);
         if (saved != null) {
             for (PotionMixer mixer : availableMixers) {
-                if (mixer.name().equals(saved)) {
+                if (mixer.toString().equals(saved)) {
                     comboBox.getSelectionModel().select(mixer);
                     Platform.runLater(() -> {
                         scriptContentBox.getChildren().clear();

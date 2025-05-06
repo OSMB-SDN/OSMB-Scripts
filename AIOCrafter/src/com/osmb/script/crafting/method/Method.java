@@ -1,5 +1,6 @@
 package com.osmb.script.crafting.method;
 
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.ui.GameState;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
@@ -12,7 +13,9 @@ import com.osmb.script.crafting.AIOCrafter;
 import javafx.scene.layout.VBox;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 public abstract class Method {
@@ -24,9 +27,9 @@ public abstract class Method {
     }
 
 
-    public abstract int poll();
+    public abstract void poll();
 
-    public abstract int handleBankInterface();
+    public abstract void handleBankInterface();
 
     public abstract String getMethodName();
 
@@ -71,25 +74,18 @@ public abstract class Method {
                 script.resetAmountChangeTimeout();
                 return true;
             }
-            if (!script.getWidgetManager().getInventory().open()) {
+            Set<Integer> itemIdsToRecognise = new HashSet<>();
+            for(int resource : resources) {
+                itemIdsToRecognise.add(resource);
+            }
+            ItemGroupResult inventorySnapshot = script.getWidgetManager().getInventory().search(itemIdsToRecognise);
+            if(inventorySnapshot == null) {
+                // inventory not visible
                 return false;
             }
-
             for (int resource : resources) {
-                int amount;
-                if (!script.getItemManager().isStackable(resource)) {
-                    UIResultList<ItemSearchResult> resourceResult = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), resource);
-                    if (resourceResult.isNotVisible()) {
-                        return false;
-                    }
-                    amount = resourceResult.size();
-                } else {
-                    UIResult<ItemSearchResult> resourceResult = script.getItemManager().findItem(script.getWidgetManager().getInventory(), resource);
-                    if (resourceResult.isNotVisible()) {
-                        return false;
-                    }
-                    amount = resourceResult.get().getStackAmount();
-                }
+                int amount = inventorySnapshot.getAmount(resource);
+
                 if (amount == 0) {
                     return true;
                 }
@@ -100,24 +96,20 @@ public abstract class Method {
                 }
             }
             return false;
-        }, 60000, true, false, true);
+        }, 60000, false, true);
     }
-
-
     public boolean interactAndWaitForDialogue(ItemSearchResult item1, ItemSearchResult item2) {
         // use chisel on gems and wait for dialogue
         int random = script.random(1);
         ItemSearchResult interact1 = random == 0 ? item1 : item2;
         ItemSearchResult interact2 = random == 0 ? item2 : item1;
-
-        interact1.interact();
-        script.sleep(Utils.random(300, 1200));
-        interact2.interact();
-        // sleep until dialogue is visible
-        return script.submitTask(() -> {
-            DialogueType dialogueType1 = script.getWidgetManager().getDialogue().getDialogueType();
-            if (dialogueType1 == null) return false;
-            return dialogueType1 == DialogueType.ITEM_OPTION;
-        }, 3000);
+        if (interact1.interact() && interact2.interact()) {
+            return script.submitHumanTask(() -> {
+                DialogueType dialogueType1 = script.getWidgetManager().getDialogue().getDialogueType();
+                if (dialogueType1 == null) return false;
+                return dialogueType1 == DialogueType.ITEM_OPTION;
+            }, 3000);
+        }
+        return false;
     }
 }

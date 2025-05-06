@@ -1,4 +1,4 @@
-package com.osmb.script.motherloadmine.component;
+package com.osmb.script.motherloadmine.overlay;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.shape.Rectangle;
@@ -29,12 +29,12 @@ public class SackOverlay extends OverlayBoundary {
 
     @Override
     public int getWidth() {
-        return 70;
+        return 102;
     }
 
     @Override
     public int getHeight() {
-        return 60;
+        return 56;
     }
 
     @Override

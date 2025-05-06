@@ -1,11 +1,9 @@
 package com.osmb.script.fletching.method.impl;
 
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
-import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.javafx.JavaFXUtils;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
-import com.osmb.api.utils.UIResult;
-import com.osmb.api.utils.UIResultList;
 import com.osmb.script.fletching.AIOFletcher;
 import com.osmb.script.fletching.data.Log;
 import com.osmb.script.fletching.data.Product;
@@ -14,83 +12,77 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
-import java.util.Optional;
+import java.util.Set;
 
 public class CutLogs extends Method {
 
 
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of(ItemID.KNIFE);
     private Log selectedLog;
     private Product itemToCreate;
     private ComboBox<Integer> logComboBox;
     private ComboBox<Integer> itemComboBox;
+    private ItemGroupResult inventorySnapshot;
 
     public CutLogs(AIOFletcher script) {
         super(script);
     }
 
-
     @Override
-    public int poll() {
-        UIResult<ItemSearchResult> knife = script.getItemManager().findItem(script.getWidgetManager().getInventory(), ItemID.KNIFE);
-        UIResultList<ItemSearchResult> logs = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), selectedLog.getItemID());
-
-        if (knife.isNotFound()) {
+    public void poll() {
+        inventorySnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        if (inventorySnapshot == null) {
+            // inventory is not visible - re-poll
+            return;
+        }
+        if (!inventorySnapshot.contains(ItemID.KNIFE)) {
             script.log(getClass().getSimpleName(), "No knife found in the inventory, stopping script...");
             script.stop();
-            return 0;
+            return;
         }
-        if (!checkItemResult(logs)) {
-            return 0;
+        if (!inventorySnapshot.contains(selectedLog.getItemID())) {
+            // bank if no logs inside the inventory
+            script.setBank(true);
+            return;
         }
 
         // if item action dialogue is visible, select which item to craft
-        DialogueType dialogueType = script.getWidgetManager().getDialogue().getDialogueType();
-        if (dialogueType != null && dialogueType == DialogueType.ITEM_OPTION) {
+        if (script.getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION) {
             boolean result = script.getWidgetManager().getDialogue().selectItem(itemToCreate.getUnfinishedID());
             if (!result) {
-                return 0;
+                script.log(CutLogs.class, "Failed selecting item " + itemToCreate.getUnfinishedID() + " in dialogue...");
+                return;
             }
             waitUntilFinishedProducing(selectedLog.getItemID());
-            return 0;
+            return;
         }
-
-        if (!script.getItemManager().unSelectItemIfSelected()) {
-            return 0;
-        }
-        interactAndWaitForDialogue(knife.get(), logs.getRandom());
-        return 0;
+        interactAndWaitForDialogue(inventorySnapshot.getItem(ItemID.KNIFE), inventorySnapshot.getRandomItem(selectedLog.getItemID()));
     }
 
 
     @Override
-    public int handleBankInterface() {
+    public void handleBankInterface() {
         // bank everything, ignoring logs and knife
-        if (!script.getWidgetManager().getBank().depositAll(new int[]{selectedLog.getItemID(), ItemID.KNIFE})) {
-            return 0;
+        if (!script.getWidgetManager().getBank().depositAll(ITEM_IDS_TO_RECOGNISE)) {
+            return;
         }
-        UIResultList<ItemSearchResult> logsInInventory = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), selectedLog.getItemID());
-        Optional<Integer> freeItemSlots = script.getItemManager().getFreeSlotsInteger(script.getWidgetManager().getInventory());
-        // if no free slots & logs are in the inventory, banking is finished
+        ItemGroupResult bankSnapshot = script.getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
+        inventorySnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        if (bankSnapshot == null || inventorySnapshot == null) {
+            return;
+        }
 
-        if (freeItemSlots.isEmpty() || logsInInventory.isNotVisible()) {
-            return 0;
-        }
-        if (freeItemSlots.get() == 0 && logsInInventory.isFound()) {
+        if (inventorySnapshot.isFull()) {
             script.getWidgetManager().getBank().close();
-            return 0;
+            return;
         }
-        UIResultList<ItemSearchResult> logsInBank = script.getItemManager().findAllOfItem(script.getWidgetManager().getBank(), selectedLog.getItemID());
-        if (logsInBank.isNotVisible()) {
-            return 0;
-        }
-        if (logsInBank.isNotFound()) {
+        if (!bankSnapshot.contains(selectedLog.getItemID())) {
             script.log(getClass().getSimpleName(), "No logs found in bank, stopping script.");
             script.stop();
-            return 0;
+        } else {
+            // withdraw logs
+            script.getWidgetManager().getBank().withdraw(selectedLog.getItemID(), Integer.MAX_VALUE);
         }
-        // withdraw logs
-        script.getWidgetManager().getBank().withdraw(selectedLog.getItemID(), Integer.MAX_VALUE);
-        return 0;
     }
 
     @Override
@@ -122,6 +114,7 @@ public class CutLogs extends Method {
             selectedLog = Log.getLog(logComboBox.getValue());
             if (selectedLog != null) {
                 itemToCreate = selectedLog.getProduct(itemComboBox.getValue());
+                ITEM_IDS_TO_RECOGNISE.add(selectedLog.getItemID());
                 return true;
             }
         }

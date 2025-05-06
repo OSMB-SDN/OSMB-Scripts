@@ -1,5 +1,6 @@
 package com.osmb.script.bonfiremaker;
 
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.location.position.types.LocalPosition;
@@ -11,15 +12,15 @@ import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
-import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.walker.WalkConfig;
 import javafx.scene.Scene;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -59,6 +60,8 @@ public class BonfireMaker extends Script {
     private int logsBurntOnFire;
     private String logName;
     private boolean forceNewPosition = false;
+    private ItemGroupResult inventorySnapshot;
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = Set.of(ItemID.TINDERBOX);
 
     public BonfireMaker(Object scriptCore) {
         super(scriptCore);
@@ -70,6 +73,8 @@ public class BonfireMaker extends Script {
         Scene scene = ui.buildScene(this);
         getStageController().show(scene, "Options", false);
         selectedLogsID = ui.getSelectedLog();
+        ITEM_IDS_TO_RECOGNISE.add(selectedLogsID);
+
         logName = getItemManager().getItemName(selectedLogsID);
         if (logName == null) {
             log(getClass().getSimpleName(), "Could not find name of selected logs...");
@@ -84,24 +89,32 @@ public class BonfireMaker extends Script {
             handleBank();
             return 0;
         }
-        if (getWidgetManager().getInventory().isOpen()) {
-            if (!getItemManager().unSelectItemIfSelected()) {
-                log(getClass().getSimpleName(), "Failed to unselect item...");
-            }
+
+        if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
+            log(getClass().getSimpleName(), "Failed to unselect item...");
         }
-        UIResultList<ItemSearchResult> logs = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedLogsID);
-        if (logs.isNotVisible()) {
-            return 0;
-        }
-        if (logs.isEmpty()) {
-            log(getClass().getSimpleName(), "Opening bank");
-            openBank();
+
+        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        if (inventorySnapshot == null) {
             return 0;
         }
 
+        // if no logs, open the bank
+        if (!inventorySnapshot.contains(selectedLogsID)) {
+            log(getClass().getSimpleName(), "Opening bank");
+            openBank();
+        }
+
+        // handle dialogue if already visible
         if (isDialogueVisible()) {
             log(getClass().getSimpleName(), "Handling dialogue");
             handleDialogue();
+            return 0;
+        }
+
+        if (!inventorySnapshot.contains(ItemID.TINDERBOX)) {
+            log(getClass().getSimpleName(), "Tinderbox not found, stopping script...");
+            stop();
             return 0;
         }
 
@@ -115,7 +128,6 @@ public class BonfireMaker extends Script {
                     WalkConfig.Builder builder = new WalkConfig.Builder();
                     builder.breakDistance(0);
                     builder.tileRandomisationRadius(0);
-
                     getWalker().walkTo(bonfireTargetCreationPos, builder.build());
                 } else {
                     log(getClass().getSimpleName(), "Arrived at target position...");
@@ -126,37 +138,35 @@ public class BonfireMaker extends Script {
                 moveToNewPosition();
             } else {
                 log(getClass().getSimpleName(), "Lighting bonfire...");
-                lightBonfire(logs);
+                lightBonfire(inventorySnapshot.getItem(ItemID.TINDERBOX), inventorySnapshot.getRandomItem(selectedLogsID));
             }
         } else {
             log(getClass().getSimpleName(), "Bonfire active");
-            burnLogsOnBonfire(logs);
+            burnLogsOnBonfire(inventorySnapshot.getRandomItem(selectedLogsID));
         }
 
         return 0;
     }
 
     private void handleBank() {
-        if (!getWidgetManager().getBank().depositAll(new int[]{ItemID.TINDERBOX, selectedLogsID})) {
+        if (!getWidgetManager().getBank().depositAll(ITEM_IDS_TO_RECOGNISE)) {
             return;
         }
-        Optional<Integer> freeSlots = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory());
-        if (freeSlots.isEmpty()) {
-            // parent widget not visible
+        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+
+        ItemGroupResult bankSnapshot = getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
+        if (inventorySnapshot == null || bankSnapshot == null) {
             return;
         }
-        if (freeSlots.get() == 0) {
+        if (inventorySnapshot.isFull()) {
             if (bonfirePosition == null) {
                 forceNewPosition = true;
             }
             getWidgetManager().getBank().close();
             return;
         }
-        UIResult<ItemSearchResult> logsBank = getItemManager().findItem(getWidgetManager().getBank(), selectedLogsID);
-        if (logsBank.isNotVisible()) {
-            return;
-        }
-        if (logsBank.isNotFound()) {
+
+        if (!bankSnapshot.contains(selectedLogsID)) {
             log(getClass().getSimpleName(), "Ran out of logs, stopping script...");
             stop();
             return;
@@ -196,8 +206,7 @@ public class BonfireMaker extends Script {
     }
 
     private boolean isDialogueVisible() {
-        DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
-        return dialogueType != null && dialogueType == DialogueType.ITEM_OPTION;
+        return getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION;
     }
 
     private void handleDialogue() {
@@ -210,37 +219,25 @@ public class BonfireMaker extends Script {
         waitUntilFinishedBurning(selectedLogsID);
     }
 
-    private void lightBonfire(UIResultList<ItemSearchResult> logs) {
-        Optional<ItemSearchResult> tinderbox = findTinderbox();
-        if (!tinderbox.isPresent()) {
-            log(getClass().getSimpleName(), "Tinderbox not found, stopping script...");
-            stop();
-            return;
-        }
-
-        if (!getItemManager().unSelectItemIfSelected()) {
-            log(getClass().getSimpleName(), "Failed to unselect item.");
-            return;
-        }
-
+    private void lightBonfire(ItemSearchResult tinderbox, ItemSearchResult logs) {
         WorldPosition lightPosition = getWorldPosition();
-        Optional<Integer> freeSlots = getItemManager().getTakenSlotsInteger(getWidgetManager().getInventory());
-        if (freeSlots.isEmpty()) {
-            log(getClass().getSimpleName(), "Failed to get free slots in inventory.");
-            return;
-        }
-
-        if (!tinderbox.get().interact()) {
+        if (!tinderbox.interact()) {
             return;
         }
         // select random log
-        if (!logs.get(random(logs.size())).interact()) {
+        if (!logs.interact()) {
             return;
         }
 
+        final int initialSlots = inventorySnapshot.getFreeSlots();
         boolean lightingFire = submitTask(() -> {
-            Optional<Integer> freeSlots2 = getItemManager().getTakenSlotsInteger(getWidgetManager().getInventory());
-            return freeSlots2.isPresent() && freeSlots2.get() < freeSlots.get();
+            inventorySnapshot = getWidgetManager().getInventory().search(Collections.emptySet());
+            if (inventorySnapshot == null) {
+                // inventory not visible, re-poll
+                return false;
+            }
+            // wait until we have more free slots - this tells us the log has been used successfully
+            return inventorySnapshot.getFreeSlots() > initialSlots;
         }, 3500);
 
         // if we failed to light the fire, usually means we're in a spot you can't make fires
@@ -250,14 +247,6 @@ public class BonfireMaker extends Script {
             log(getClass().getSimpleName(), "Waiting for fire to light...");
             waitForFireToLight(lightPosition);
         }
-    }
-
-    private Optional<ItemSearchResult> findTinderbox() {
-        UIResult<ItemSearchResult> tinderbox = getItemManager().findItem(getWidgetManager().getInventory(), ItemID.TINDERBOX);
-        if (tinderbox.isNotVisible() || tinderbox.isNotFound()) {
-            return Optional.empty();
-        }
-        return Optional.of(tinderbox.get());
     }
 
     private void moveToNewPosition() {
@@ -287,7 +276,7 @@ public class BonfireMaker extends Script {
         }
     }
 
-    private void burnLogsOnBonfire(UIResultList<ItemSearchResult> logs) {
+    private void burnLogsOnBonfire(ItemSearchResult log) {
         // check if bonfire is active
         RSTile tile = getSceneManager().getTile(bonfirePosition);
         if (tile == null) {
@@ -300,7 +289,7 @@ public class BonfireMaker extends Script {
             WalkConfig.Builder builder = new WalkConfig.Builder();
             builder.breakDistance(2);
             builder.tileRandomisationRadius(2);
-            builder.breakCondition(() -> tile != null && tile.isOnGameScreen());
+            builder.breakCondition(tile::isOnGameScreen);
             getWalker().walkTo(tile.getWorldPosition(), builder.build());
             return;
         }
@@ -310,7 +299,6 @@ public class BonfireMaker extends Script {
         }
         log(getClass().getSimpleName(), "Burning logs on the bonfire...");
         // use log on bonfire
-        ItemSearchResult log = logs.get(random(logs.size()));
         RSTile fireTile = getSceneManager().getTile(bonfirePosition);
         if (!interactAndWaitForDialogue(log, fireTile)) {
             // walk a few tiles away, probably another camp fire close by
@@ -325,7 +313,7 @@ public class BonfireMaker extends Script {
 
 
     public boolean interactAndWaitForDialogue(ItemSearchResult log, RSTile fireTile) {
-        if (!getItemManager().unSelectItemIfSelected()) {
+        if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
             return false;
         }
 
@@ -368,17 +356,16 @@ public class BonfireMaker extends Script {
                     bonfirePosition = null;
                     return true;
                 }
-                if (!getWidgetManager().getInventory().open()) {
+                inventorySnapshot = getWidgetManager().getInventory().search(Set.of(selectedLogsID));
+                if (inventorySnapshot == null) {
                     return false;
                 }
-                UIResultList<ItemSearchResult> resourceResult = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedLogsID);
-                if (resourceResult.isNotVisible()) {
-                    return false;
-                }
-                if (resourceResult.isEmpty()) {
+                if(!inventorySnapshot.contains(selectedLogsID)) {
+                    // no logs left
                     return true;
                 }
-                int amount = resourceResult.size();
+
+                int amount = inventorySnapshot.getAmount(selectedLogsID);
 
                 int previousAmount = previousAmount_.get();
                 if (amount < previousAmount || previousAmount == -1) {
@@ -391,7 +378,7 @@ public class BonfireMaker extends Script {
                 e.printStackTrace();
             }
             return false;
-        }, 80000, true, false, true);
+        }, 80000, false, true);
     }
 
     @Override
