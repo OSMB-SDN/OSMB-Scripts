@@ -30,7 +30,6 @@ import javafx.scene.Scene;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 @ScriptDefinition(name = "AIO Agility", author = "Joe", version = 1.0, description = "Provides support over a range of agility courses.", skillCategory = SkillCategory.AGILITY)
 public class AIOAgility extends Script {
@@ -42,6 +41,7 @@ public class AIOAgility extends Script {
     private static final int[] ITEMS_TO_IGNORE = new int[]{ItemID.MARK_OF_GRACE, ItemID.LAW_RUNE, ItemID.AIR_RUNE, ItemID.FIRE_RUNE};
     private static final WorldPosition ARDY_MOG_POS = new WorldPosition(2657, 3318, 3);
     private static final WorldPosition POLL_MOG_POS = new WorldPosition(3359, 2983, 2);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.MARK_OF_GRACE));
     private static boolean handlingObstacle = false;
     private final Stopwatch eatBlockTimer = new Stopwatch();
     private Course selectedCourse;
@@ -99,12 +99,8 @@ public class AIOAgility extends Script {
             if (core.getPixelAnalyzer().findPixel(tilePoly, MOG_PIXELS_GOLD) == null || core.getPixelAnalyzer().findPixel(tilePoly, MOG_PIXELS_RED) == null) {
                 continue;
             }
-            Set<Integer> itemsToRecognise = new HashSet<>();
-            for (int foodId : core.foodItemID) {
-                itemsToRecognise.add(foodId);
-            }
-            itemsToRecognise.add(ItemID.MARK_OF_GRACE);
-            ItemGroupResult inventorySnapshot = core.getWidgetManager().getInventory().search(itemsToRecognise);
+
+            ItemGroupResult inventorySnapshot = core.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
             if (inventorySnapshot == null) {
                 return false;
             }
@@ -112,15 +108,19 @@ public class AIOAgility extends Script {
                 // check if we have free spaces
                 if (inventorySnapshot.isFull()) {
                     core.log(AIOAgility.class.getSimpleName(), "MOG Found but no inventory slots free in the inventory...");
-                    ItemSearchResult food = inventorySnapshot.getRandomItem(core.foodItemID);
-                    if (food != null) {
-                        core.log(AIOAgility.class.getSimpleName(), "Eating food to make space for MOG!");
-                        if (!food.interact("eat", "drink")) {
-                            return false;
+                    if(core.foodItemID != null) {
+                        ItemSearchResult food = inventorySnapshot.getRandomItem(core.foodItemID);
+                        if (food != null) {
+                            core.log(AIOAgility.class.getSimpleName(), "Eating food to make space for MOG!");
+                            if (!food.interact("eat", "drink")) {
+                                return false;
+                            }
+                        } else {
+                            core.log(AIOAgility.class.getSimpleName(), "No room to pick up MOG.");
+                            core.stop();
                         }
                     } else {
-                        core.log(AIOAgility.class.getSimpleName(), "No room to pick up MOG.");
-                        core.stop();
+                        core.log(AIOAgility.class, "Inventory is full, cannot pick up MOG!");
                     }
                 }
             }
@@ -314,6 +314,10 @@ public class AIOAgility extends Script {
             } else if (foodItemID != -1) {
                 this.foodItemID = new int[]{foodItemID};
             }
+
+            for (Integer foodID : this.foodItemID) {
+                ITEM_IDS_TO_RECOGNISE.add(foodID);
+            }
         } else {
             this.foodItemID = null;
         }
@@ -338,8 +342,7 @@ public class AIOAgility extends Script {
                 log(getClass().getSimpleName(), "Hitpoints orb not visible...");
                 return 0;
             }
-            Set<Integer> itemIdsToRecognise = Arrays.stream(foodItemID).boxed().collect(Collectors.toSet());
-            inventorySnapshot = getWidgetManager().getInventory().search(itemIdsToRecognise);
+            inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
             if (inventorySnapshot == null) {
                 return 0;
             }
@@ -453,9 +456,8 @@ public class AIOAgility extends Script {
         if (!getWidgetManager().getBank().depositAll(itemsToIgnore)) {
             return;
         }
-        Set<Integer> itemIdsToRecognise = Arrays.stream(foodItemID).boxed().collect(Collectors.toSet());
-        ItemGroupResult bankSnapshot = getWidgetManager().getBank().search(itemIdsToRecognise);
-        inventorySnapshot = getWidgetManager().getInventory().search(itemIdsToRecognise);
+        ItemGroupResult bankSnapshot = getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
+        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
         if (bankSnapshot == null || inventorySnapshot == null) {
             return;
         }
