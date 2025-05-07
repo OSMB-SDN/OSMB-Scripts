@@ -273,7 +273,7 @@ public class MotherloadMine extends Script {
         int oresToMine = spaceLeft - inventorySnapshot.getAmount(ItemID.PAYDIRT);
 
         if (inventorySnapshot.isFull() || oresToMine <= 0) {
-            log(MotherloadMine.class, "Inventory full? "+inventorySnapshot.isFull()+" Ores to mine: "+oresToMine);
+            log(MotherloadMine.class, "Inventory full? " + inventorySnapshot.isFull() + " Ores to mine: " + oresToMine);
             // If we have too much payDirt drop it
             if (oresToMine < 0) {
                 // too many ores drop some
@@ -403,6 +403,14 @@ public class MotherloadMine extends Script {
     }
 
     private void openBank() {
+        if (inventorySnapshot.contains(ItemID.PAYDIRT)) {
+            if (spaceLeft >= inventorySnapshot.getAmount(ItemID.PAYDIRT)) {
+                depositPayDirt();
+            } else {
+                dropPayDirt();
+            }
+            return;
+        }
         log(getClass().getSimpleName(), "Searching for a bank...");
         // Find bank and open it
         Predicate<RSObject> bankQuery = gameObject -> {
@@ -945,12 +953,13 @@ public class MotherloadMine extends Script {
     }
 
     public enum MineArea {
-        TOP("Top floor",TOP_FLOOR_AREA),
-        BOTTOM_SOUTH("Bottom floor - prefer south",SOUTH_AREA),
-        BOTTOM_WEST("Bottom floor - prefer west",WEST_AREA);
+        TOP("Top floor", TOP_FLOOR_AREA),
+        BOTTOM_SOUTH("Bottom floor - prefer south", SOUTH_AREA),
+        BOTTOM_WEST("Bottom floor - prefer west", WEST_AREA);
 
         private final Area area;
         private final String name;
+
         MineArea(String name, Area area) {
             this.area = area;
             this.name = name;
