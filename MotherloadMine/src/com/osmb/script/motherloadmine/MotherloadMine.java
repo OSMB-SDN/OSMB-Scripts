@@ -25,7 +25,9 @@ import com.osmb.api.visual.color.ColorModel;
 import com.osmb.api.visual.color.tolerance.impl.SingleThresholdComparator;
 import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.api.walker.WalkConfig;
+import com.osmb.script.motherloadmine.javafx.UI;
 import com.osmb.script.motherloadmine.overlay.SackOverlay;
+import javafx.scene.Scene;
 
 import java.awt.*;
 import java.util.*;
@@ -168,6 +170,7 @@ public class MotherloadMine extends Script {
             new WorldPosition(3756, 5676, 0),
             new WorldPosition(3757, 5676, 0),
             new WorldPosition(3758, 5676, 0)));
+
     private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.PAYDIRT, ItemID.HAMMER));
     /**
      * This is used as a failsafe to temporarily block interacting with a vein if the respawn circle isn't visible but the object is.
@@ -214,10 +217,15 @@ public class MotherloadMine extends Script {
 
     @Override
     public void onStart() {
+        UI ui = new UI(this);
+        Scene scene = new Scene(ui);
+        scene.getStylesheets().add("style.css");
+        getStageController().show(scene, "Settings", false);
+
         this.amountChangeTimeout = random(9500, 16000);
         this.animationTimeout = random(3000, 5000);
         this.sackOverlay = new SackOverlay(this);
-        this.selectedMineArea = MineArea.TOP;
+        this.selectedMineArea = ui.getSelectedArea();
 
         for (Integer ore : ORES) {
             ITEM_IDS_TO_RECOGNISE.add(ore);
@@ -265,6 +273,7 @@ public class MotherloadMine extends Script {
         int oresToMine = spaceLeft - inventorySnapshot.getAmount(ItemID.PAYDIRT);
 
         if (inventorySnapshot.isFull() || oresToMine <= 0) {
+            log(MotherloadMine.class, "Inventory full? "+inventorySnapshot.isFull()+" Ores to mine: "+oresToMine);
             // If we have too much payDirt drop it
             if (oresToMine < 0) {
                 // too many ores drop some
@@ -279,6 +288,7 @@ public class MotherloadMine extends Script {
             }
         } else {
             if (inventorySnapshot.containsAny(ORES)) {
+                log(MotherloadMine.class, "Inventory contains ores, banking them...");
                 return Task.OPEN_BANK;
             }
             WorldPosition myPosition = getWorldPosition();
@@ -922,11 +932,6 @@ public class MotherloadMine extends Script {
         return true;
     }
 
-    enum MineResult {
-        FAILED,
-        SUCCEEDED
-    }
-
     enum Task {
         MINE_VEIN,
         WALK_TO_VEIN_AREA,
@@ -939,19 +944,25 @@ public class MotherloadMine extends Script {
         DROP_HAMMER;
     }
 
-    enum MineArea {
-        TOP(TOP_FLOOR_AREA),
-        BOTTOM_SOUTH(SOUTH_AREA),
-        BOTTOM_WEST(WEST_AREA);
+    public enum MineArea {
+        TOP("Top floor",TOP_FLOOR_AREA),
+        BOTTOM_SOUTH("Bottom floor - prefer south",SOUTH_AREA),
+        BOTTOM_WEST("Bottom floor - prefer west",WEST_AREA);
 
         private final Area area;
-
-        MineArea(Area area) {
+        private final String name;
+        MineArea(String name, Area area) {
             this.area = area;
+            this.name = name;
         }
 
         public Area getArea() {
             return area;
+        }
+
+        @Override
+        public String toString() {
+            return name;
         }
     }
 }
