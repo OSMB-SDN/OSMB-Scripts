@@ -19,6 +19,7 @@ import com.osmb.api.shape.triangle.Triangle;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.utils.ImagePanel;
 import com.osmb.api.utils.UIResult;
+import com.osmb.api.utils.timing.Stopwatch;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.visual.SearchablePixel;
 import com.osmb.api.visual.color.ColorModel;
@@ -47,7 +48,7 @@ public class MotherloadMine extends Script {
             ItemID.STEEL_PICKAXE, ItemID.BLACK_PICKAXE, ItemID.MITHRIL_PICKAXE,
             ItemID.ADAMANT_PICKAXE, ItemID.RUNE_PICKAXE, ItemID.DRAGON_PICKAXE,
             ItemID.DRAGON_PICKAXE_OR, ItemID.CRYSTAL_PICKAXE, ItemID.INFERNAL_PICKAXE,
-            ItemID.INFERNAL_PICKAXE_OR
+            ItemID.INFERNAL_PICKAXE_OR, ItemID.ANTIQUE_LAMP
     ));
     public static final Predicate<RSObject> LADDER_QUERY = (rsObject) -> {
         String name = rsObject.getName();
@@ -172,17 +173,23 @@ public class MotherloadMine extends Script {
             new WorldPosition(3758, 5676, 0)));
 
     private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.PAYDIRT, ItemID.HAMMER));
+    private static final MenuHook SACK_MENU_HOOK = menuEntries -> {
+        for (MenuEntry entry : menuEntries) {
+            if (entry.getRawText().equalsIgnoreCase("search sack")) {
+                return entry;
+            }
+        }
+        return null;
+    };
     /**
      * This is used as a failsafe to temporarily block interacting with a vein if the respawn circle isn't visible but the object is.
      * For example. The object is half on the game screen, but the respawn circle isn't (covered by a UI component etc.)
      */
     private final Map<WorldPosition, Long> objectPositionBlacklist = new HashMap<>();
     private ItemGroupResult inventorySnapshot;
-
     private boolean fixWaterWheelFlag = false;
     private boolean forceCollectFlag = false;
     private boolean firstTimeBack = false;
-
     private int amountChangeTimeout;
     private int animationTimeout;
     private SackOverlay sackOverlay;
@@ -192,6 +199,7 @@ public class MotherloadMine extends Script {
     private Integer deposited;
     private int payDirtMined = 0;
     private List<LocalPosition> waterTiles;
+    private Stopwatch dropDelayTimer;
 
     public MotherloadMine(Object scriptCore) {
         super(scriptCore);
@@ -260,7 +268,13 @@ public class MotherloadMine extends Script {
         if (fixWaterWheelFlag) {
             return Task.REPAIR_WHEEL;
         } else if (inventorySnapshot.contains(ItemID.HAMMER)) {
-            return Task.DROP_HAMMER;
+            if (dropDelayTimer != null && dropDelayTimer.hasFinished()) {
+                return Task.DROP_HAMMER;
+            } else {
+                if (dropDelayTimer == null) {
+                    dropDelayTimer = new Stopwatch(random(0, 15000));
+                }
+            }
         }
 
         if (deposited == 0 && !inventorySnapshot.contains(ItemID.PAYDIRT)) {
@@ -318,7 +332,9 @@ public class MotherloadMine extends Script {
 
     private void dropHammer() {
         if (inventorySnapshot.contains(ItemID.HAMMER)) {
-            inventorySnapshot.getItem(ItemID.HAMMER).interact("Drop");
+            if (inventorySnapshot.getItem(ItemID.HAMMER).interact("Drop")) {
+                dropDelayTimer = null;
+            }
         }
     }
 
@@ -447,11 +463,22 @@ public class MotherloadMine extends Script {
     }
 
     private void handleBank() {
-        getWidgetManager().getDepositBox().drawComponents(getScreen().getDrawableCanvas());
-        if (!getWidgetManager().getDepositBox().depositAll(ITEM_IDS_TO_NOT_DEPOSIT)) {
-            log(MotherloadMine.class, "Failed depositing items...");
+        ItemGroupResult depositBoxSnapshot = getWidgetManager().getDepositBox().search(ITEM_IDS_TO_NOT_DEPOSIT);
+        if (depositBoxSnapshot == null) {
             return;
         }
+        if (depositBoxSnapshot.containsAny(ITEM_IDS_TO_NOT_DEPOSIT)) {
+            if (!getWidgetManager().getDepositBox().depositAll(ITEM_IDS_TO_NOT_DEPOSIT)) {
+                log(MotherloadMine.class, "Failed depositing items...");
+                return;
+            }
+        } else {
+            // deposit all button
+            if(!getWidgetManager().getDepositBox().depositAll(Collections.emptySet())) {
+                return;
+            }
+        }
+
         log(MotherloadMine.class, "Closing deposit box...");
         getWidgetManager().getDepositBox().close();
     }
@@ -519,15 +546,8 @@ public class MotherloadMine extends Script {
             log(MotherloadMine.class, "Can't find object Sack inside our loaded scene.");
             return;
         }
-        MenuHook menuHook = menuEntries -> {
-            for (MenuEntry entry : menuEntries) {
-                if (entry.getRawText().equalsIgnoreCase("search sack")) {
-                    return entry;
-                }
-            }
-            return null;
-        };
-        if (sack.get().interact(null, menuHook)) {
+
+        if (sack.get().interact(null, SACK_MENU_HOOK)) {
             int initialSlotsFree = inventorySnapshot.getFreeSlots();
             submitHumanTask(() -> {
                 inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
@@ -679,6 +699,7 @@ public class MotherloadMine extends Script {
         List<RSObject> activeVeinsOnScreen = getActiveVeinsOnScreen(veins, myPosition);
         log(MotherloadMine.class, "Active veins on screen: " + activeVeinsOnScreen.size());
         if (activeVeinsOnScreen.isEmpty()) {
+            log(MotherloadMine.class, "Walking to closest vein off screen...");
             // walk to the closest vein which isn't on screen
             walkToClosestVeinOffScreen(veins, activeVeinsOnScreen);
             return;
@@ -765,12 +786,12 @@ public class MotherloadMine extends Script {
             }
             if (animatingTimer.timeElapsed() > animationTimeout) {
                 log(MotherloadMine.class, "Animation timeout");
-                this.animationTimeout = random(3000, 5000);
+                this.animationTimeout = random(4000, 6000);
                 failed.set(true);
                 return true;
             }
 
-            Polygon polygon = getSceneProjector().getTileCube(myPosition_, 100);
+            Polygon polygon = getSceneProjector().getTileCube(myPosition_, 120);
             if (polygon == null) {
                 return false;
             }
