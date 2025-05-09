@@ -76,7 +76,7 @@ public class CraftHide extends Method {
             return;
         }
         inventorySnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-        ItemGroupResult bankSnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        ItemGroupResult bankSnapshot = script.getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
         if (inventorySnapshot == null || bankSnapshot == null) {
             // inventory or bank not visible
             return;

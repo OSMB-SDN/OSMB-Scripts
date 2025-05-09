@@ -26,8 +26,8 @@ import java.util.function.Predicate;
 @ScriptDefinition(name = "Bonfire Maker", description = "Makes bonfires and burns logs on them.", skillCategory = SkillCategory.FIREMAKING, version = 1.0, author = "Joe")
 public class BonfireMaker extends Script {
 
-    public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
-    public static final String[] BANK_ACTIONS = {"bank", "open"};
+    public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth", "Bank counter", "Bank table"};
+    public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
     private static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 6;
     private final Predicate<RSObject> bankQuery = gameObject -> {
         // if object has no name

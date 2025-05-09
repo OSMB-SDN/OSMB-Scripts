@@ -52,7 +52,7 @@ public class PotionMixer {
             return;
         }
         inventorySnapshot = script.getWidgetManager().getInventory().search(selectedPotion.getIngredientIds());
-        if(inventorySnapshot == null) {
+        if (inventorySnapshot == null) {
             return;
         }
         // calculate how many slots it takes to make a single potion
@@ -202,19 +202,20 @@ public class PotionMixer {
         // work out how many potions we can make
         int amountOfPotions = (inventorySnapshot.getFreeSlots() - stackableIngredients) / slotsPerPotion;
 
+        script.log(PotionMixer.class,"Amount of potions we can create: "+amountOfPotions);
         List<BankEntry> bankEntries = new ArrayList<>();
         // go over and check if we have too many
         for (Ingredient ingredient : ingredientsList) {
             if (script.getItemManager().isStackable(ingredient.getItemID())) {
-
                 ItemSearchResult stackableIngredient = inventorySnapshot.getItem(ingredient.getItemID());
                 if (stackableIngredient == null || stackableIngredient.getStackAmount() < ingredient.getAmount()) {
                     bankEntries.add(new BankEntry(ingredient.getItemID(), Integer.MAX_VALUE));
                 }
             } else {
-                Set<ItemSearchResult> ingredientsInventory = inventorySnapshot.getAllOfItem(ingredient.getItemID());
-                int inventoryAmount = ingredientsInventory.size();
+                int inventoryAmount = inventorySnapshot.getAmount(ingredient.getItemID());
+                script.log(PotionMixer.class, "Amount of itemid: " + ingredient.getItemID() + " amount: " + inventoryAmount);
                 int amountNeeded = (ingredient.getAmount() * amountOfPotions) - inventoryAmount;
+                script.log(PotionMixer.class, "Amount needed: " + amountNeeded);
                 if (amountNeeded == 0) continue;
                 bankEntries.add(new BankEntry(ingredient.getItemID(), amountNeeded));
             }
