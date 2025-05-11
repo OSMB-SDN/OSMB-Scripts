@@ -2,6 +2,7 @@ package com.osmb.script.wintertodt;
 
 import com.osmb.api.definition.ItemDefinition;
 import com.osmb.api.input.MenuHook;
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.location.area.impl.RectangleArea;
@@ -157,7 +158,7 @@ public class Wintertodt extends Script {
             log(getClass().getSimpleName(), "Inventory is not visible...");
             return null;
         }
-        if (!getItemManager().unSelectItemIfSelected()) {
+        if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
             log(getClass().getSimpleName(), "failed to unselect item...");
             return null;
         }
@@ -851,9 +852,6 @@ public class Wintertodt extends Script {
 
     private void restockRejuvenation() {
         log(Wintertodt.class, "Restocking Rejuvenation");
-        if (!getItemManager().unSelectItemIfSelected()) {
-            return;
-        }
         int currentDoses = getRejuvenationDoses(false);
         Optional<Integer> freeSlots = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory(), ItemID.REJUVENATION_POTION_UNF, ItemID.BRUMA_HERB);
         if (!freeSlots.isPresent()) {
@@ -878,10 +876,10 @@ public class Wintertodt extends Script {
         // drop if we have too many
         if (unfPotionsNeeded < 0) {
             log(Wintertodt.class, "Too many unf potions, dropping...");
-            getItemManager().dropItem(getWidgetManager().getInventory(), ItemID.REJUVENATION_POTION_UNF, Math.abs(unfPotionsNeeded));
+            getWidgetManager().getInventory().dropItem(ItemID.REJUVENATION_POTION_UNF, Math.abs(unfPotionsNeeded));
         } else if (brumaHerbsNeeded < 0) {
             log(Wintertodt.class, "Too many herbs, dropping...");
-            getItemManager().dropItem(getWidgetManager().getInventory(), ItemID.BRUMA_HERB, Math.abs(brumaHerbsNeeded));
+            getWidgetManager().getInventory().dropItem(ItemID.BRUMA_HERB, Math.abs(brumaHerbsNeeded));
         }
         // if we need more
         else if (unfPotionsNeeded > 0) {
@@ -908,28 +906,11 @@ public class Wintertodt extends Script {
     }
 
     private void useIngredientsOnBrewMa(UIResultList<ItemSearchResult> unfPotions, UIResultList<ItemSearchResult> brumaHerbs) {
+        Polygon tilePoly = getBrewmaTileCube(0.6);
 
-        RSTile brewmaTile = getSceneManager().getTile(BREWMA_POSITION);
-        if (brewmaTile == null) {
-            // shouldn't happen
-            log(Wintertodt.class, "Tile is null...");
-            return;
-        }
-
-        if (!brewmaTile.isOnGameScreen()) {
+        if (tilePoly == null) {
             // walk to tile
-            WalkConfig.Builder builder = new WalkConfig.Builder();
-            builder.breakCondition(() -> {
-                if (getWorldPosition() == null) {
-                    return false;
-                }
-                RSTile brewmaTile_ = getSceneManager().getTile(BREWMA_POSITION);
-                if (brewmaTile_ == null) {
-                    return false;
-                }
-                return brewmaTile_.isOnGameScreen();
-            });
-            getWalker().walkTo(BREWMA_POSITION, builder.build());
+            walkToBrewma();
             return;
         }
         // select "Use" on a random ingredient
@@ -945,24 +926,51 @@ public class Wintertodt extends Script {
             log(Wintertodt.class, "Item definition is null for item: " + randomItem.getId());
             return;
         }
-        Polygon polygon = brewmaTile.getTileCube(80);
-        if (polygon == null) {
+        tilePoly = getBrewmaTileCube(0.6);
+        if (tilePoly == null) {
             return;
         }
-
-        Polygon polygonResized = polygon.getResized(0.4);
-
-        log(Wintertodt.class, "Resized: " + polygonResized + " Original: " + polygon);
-        if (getFinger().tap(polygon, "Use " + itemDefinition.name + " -> " + "Brew'ma")) {
+        if (getFinger().tapGameScreen(tilePoly, "Use " + itemDefinition.name + " -> " + "Brew'ma")) {
             submitTask(() -> {
-                UIResultList<ItemSearchResult> unfPotions_ = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.REJUVENATION_POTION_UNF);
-                UIResultList<ItemSearchResult> brumaHerbs_ = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BRUMA_HERB);
-                if (brumaHerbs_.isNotVisible() || unfPotions_.isNotVisible()) {
+                ItemGroupResult inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.REJUVENATION_POTION_UNF, ItemID.BRUMA_HERB));
+                if (inventorySnapshot == null) {
                     return false;
                 }
-                return brumaHerbs_.isEmpty() || unfPotions_.isEmpty();
+                return !inventorySnapshot.contains(ItemID.REJUVENATION_POTION_UNF) || !inventorySnapshot.contains(ItemID.BRUMA_HERB);
             }, 7000);
         }
+    }
+
+    private Polygon getBrewmaTileCube(double scale) {
+        Polygon tilePoly;
+        tilePoly = getSceneProjector().getTileCube(BREWMA_POSITION, 80, true);
+        if (tilePoly == null) {
+            return null;
+        }
+        if (scale < 1.0) {
+            tilePoly = tilePoly.getResized(scale);
+            if (tilePoly == null) {
+                return null;
+            }
+        }
+
+        if (!getWidgetManager().insideGameScreen(tilePoly, Collections.emptyList())) {
+            return null;
+        }
+        return tilePoly;
+    }
+
+    private void walkToBrewma() {
+        WalkConfig.Builder builder = new WalkConfig.Builder();
+        builder.breakDistance(2);
+        builder.breakCondition(() -> {
+            if (getWorldPosition() == null) {
+                return false;
+            }
+            Polygon tilePoly = getSceneProjector().getTilePoly(BREWMA_POSITION, true);
+            return tilePoly != null && getWidgetManager().insideGameScreen(tilePoly, Collections.emptyList());
+        });
+        getWalker().walkTo(BREWMA_POSITION, builder.build());
     }
 
     private void combineIngredients(UIResultList<ItemSearchResult> unfPotions, UIResultList<ItemSearchResult> brumaHerbs) {
@@ -974,9 +982,6 @@ public class Wintertodt extends Script {
             if (!getWidgetManager().getHotkeys().setTapToDropEnabled(false)) {
                 return;
             }
-        }
-        if (!getItemManager().unSelectItemIfSelected()) {
-            return;
         }
         int randomNumber = random(5);
         boolean makeFast = randomNumber != 0;
@@ -996,11 +1001,9 @@ public class Wintertodt extends Script {
                     if (!getFinger().tap(false, unfPotions.get(count.get())) || !getFinger().tap(false, brumaHerbs.get(count.getAndIncrement()))) {
                         return true;
                     }
-                    sleep(random(RandomUtils.weightedRandom(200, 800)));
+                    submitTask(() -> false, random(RandomUtils.weightedRandom(200, 800)));
                     return false;
                 }, 8000);
-                sleep(random(100, 200));
-                getItemManager().unSelectItemIfSelected();
                 return null;
             };
 
