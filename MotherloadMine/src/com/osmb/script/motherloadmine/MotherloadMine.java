@@ -17,7 +17,6 @@ import com.osmb.api.shape.Polygon;
 import com.osmb.api.shape.Rectangle;
 import com.osmb.api.shape.triangle.Triangle;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
-import com.osmb.api.utils.ImagePanel;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.timing.Stopwatch;
 import com.osmb.api.utils.timing.Timer;
@@ -181,6 +180,7 @@ public class MotherloadMine extends Script {
         }
         return null;
     };
+    private static final PolyArea BOTTOM_FLOOR_ACCESSIBLE_AREA = new PolyArea(List.of(new WorldPosition(3732, 5678, 0), new WorldPosition(3734, 5680, 0), new WorldPosition(3735, 5680, 0), new WorldPosition(3738, 5680, 0), new WorldPosition(3740, 5681, 0), new WorldPosition(3744, 5681, 0), new WorldPosition(3746, 5680, 0), new WorldPosition(3747, 5679, 0), new WorldPosition(3749, 5679, 0), new WorldPosition(3750, 5678, 0), new WorldPosition(3751, 5677, 0), new WorldPosition(3751, 5676, 0), new WorldPosition(3752, 5675, 0), new WorldPosition(3753, 5675, 0), new WorldPosition(3754, 5674, 0), new WorldPosition(3755, 5673, 0), new WorldPosition(3756, 5673, 0), new WorldPosition(3757, 5672, 0), new WorldPosition(3758, 5672, 0), new WorldPosition(3759, 5671, 0), new WorldPosition(3760, 5670, 0), new WorldPosition(3760, 5668, 0), new WorldPosition(3761, 5667, 0), new WorldPosition(3761, 5665, 0), new WorldPosition(3760, 5664, 0), new WorldPosition(3760, 5661, 0), new WorldPosition(3760, 5658, 0), new WorldPosition(3759, 5657, 0), new WorldPosition(3759, 5656, 0), new WorldPosition(3759, 5655, 0), new WorldPosition(3760, 5654, 0), new WorldPosition(3762, 5654, 0), new WorldPosition(3762, 5653, 0), new WorldPosition(3761, 5652, 0), new WorldPosition(3761, 5651, 0), new WorldPosition(3758, 5651, 0), new WorldPosition(3755, 5648, 0), new WorldPosition(3748, 5645, 0), new WorldPosition(3740, 5645, 0), new WorldPosition(3731, 5651, 0), new WorldPosition(3729, 5650, 0), new WorldPosition(3729, 5651, 0), new WorldPosition(3728, 5652, 0), new WorldPosition(3728, 5655, 0), new WorldPosition(3728, 5667, 0), new WorldPosition(3728, 5674, 0)));
     /**
      * This is used as a failsafe to temporarily block interacting with a vein if the respawn circle isn't visible but the object is.
      * For example. The object is half on the game screen, but the respawn circle isn't (covered by a UI component etc.)
@@ -221,6 +221,27 @@ public class MotherloadMine extends Script {
         log(getClass().getSimpleName(), "Executing task: " + task);
         executeTask(task);
         return 0;
+    }
+
+    private boolean outsideAccessibleAreaCheck() {
+        WorldPosition myPosition = getWorldPosition();
+        if (myPosition == null) {
+            return false;
+        }
+        if (TOP_FLOOR_AREA.contains(myPosition)) {
+            if (!TOP_FLOOR_ACCESSIBLE_AREA.contains(myPosition)) {
+                log(MotherloadMine.class, "Outside accessible area, stopping script as rocks are not handled atm.");
+                stop();
+                return true;
+            }
+        } else {
+            if (!BOTTOM_FLOOR_ACCESSIBLE_AREA.contains(myPosition)) {
+                log(MotherloadMine.class, "Outside accessible area, stopping script as rocks are not handled atm.");
+                stop();
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -264,7 +285,9 @@ public class MotherloadMine extends Script {
             log(MotherloadMine.class, "Inventory not visible...");
             return null;
         }
-
+        if (outsideAccessibleAreaCheck()) {
+            return null;
+        }
         if (fixWaterWheelFlag) {
             return Task.REPAIR_WHEEL;
         } else if (inventorySnapshot.contains(ItemID.HAMMER)) {
@@ -474,7 +497,7 @@ public class MotherloadMine extends Script {
             }
         } else {
             // deposit all button
-            if(!getWidgetManager().getDepositBox().depositAll(Collections.emptySet())) {
+            if (!getWidgetManager().getDepositBox().depositAll(Collections.emptySet())) {
                 return;
             }
         }
@@ -528,12 +551,10 @@ public class MotherloadMine extends Script {
             log(MotherloadMine.class, "Position is null...");
             return;
         }
+        if (outsideAccessibleAreaCheck()) {
+            return;
+        }
         if (TOP_FLOOR_AREA.contains(myPosition)) {
-            if (!TOP_FLOOR_ACCESSIBLE_AREA.contains(myPosition)) {
-                log(MotherloadMine.class, "Outside accessible area, stopping script as rocks are not handled atm.");
-                stop();
-                return;
-            }
             climbDownLadder();
             return;
         }
@@ -680,7 +701,7 @@ public class MotherloadMine extends Script {
             if (contains && !found) {
                 found = true;
                 // we continue the loop just to draw the tiles as it looks fancy
-                new ImagePanel(getScreen().getDrawableCanvas().toImage().toBufferedImage()).showInFrame("");
+                //     new ImagePanel(getScreen().getDrawableCanvas().toImage().toBufferedImage()).showInFrame("");
             }
         }
         if (found) {
@@ -728,6 +749,9 @@ public class MotherloadMine extends Script {
             return;
         }
 
+        if (firstTimeBack) {
+            firstTimeBack = false;
+        }
         long positionChangeTime = getLastPositionChangeMillis();
         if (closestVein.getTileDistance() > 1) {
             // if not in interactable distance, wait a little so we start moving.
