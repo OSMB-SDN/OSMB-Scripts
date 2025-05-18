@@ -37,18 +37,18 @@ import java.util.function.Predicate;
 @ScriptDefinition(name = "Charter crafter", author = "Joe", version = 1.0, description = "", skillCategory = SkillCategory.CRAFTING)
 public class CharterCrafting extends Script {
 
-    public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
-    public static final String[] BANK_ACTIONS = {"bank", "open", "Use"};
+    public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth", "Bank counter", "Bank table"};
+    public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
     private static final int[] SELL_OPTION_AMOUNTS = new int[]{1, 5, 10, 50};
 
 
     private static final ToleranceComparator TOLERANCE_COMPARATOR_2 = new SingleThresholdComparator(5);
     private static final SearchablePixel SELECTED_HIGHLIGHT_COLOR = new SearchablePixel(-2171877, TOLERANCE_COMPARATOR_2, ColorModel.RGB);
     private static final ToleranceComparator TOLERANCE_COMPARATOR = new SingleThresholdComparator(3);
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.GLASSBLOWING_PIPE, ItemID.MOLTEN_GLASS, ItemID.BUCKET_OF_SAND, ItemID.SODA_ASH, ItemID.SEAWEED));
-    private Dock selectedDock;
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.GLASSBLOWING_PIPE, ItemID.MOLTEN_GLASS, ItemID.BUCKET_OF_SAND, ItemID.SODA_ASH, ItemID.SEAWEED, ItemID.BUCKET));
+    private static Dock selectedDock;
     // Find bank and open it
-    private final Predicate<RSObject> bankQuery = gameObject -> {
+    private static final Predicate<RSObject> BANK_QUERY = gameObject -> {
         // if object has no name
         String name = gameObject.getName();
 
@@ -126,7 +126,7 @@ public class CharterCrafting extends Script {
         getStageController().show(scene, "Settings", false);
 
         this.amountChangeTimeout = random(4500, 7000);
-        this.selectedDock = ui.getSelectedDock();
+        selectedDock = ui.getSelectedDock();
         // workaround as highlights aren't working for charter crew members
         this.npcs = NPC.getNpcsForDock(selectedDock);
         this.selectedMethod = ui.getSelectedMethod();
@@ -213,7 +213,7 @@ public class CharterCrafting extends Script {
             log(getClass().getSimpleName(), "No NPC's found nearby...");
             return;
         }
-        List<WorldPosition> npcPositions = npcPositionsResult.asList();
+        List<WorldPosition> npcPositions = new ArrayList<>(npcPositionsResult.asList());
 
         // remove positions which aren't in the wander area
         npcPositions.removeIf(worldPosition -> !selectedDock.getWanderArea().contains(worldPosition));
@@ -330,6 +330,7 @@ public class CharterCrafting extends Script {
 
     private void craft(ItemSearchResult glassblowingPipe, ItemSearchResult moltenGlass, int timeout) {
         if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
+            log(CharterCrafting.class, "Failed to unselect item.");
             return;
         }
         if (validDialogue()) {
@@ -535,7 +536,7 @@ public class CharterCrafting extends Script {
     private void openBank() {
         log(getClass().getSimpleName(), "Searching for a bank...");
 
-        List<RSObject> banksFound = getObjectManager().getObjects(bankQuery);
+        List<RSObject> banksFound = getObjectManager().getObjects(BANK_QUERY);
         //can't find a bank
         if (banksFound.isEmpty()) {
             log(getClass().getSimpleName(), "Can't find any banks matching criteria...");
@@ -579,6 +580,12 @@ public class CharterCrafting extends Script {
             sellItems(new SellEntry(inventorySnapshot.getRandomItem(selectedGlassBlowingItem.getItemId()), 999), inventorySnapshot.getFreeSlots());
             return;
         }
+        if (inventorySnapshot.contains(ItemID.BUCKET)) {
+            log(CharterCrafting.class, "Selling crafted items");
+            sellItems(new SellEntry(inventorySnapshot.getRandomItem(ItemID.BUCKET), 999), inventorySnapshot.getFreeSlots());
+            return;
+        }
+
 
         int bucketOfSandInventory = inventorySnapshot.getAmount(ItemID.BUCKET_OF_SAND);
         int combinationItemInventory = inventorySnapshot.getAmount(combinationItemID);
@@ -675,7 +682,7 @@ public class CharterCrafting extends Script {
         int amount = buyEntry.amount;
         boolean all = amount == 999;
         if (all) {
-            amount = (random(2) == 1 ? 10 : 50);
+            amount = 50;
         } else {
             amount = roundDownToNearestOption(amount);
         }

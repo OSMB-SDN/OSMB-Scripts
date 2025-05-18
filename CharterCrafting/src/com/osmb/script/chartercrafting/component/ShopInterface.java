@@ -120,7 +120,7 @@ public class ShopInterface extends ComponentCentered implements ItemGroup {
             return null;
         }
 
-        return new Point(bounds.x + 61, bounds.y + 49);
+        return new Point(bounds.x + 61, bounds.y + 40);
     }
 
     @Override
