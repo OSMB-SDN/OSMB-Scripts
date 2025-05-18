@@ -49,7 +49,7 @@ public class Pollnivneach implements Course {
             AIOAgility.handleObstacle(core, "Tree", "Jump-on", AREA_8, 2,false,20000);
             return 0;
         } else if (AREA_8.contains(pos)) {
-            AIOAgility.handleObstacle(core, "Drying line", "Jump-to", END_AREA, 2, 20000);
+            AIOAgility.handleObstacle(core, "Drying line", "Jump-to", END_AREA, 2, false, 20000);
             return 0;
         } else {
             ObstacleHandleResponse handleResponse = AIOAgility.handleObstacle(core, "Basket", "Climb-on", AREA_1, 15000);
