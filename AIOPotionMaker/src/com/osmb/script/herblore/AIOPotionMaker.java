@@ -25,6 +25,27 @@ public class AIOPotionMaker extends Script {
     // names of possible banks
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth", "Bank counter", "Bank table"};
     public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
+    public static final Predicate<RSObject> BANK_QUERY = gameObject -> {
+        // if object has no name
+        if (gameObject.getName() == null) {
+            return false;
+        }
+        // has no interact options (eg. bank, open etc.)
+        if (gameObject.getActions() == null) {
+            return false;
+        }
+
+        if (!Arrays.stream(BANK_NAMES).anyMatch(name -> name.equalsIgnoreCase(gameObject.getName()))) {
+            return false;
+        }
+
+        // if no actions contain bank or open
+        if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
+            return false;
+        }
+        // final check is if the object is reachable
+        return gameObject.canReach();
+    };
     private PotionMixer selectedPotionMixer;
     private boolean bank = false;
 
@@ -79,36 +100,22 @@ public class AIOPotionMaker extends Script {
     private void openBank() {
         log(getClass().getSimpleName(), "Searching for a bank...");
         // Find bank and open it
-        Predicate<RSObject> bankQuery = gameObject -> {
-            // if object has no name
-            if (gameObject.getName() == null) {
-                return false;
-            }
-            // has no interact options (eg. bank, open etc.)
-            if (gameObject.getActions() == null) {
-                return false;
-            }
-
-            if (!Arrays.stream(BANK_NAMES).anyMatch(name -> name.equalsIgnoreCase(gameObject.getName()))) {
-                return false;
-            }
-
-            // if no actions contain bank or open
-            if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
-                return false;
-            }
-            // final check is if the object is reachable
-            return gameObject.canReach();
-        };
-        List<RSObject> banksFound = getObjectManager().getObjects(bankQuery);
+        List<RSObject> banksFound = getObjectManager().getObjects(BANK_QUERY);
         //can't find a bank
         if (banksFound.isEmpty()) {
             log(getClass().getSimpleName(), "Can't find any banks matching criteria...");
             return;
         }
+
         RSObject object = (RSObject) getUtils().getClosest(banksFound);
-        if (!object.interact(BANK_ACTIONS))
+        if (!object.interact(BANK_ACTIONS)) {
+            // failed to interact with the bank
             return;
+        }
+        waitForBankToOpen();
+    }
+
+    private void waitForBankToOpen() {
         AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
         AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
         // wait for bank interface
@@ -125,7 +132,6 @@ public class AIOPotionMaker extends Script {
 
             return getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
         }, 15000);
-        return;
     }
 
     public boolean isBank() {
