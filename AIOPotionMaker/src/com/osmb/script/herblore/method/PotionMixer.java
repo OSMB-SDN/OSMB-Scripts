@@ -187,6 +187,7 @@ public class PotionMixer {
         }
 
 
+        int slotsToWorkWith = inventorySnapshot.getFreeSlots();
         // calculate how many slots it takes to make a single potion
         Ingredient[] ingredientsList = selectedPotion.getIngredients();
         int slotsPerPotion = 0;
@@ -194,15 +195,18 @@ public class PotionMixer {
         for (Ingredient ingredient : ingredientsList) {
             if (script.getItemManager().isStackable(ingredient.getItemID())) {
                 stackableIngredients++;
+                if (inventorySnapshot.contains(ingredient.getItemID())) {
+                    slotsToWorkWith++;
+                }
             } else {
                 slotsPerPotion += ingredient.getAmount();
+                slotsToWorkWith += inventorySnapshot.getAmount(ingredient.getItemID());
             }
         }
-
         // work out how many potions we can make
-        int amountOfPotions = (inventorySnapshot.getFreeSlots() - stackableIngredients) / slotsPerPotion;
+        int amountOfPotions = (slotsToWorkWith - stackableIngredients) / slotsPerPotion;
 
-        script.log(PotionMixer.class,"Amount of potions we can create: "+amountOfPotions);
+        script.log(PotionMixer.class, "Amount of potions we can create: " + amountOfPotions);
         List<BankEntry> bankEntries = new ArrayList<>();
         // go over and check if we have too many
         for (Ingredient ingredient : ingredientsList) {
@@ -229,6 +233,11 @@ public class PotionMixer {
             script.log(PotionMixer.class, "Processing bank entry: " + bankEntry);
             if (bankEntry.amount > 0) {
                 // withdraw
+                if (bankSnapshot.getAmount(bankEntry.itemID) < bankEntry.amount) {
+                    script.log(PotionMixer.class,"Insufficient supplies. Item ID: "+bankEntry.itemID);
+                    script.stop();
+                    return;
+                }
                 script.getWidgetManager().getBank().withdraw(bankEntry.itemID, bankEntry.amount);
             } else {
                 // deposit
