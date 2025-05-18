@@ -1,5 +1,6 @@
 package com.osmb.script.smithing;
 
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.location.area.impl.RectangleArea;
@@ -18,7 +19,9 @@ import com.osmb.script.smithing.data.Product;
 import com.osmb.script.smithing.javafx.ScriptOptions;
 import javafx.scene.Scene;
 
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -29,9 +32,11 @@ public class AIOAnvil extends Script {
     private static final RectangleArea VARROCK_AREA = new RectangleArea(3131, 3391, 109, 75, 0);
     private static final WorldPosition VARROCK_BANK_BOOTH_POSITION = new WorldPosition(3186, 3436, 0);
     private int selectedBarID;
-    private int selecteProductID;
+    private int selectedProductID;
     private Product selectedProduct;
     private AnvilInterface anvilInterface;
+
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.HAMMER));
 
     public AIOAnvil(Object scriptCore) {
         super(scriptCore);
@@ -45,9 +50,9 @@ public class AIOAnvil extends Script {
         scene.getStylesheets().add("style.css");
         getStageController().show(scene, "Settings", false);
         selectedProduct = scriptOptions.getSelectedProduct();
-        selecteProductID = scriptOptions.getSelectedProductID();
+        selectedProductID = scriptOptions.getSelectedProductID();
         selectedBarID = scriptOptions.getSelectedBar();
-
+        ITEM_IDS_TO_RECOGNISE.add(selectedBarID);
         getWidgetManager().addComponent(anvilInterface);
     }
 
@@ -59,6 +64,7 @@ public class AIOAnvil extends Script {
         }
 
         if (anvilInterface.isVisible()) {
+            log(AIOAnvil.class,"Anvil interface is visible");
             if (handleAnvilInterface()) {
                 waitUntilFinishedSmithing();
             }
@@ -124,7 +130,7 @@ public class AIOAnvil extends Script {
             }
 
             return false;
-        }, 60000, true, false, true);
+        }, 60000, false, true);
     }
 
     @Override
@@ -133,23 +139,11 @@ public class AIOAnvil extends Script {
     }
 
     private boolean handleAnvilInterface() {
-        UIResult<ItemSearchResult> interfaceItem = getItemManager().findItem(anvilInterface, selecteProductID);
-        if (interfaceItem.isNotVisible()) {
-            return false;
-        }
-        if (interfaceItem.isNotFound()) {
-            log(getClass().getSimpleName(), "Can't find item inside interface.");
-            return false;
-        }
-        // if we purposely missclick or fail in general
-        if (!interfaceItem.get().interact()) {
-            return false;
-        }
-        return submitHumanTask(() -> !anvilInterface.isVisible(), 4000);
+        return anvilInterface.selectItem(selectedProductID);
     }
 
     private void handleBankInterface() {
-        if (!getWidgetManager().getBank().depositAll(new int[]{ItemID.HAMMER, selectedBarID})) {
+        if (!getWidgetManager().getBank().depositAll(ITEM_IDS_TO_RECOGNISE)) {
             return;
         }
         UIResultList<ItemSearchResult> barsInventory = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedBarID);
@@ -159,7 +153,7 @@ public class AIOAnvil extends Script {
             return;
         }
         // we have bars in inventory and no free slots, close bank
-        if (freeSlots.get() == 0 && barsInventory.size() > 0) {
+        if (freeSlots.get() == 0 && !barsInventory.isEmpty()) {
             getWidgetManager().getBank().close();
             return;
         }
