@@ -19,6 +19,7 @@ import com.osmb.api.utils.UIResultList;
 import com.osmb.api.utils.timing.Stopwatch;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.visual.drawing.Canvas;
+import com.osmb.api.visual.image.ImageImport;
 import com.osmb.api.walker.WalkConfig;
 import com.osmb.script.wintertodt.ui.ScriptOptions;
 import javafx.scene.Scene;
@@ -29,28 +30,26 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 @ScriptDefinition(name = "Wintertodt", author = "Joe", version = 1.0, skillCategory = SkillCategory.FIREMAKING, description = "")
 public class Wintertodt extends Script {
 
     public static final int FIRST_MILESTONE_POINTS = 500;
-    private static final int[] REJUVENATION_POTION_IDS = new int[]{ItemID.REJUVENATION_POTION_1, ItemID.REJUVENATION_POTION_2, ItemID.REJUVENATION_POTION_3, ItemID.REJUVENATION_POTION_4};
+    private static final List<Integer> REJUVENATION_POTION_IDS = List.of(ItemID.REJUVENATION_POTION_1, ItemID.REJUVENATION_POTION_2, ItemID.REJUVENATION_POTION_3, ItemID.REJUVENATION_POTION_4);
     private static final RectangleArea BOSS_AREA = new RectangleArea(1600, 3968, 63, 63, 0);
     private static final Font FONT = new Font("Serif", Font.BOLD, 24);
     private static final RectangleArea SAFE_AREA = new RectangleArea(1625, 3968, 10, 19, 0);
     private static final RectangleArea SOCIAL_SAFE_AREA = new RectangleArea(1626, 3980, 8, 7, 0);
     private static final WorldPosition[] REJUVENATION_CRATE_POSITIONS = new WorldPosition[]{new WorldPosition(1634, 3982, 0), new WorldPosition(1626, 3982, 0)};
     private static final WorldPosition BREWMA_POSITION = new WorldPosition(1635, 3986, 0);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.BRUMA_HERB, ItemID.BRUMA_ROOT, ItemID.BRUMA_KINDLING, ItemID.REJUVENATION_POTION_UNF));
     private WintertodtOverlay overlay;
     private Brazier focusedBrazier;
     private Method method;
     private boolean checkedEquipment = false;
     private Task task;
-    private UIResultList<ItemSearchResult> roots;
     private Set<Equipment> missingEquipment = new HashSet<>();
-    private UIResultList<ItemSearchResult> rejuvenationPotions;
     private Stopwatch potionDrinkCooldown = new Stopwatch();
     private Integer warmth;
     private Integer wintertodtEnergy;
@@ -60,10 +59,6 @@ public class Wintertodt extends Script {
     private int fletchTimeout;
     private int brazierTimeout;
     private long chopRootsTimeout;
-    private UIResultList<ItemSearchResult> unfPotions;
-    private UIResultList<ItemSearchResult> brumaHerbs;
-    private Optional<Integer> freeSlots;
-    private UIResultList<ItemSearchResult> kindling;
     private Stopwatch breakDelay;
     private int nextDoseRestock = 8;
     private int potionsToPrep;
@@ -71,6 +66,7 @@ public class Wintertodt extends Script {
     private int foodItemID;
     private HealType healType;
     private FletchType fletchType;
+    private ItemGroupResult inventorySnapshot;
 
     public Wintertodt(Object scriptCore) {
         super(scriptCore);
@@ -110,13 +106,21 @@ public class Wintertodt extends Script {
         brazierTimeout = random(5000, 7000);
         fletchTimeout = random(5000, 7000);
         chopRootsTimeout = random(6000, 13000);
+
+        ITEM_IDS_TO_RECOGNISE.addAll(REJUVENATION_POTION_IDS);
+
+        for (Equipment equipment : Equipment.values()) {
+            for (int item : equipment.getItemIds()) {
+                ITEM_IDS_TO_RECOGNISE.add(item);
+            }
+        }
     }
 
     @Override
     public int poll() {
         log(Wintertodt.class, "Deciding task...");
         this.task = decideTask(method);
-        log(getClass().getSimpleName(), "Executing task: " + task);
+        log(Wintertodt.class, "Executing task: " + task);
         if (task == null) {
             return 0;
         }
@@ -136,7 +140,7 @@ public class Wintertodt extends Script {
     private Task decideTask(Method method) {
         WorldPosition worldPosition = getWorldPosition();
         if (worldPosition == null) {
-            log(getClass().getSimpleName(), "Position is null.");
+            log(Wintertodt.class, "Position is null.");
             return null;
         }
 
@@ -145,21 +149,13 @@ public class Wintertodt extends Script {
             return Task.WALK_TO_BOSS_AREA;
         }
 
-
-        rejuvenationPotions = getItemManager().findAllOfItem(getWidgetManager().getInventory(), REJUVENATION_POTION_IDS);
-
-        unfPotions = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.REJUVENATION_POTION_UNF);
-        brumaHerbs = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BRUMA_HERB);
-        roots = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BRUMA_ROOT);
-        kindling = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BRUMA_KINDLING);
-        freeSlots = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory());
-        if (rejuvenationPotions.isNotVisible() || unfPotions.isNotVisible() || brumaHerbs.isNotVisible() || roots.isNotVisible() || kindling.isNotVisible() || freeSlots.isEmpty()) {
-            // inventory is not visible - should only happen if we fail to open the inventory
-            log(getClass().getSimpleName(), "Inventory is not visible...");
+        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        if (inventorySnapshot == null) {
+            log(Wintertodt.class, "Inventory not visible");
             return null;
         }
         if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
-            log(getClass().getSimpleName(), "failed to unselect item...");
+            log(Wintertodt.class, "failed to unselect item...");
             return null;
         }
         if (!checkedEquipment) {
@@ -176,14 +172,12 @@ public class Wintertodt extends Script {
             }
         }
 
-        log(getClass().getSimpleName(), "Rejuvenation potions: " + rejuvenationPotions.size() + " Unf potions: " + unfPotions.size() + " Bruma herbs: " + brumaHerbs.size());
-
-        if (rejuvenationPotions.isEmpty() || !unfPotions.isEmpty() || !brumaHerbs.isEmpty()) {
+        if (!inventorySnapshot.containsAny(new HashSet<>(REJUVENATION_POTION_IDS)) || inventorySnapshot.contains(ItemID.REJUVENATION_POTION_UNF) || inventorySnapshot.contains(ItemID.BRUMA_HERB)) {
             return Task.RESTOCK_REJUVINATION_POTIONS;
         }
 
         if (!overlay.isVisible()) {
-            log(getClass().getSimpleName(), "Overlay is not visible for some reason, walking to safe area...");
+            log(Wintertodt.class, "Overlay is not visible for some reason, walking to safe area...");
             return Task.WALK_TO_SAFE_AREA;
         }
 
@@ -198,7 +192,7 @@ public class Wintertodt extends Script {
         UIResult<Boolean> tapToDrop = getWidgetManager().getHotkeys().isTapToDropEnabled();
         if (tapToDrop.isFound() && tapToDrop.get()) {
             if (!getWidgetManager().getHotkeys().setTapToDropEnabled(false)) {
-                log(getClass().getSimpleName(), "Failed to deactivate tap to drop...");
+                log(Wintertodt.class, "Failed to deactivate tap to drop...");
                 return null;
             }
         }
@@ -206,7 +200,7 @@ public class Wintertodt extends Script {
         this.warmth = overlay.getWarmthPercent();
         this.wintertodtEnergy = overlay.getEnergyPercent();
         if (warmth == null) {
-            log(getClass().getSimpleName(), "Cannot figure out our warmth value, walking to safe area...");
+            log(Wintertodt.class, "Cannot figure out our warmth value, walking to safe area...");
             return Task.WALK_TO_SAFE_AREA;
         }
 
@@ -253,7 +247,7 @@ public class Wintertodt extends Script {
 
         Integer points = overlay.getPoints();
         if (points == null) {
-            log(getClass().getSimpleName(), "Failed reading points value.");
+            log(Wintertodt.class, "Failed reading points value.");
             return null;
         }
         if (points < 100 && warmth < 30) {
@@ -273,7 +267,7 @@ public class Wintertodt extends Script {
 
         RSObject brazier = getBrazier();
         WintertodtOverlay.BrazierStatus brazierStatus = overlay.getBrazierStatus(focusedBrazier);
-        log(getClass().getSimpleName(), "Brazier status: " + brazierStatus);
+        log(Wintertodt.class, "Brazier status: " + brazierStatus);
         if (brazierStatus != null) {
             // prioritise lighting brazier if close by
             if (brazier != null && brazier.getTileDistance() < 3) {
@@ -289,22 +283,23 @@ public class Wintertodt extends Script {
 
         if (brazier != null && brazier.getTileDistance() <= 3) {
             // if close to brazier and have fuel
-            log(getClass().getSimpleName(), "Kindling found: " + kindling.size() + ", Roots found: " + roots.size());
-            if (fletch && !kindling.isEmpty() && roots.isEmpty() || !fletch && (!roots.isEmpty() || !kindling.isEmpty())) {
+            log(Wintertodt.class, "Kindling found: " + inventorySnapshot.getAmount(ItemID.BRUMA_KINDLING) + ", Roots found: " + inventorySnapshot.getAmount(ItemID.BRUMA_ROOT));
+            if (fletch && inventorySnapshot.contains(ItemID.BRUMA_KINDLING) && !inventorySnapshot.contains(ItemID.BRUMA_ROOT)
+                    || !fletch && (inventorySnapshot.contains(ItemID.BRUMA_ROOT) || inventorySnapshot.contains(ItemID.BRUMA_KINDLING))) {
                 return Task.FEED_BRAZIER;
             }
 
         }
         // or if goal reached
-        if (freeSlots.get() == 0 || reachedGoal) {
-            log(getClass().getSimpleName(), "Reached goal: " + reachedGoal + " Free slots: " + freeSlots);
-            if (fletch && !roots.isEmpty()) {
+        if (inventorySnapshot.isFull() || reachedGoal) {
+            log(Wintertodt.class, "Reached goal: " + reachedGoal + " Free slots: " + inventorySnapshot.getFreeSlots());
+            if (fletch && inventorySnapshot.containsAny(ItemID.BRUMA_ROOT)) {
                 return Task.FLETCH_ROOTS;
             } else {
                 if (brazierStatus != null && brazierStatus != WintertodtOverlay.BrazierStatus.LIT) {
                     return Task.REPAIR_AND_LIGHT_BRAZIER;
                 }
-                log(getClass().getSimpleName(), "Feeding brazier");
+                log(Wintertodt.class, "Feeding brazier");
                 return Task.FEED_BRAZIER;
             }
         }
@@ -321,11 +316,11 @@ public class Wintertodt extends Script {
 // get points in inventory
         UIResult<Integer> resourcePointsResult = calculateResourcePoints(currentPoints);
         if (resourcePointsResult.isFound()) {
-            log(getClass().getSimpleName(), "Resource points: " + resourcePointsResult.get() + " Current points: " + currentPoints + " nextMilestone: " + nextMilestone);
+            log(Wintertodt.class, "Resource points: " + resourcePointsResult.get() + " Current points: " + currentPoints + " nextMilestone: " + nextMilestone);
             int resourcePoints = resourcePointsResult.get();
             return nextMilestone - (currentPoints + resourcePoints) <= 0;
         } else {
-            log(getClass().getSimpleName(), "Resource points not found");
+            log(Wintertodt.class, "Resource points not found");
         }
         return false;
     }
@@ -426,15 +421,15 @@ public class Wintertodt extends Script {
             return;
         }
 
-        log(getClass().getSimpleName(), "Getting crate with menu option: " + itemToRetrieve.getName().toLowerCase());
+        log(Wintertodt.class, "Getting crate with menu option: " + itemToRetrieve.getName().toLowerCase());
         RSObject crate = getCrate("take-" + itemToRetrieve.getName().toLowerCase(), null);
 
         if (crate == null) {
-            log(getClass().getSimpleName(), "Can't find crate for " + itemToRetrieve.getName());
+            log(Wintertodt.class, "Can't find crate for " + itemToRetrieve.getName());
             return;
         }
         if (crate.interact("take-" + itemToRetrieve.getName().toLowerCase())) {
-            log(getClass().getSimpleName(), "Interacted with crate for " + itemToRetrieve.getName());
+            log(Wintertodt.class, "Interacted with crate for " + itemToRetrieve.getName());
             // wait for item to be in the inventory and remove from missing equipment list
             if (submitHumanTask(() -> {
                 UIResult<ItemSearchResult> item_ = getItemManager().findItem(getWidgetManager().getInventory(), itemToRetrieve.getItemIds());
@@ -456,7 +451,7 @@ public class Wintertodt extends Script {
         });
 
         if ((roots.isEmpty())) {
-            log(getClass().getSimpleName(), "Can't find Bruma roots in scene...");
+            log(Wintertodt.class, "Can't find Bruma roots in scene...");
             return;
         }
         if (roots.get().interact("Chop")) {
@@ -465,21 +460,21 @@ public class Wintertodt extends Script {
             Timer slotChangeTimer = new Timer();
             submitTask(() -> {
                 Boolean reachedGoal = hasReachedGoal();
-                log(getClass().getSimpleName(), "Reached goal: " + reachedGoal);
+                log(Wintertodt.class, "Reached goal: " + reachedGoal);
                 if (Boolean.TRUE.equals(reachedGoal)) {
-                    log(getClass().getSimpleName(), "Reached goal!");
+                    log(Wintertodt.class, "Reached goal!");
                     return true;
                 }
 
                 Integer warmth = overlay.getWarmthPercent();
                 if (warmth != null) {
-                    log(getClass().getSimpleName(), "Current warmth: " + warmth + " Next drinking @ " + nextDrinkPercent);
+                    log(Wintertodt.class, "Current warmth: " + warmth + " Next drinking @ " + nextDrinkPercent);
                     if (warmth <= nextDrinkPercent) {
                         return true;
                     }
                 }
                 if (getWidgetManager().getDialogue().isVisible()) {
-                    log(getClass().getSimpleName(), "Dialogue visible");
+                    log(Wintertodt.class, "Dialogue visible");
                     sleep(RandomUtils.weightedRandom(200, 1500));
                     return true;
                 }
@@ -488,7 +483,7 @@ public class Wintertodt extends Script {
                     return false;
                 }
                 if (freeSlots.get() == 0) {
-                    log(getClass().getSimpleName(), "No free slots left");
+                    log(Wintertodt.class, "No free slots left");
                     sleep(RandomUtils.weightedRandom(200, 1000));
                     return true;
                 } else if (previousFreeSlots.get() == -1) {
@@ -498,7 +493,7 @@ public class Wintertodt extends Script {
                     slotChangeTimer.reset();
                     previousFreeSlots.set(freeSlots.get());
                 } else if (slotChangeTimer.timeElapsed() > chopRootsTimeout) {
-                    log(getClass().getSimpleName(), "Slot change timeout");
+                    log(Wintertodt.class, "Slot change timeout");
                     // change the timeout so we don't keep interacting with the roots after a set time
                     chopRootsTimeout = random(6000, 13000);
                     return true;
@@ -506,12 +501,12 @@ public class Wintertodt extends Script {
                 return false;
             }, 70000);
         } else {
-            log(getClass().getSimpleName(), "Failed interacting with roots.");
+            log(Wintertodt.class, "Failed interacting with roots.");
         }
     }
 
     private void checkEquipment() {
-        log(getClass().getSimpleName(), "Checking equipment...");
+        log(Wintertodt.class, "Checking equipment...");
         List<Equipment> equipmentToCheck = new ArrayList<>(List.of(Equipment.values()));
         AtomicBoolean checkedInventory = new AtomicBoolean(false);
         AtomicBoolean checkedEquipment = new AtomicBoolean(false);
@@ -576,14 +571,14 @@ public class Wintertodt extends Script {
     }
 
     private void fletchRoots() {
-        UIResult<ItemSearchResult> knife = getItemManager().findItem(getWidgetManager().getInventory(), Equipment.KNIFE.getItemIds());
-        if (knife.isNotVisible() || roots.isEmpty()) {
-            log(getClass().getSimpleName(), "Inventory not visible...");
+        ItemSearchResult knife = inventorySnapshot.getItem(ItemID.KNIFE);
+        if (knife == null) {
+            log(Wintertodt.class, "Missing knife...");
+            missingEquipment.add(Equipment.KNIFE);
             return;
         }
-        if (!knife.isFound()) {
-            log(getClass().getSimpleName(), "Missing knife...");
-            missingEquipment.add(Equipment.KNIFE);
+        ItemSearchResult root = inventorySnapshot.getRandomItem(ItemID.BRUMA_ROOT);
+        if (root == null) {
             return;
         }
         WorldPosition myPosition = getWorldPosition();
@@ -606,21 +601,21 @@ public class Wintertodt extends Script {
 
         Integer warmth = overlay.getWarmthPercent();
         if (warmth == null) {
-            log(getClass().getSimpleName(), "Can't retrieve warmth value.");
+            log(Wintertodt.class, "Can't retrieve warmth value.");
             return;
         }
-        log(getClass().getSimpleName(), "Using knife on roots...");
-        if (!knife.get().interact() || !roots.get(random(roots.size())).interact()) {
-            log(getClass().getSimpleName(), "Failed combining items");
+        log(Wintertodt.class, "Using knife on roots...");
+        if (!knife.interact() || !root.interact()) {
+            log(Wintertodt.class, "Failed combining items");
             return;
         }
-        log(getClass().getSimpleName(), "Entering wait task...");
-        AtomicInteger previousAmountOfRoots = new AtomicInteger(roots.size());
+        log(Wintertodt.class, "Entering wait task...");
+        AtomicInteger previousAmountOfRoots = new AtomicInteger(inventorySnapshot.getAmount(ItemID.BRUMA_ROOT));
         Timer itemAmountChangeTimer = new Timer();
         submitTask(() -> {
             Integer warmthCurrent = overlay.getWarmthPercent();
             if (warmthCurrent != null) {
-                log(getClass().getSimpleName(), "Current warmth: " + warmthCurrent + " Next drinking @ " + nextDrinkPercent);
+                log(Wintertodt.class, "Current warmth: " + warmthCurrent + " Next drinking @ " + nextDrinkPercent);
                 if (warmthCurrent < warmth || warmthCurrent <= nextDrinkPercent) {
                     // if damage taken
                     return true;
@@ -631,32 +626,31 @@ public class Wintertodt extends Script {
                 // if the brazier breaks, break out of the task to decide what to do
                 WintertodtOverlay.BrazierStatus brazierStatus = overlay.getBrazierStatus(focusedBrazier);
                 if (brazierStatus != null && brazierStatus != WintertodtOverlay.BrazierStatus.LIT) {
-                    log(getClass().getSimpleName(), "Brazier is not lit");
+                    log(Wintertodt.class, "Brazier is not lit");
                     return true;
                 }
             }
             if (getWidgetManager().getDialogue().isVisible()) {
-                log(getClass().getSimpleName(), "Dialogue visible");
+                log(Wintertodt.class, "Dialogue visible");
                 sleep(RandomUtils.weightedRandom(200, 1500));
                 return true;
             }
-            // add item change listener
-            UIResultList<ItemSearchResult> rootsCurrent = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BRUMA_ROOT);
-            if (rootsCurrent.isNotVisible()) {
-                log(getClass().getSimpleName(), "Inventory not visible");
+            this.inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+            if (this.inventorySnapshot == null) {
                 return false;
             }
-            if (rootsCurrent.isNotFound()) {
-                log(getClass().getSimpleName(), "Roots not found");
+            // add item change listener
+            int amountOfRoots = inventorySnapshot.getAmount(ItemID.BRUMA_ROOT);
+            if (amountOfRoots == 0) {
+                log(Wintertodt.class, "Roots not found");
                 sleep(RandomUtils.weightedRandom(200, 1000));
                 return true;
             }
-            int rootAmount = rootsCurrent.size();
-            if (rootAmount < previousAmountOfRoots.get()) {
-                previousAmountOfRoots.set(rootAmount);
+            if (amountOfRoots < previousAmountOfRoots.get()) {
+                previousAmountOfRoots.set(amountOfRoots);
                 itemAmountChangeTimer.reset();
             } else if (itemAmountChangeTimer.timeElapsed() > fletchTimeout) {
-                log(getClass().getSimpleName(), "Slot change timeout...");
+                log(Wintertodt.class, "Slot change timeout...");
                 fletchTimeout = random(5000, 7000);
                 return true;
             }
@@ -711,18 +705,18 @@ public class Wintertodt extends Script {
     private void repairLightBrazier() {
         RSObject brazier = getBrazier();
         if (brazier == null) {
-            log(getClass().getSimpleName(), "Can't find Brazier object in the loaded scene.");
+            log(Wintertodt.class, "Can't find Brazier object in the loaded scene.");
             return;
         }
 
         WintertodtOverlay.BrazierStatus initialBrazierStatus = overlay.getBrazierStatus(focusedBrazier);
         if (initialBrazierStatus == null) {
-            log(getClass().getSimpleName(), "Can't read Brazier status.");
+            log(Wintertodt.class, "Can't read Brazier status.");
             return;
         }
 
         if (!brazier.isInteractableOnScreen()) {
-            log(getClass().getSimpleName(), "Brazier is not interactable on screen, walking to it to repair/light.");
+            log(Wintertodt.class, "Brazier is not interactable on screen, walking to it to repair/light.");
             WalkConfig.Builder builder = new WalkConfig.Builder();
             builder.breakCondition(() -> brazier.isInteractableOnScreen());
             getWalker().walkTo(brazier, builder.build());
@@ -748,7 +742,7 @@ public class Wintertodt extends Script {
     private void feedBrazier() {
         RSObject brazier = getBrazier();
         if (brazier == null) {
-            log(getClass().getSimpleName(), "Can't find Brazier object in the loaded scene, lets try walk towards it.");
+            log(Wintertodt.class, "Can't find Brazier object in the loaded scene, lets try walk towards it.");
             WalkConfig.Builder builder = new WalkConfig.Builder();
             builder.breakCondition(() -> getBrazier() != null);
             return;
@@ -761,7 +755,7 @@ public class Wintertodt extends Script {
         Timer itemAmountChangeTimer = new Timer();
         Integer warmth = overlay.getWarmthPercent();
         if (warmth == null) {
-            log(getClass().getSimpleName(), "Can't read Warmth value...");
+            log(Wintertodt.class, "Can't read Warmth value...");
             return;
         }
         if (brazier.interact("Burning brazier", new String[]{"feed", "fix", "light"})) {
@@ -770,10 +764,10 @@ public class Wintertodt extends Script {
                 //listen hitpoints
                 Integer warmthCurrent = overlay.getWarmthPercent();
                 if (warmthCurrent != null) {
-                    log(getClass().getSimpleName(), "Current warmth: " + warmthCurrent + " Next drinking @ " + nextDrinkPercent);
+                    log(Wintertodt.class, "Current warmth: " + warmthCurrent + " Next drinking @ " + nextDrinkPercent);
                     if (warmthCurrent < warmth || warmthCurrent <= nextDrinkPercent) {
                         // if damage taken
-                        log(getClass().getSimpleName(), "warmth decreased");
+                        log(Wintertodt.class, "warmth decreased");
                         return true;
                     }
                 }
@@ -784,7 +778,7 @@ public class Wintertodt extends Script {
                 // listen for brazier status
                 WintertodtOverlay.BrazierStatus brazierStatus = overlay.getBrazierStatus(focusedBrazier);
                 if (brazierStatus != null && brazierStatus != WintertodtOverlay.BrazierStatus.LIT) {
-                    log(getClass().getSimpleName(), "Brazier is not lit");
+                    log(Wintertodt.class, "Brazier is not lit");
                     return true;
                 }
 
@@ -793,7 +787,7 @@ public class Wintertodt extends Script {
                     return false;
                 }
                 if (brazierFeed.isNotFound()) {
-                    log(getClass().getSimpleName(), "Ran out of brazier feed...");
+                    log(Wintertodt.class, "Ran out of brazier feed...");
                     return true;
                 }
                 //TODO doesn't work
@@ -801,7 +795,7 @@ public class Wintertodt extends Script {
                 if (rootAmount < previousAmountOfFeed.get()) {
                     itemAmountChangeTimer.reset();
                 } else if (itemAmountChangeTimer.timeElapsed() > brazierTimeout) {
-                    log(getClass().getSimpleName(), "amount change timer, timed out");
+                    log(Wintertodt.class, "amount change timer, timed out");
                     brazierTimeout = random(5000, 7000);
                     return true;
                 }
@@ -814,9 +808,10 @@ public class Wintertodt extends Script {
     private void drinkRejuvenation() {
         // drink smallest dose first
         ItemSearchResult potionToDrink = null;
-        for (int i = 0; i < REJUVENATION_POTION_IDS.length; i++) {
+        Set<ItemSearchResult> rejuvenationPotions = inventorySnapshot.getAllOfItems(new HashSet<>(REJUVENATION_POTION_IDS));
+        for (int i = 0; i < REJUVENATION_POTION_IDS.size(); i++) {
             for (ItemSearchResult result : rejuvenationPotions) {
-                if (result.getId() == REJUVENATION_POTION_IDS[i]) {
+                if (result.getId() == REJUVENATION_POTION_IDS.get(i)) {
                     potionToDrink = result;
                     break;
                 }
@@ -835,9 +830,7 @@ public class Wintertodt extends Script {
     }
 
     private int getRejuvenationDoses(boolean update) {
-        if (update) {
-            rejuvenationPotions = getItemManager().findAllOfItem(getWidgetManager().getInventory(), REJUVENATION_POTION_IDS);
-        }
+        Set<ItemSearchResult> rejuvenationPotions = inventorySnapshot.getAllOfItems(new HashSet<>(REJUVENATION_POTION_IDS));
         AtomicInteger currentDosesAtomic = new AtomicInteger();
         rejuvenationPotions.forEach(itemSearchResult -> {
             switch (itemSearchResult.getId()) {
@@ -853,14 +846,13 @@ public class Wintertodt extends Script {
     private void restockRejuvenation() {
         log(Wintertodt.class, "Restocking Rejuvenation");
         int currentDoses = getRejuvenationDoses(false);
-        Optional<Integer> freeSlots = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory(), ItemID.REJUVENATION_POTION_UNF, ItemID.BRUMA_HERB);
-        if (!freeSlots.isPresent()) {
-            log(Wintertodt.class, "Inventory not visible...");
+        inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.REJUVENATION_POTION_UNF, ItemID.BRUMA_HERB));
+        if (inventorySnapshot == null) {
             return;
         }
 
         // work out how many of each to get
-        int maxResourceAmount = freeSlots.get() / 2;
+        int maxResourceAmount = inventorySnapshot.getFreeSlots() / 2;
 
         if (maxResourceAmount > potionsToPrep) {
             maxResourceAmount = potionsToPrep;
@@ -869,8 +861,8 @@ public class Wintertodt extends Script {
         int dosesRemaining = totalDoses - currentDoses;
         int potionsNeeded = dosesRemaining / 4;
         // work out how much more to retrieve based on resources in inv
-        int unfPotionsNeeded = potionsNeeded - unfPotions.size();
-        int brumaHerbsNeeded = potionsNeeded - brumaHerbs.size();
+        int unfPotionsNeeded = potionsNeeded - inventorySnapshot.getAmount(ItemID.REJUVENATION_POTION_UNF);
+        int brumaHerbsNeeded = potionsNeeded - inventorySnapshot.getAmount(ItemID.BRUMA_HERB);
 
         log(Wintertodt.class, "Unf potions needed: " + unfPotionsNeeded + " Bruma herbs needed: " + brumaHerbsNeeded);
         // drop if we have too many
@@ -884,28 +876,31 @@ public class Wintertodt extends Script {
         // if we need more
         else if (unfPotionsNeeded > 0) {
             log(Wintertodt.class, "Need more unf potions");
-            getUnfPotions(unfPotions, unfPotionsNeeded);
+            getUnfPotions(inventorySnapshot.getAmount(ItemID.REJUVENATION_POTION_UNF), unfPotionsNeeded);
         } else if (brumaHerbsNeeded > 0) {
             log(Wintertodt.class, "Need more herbs");
-            pickHerbs(brumaHerbs, brumaHerbsNeeded, freeSlots.get());
+            pickHerbs(inventorySnapshot.getAmount(ItemID.BRUMA_HERB), brumaHerbsNeeded, inventorySnapshot.getFreeSlots());
         } else {
+            if(!inventorySnapshot.contains(ItemID.BRUMA_HERB) || !inventorySnapshot.contains(ItemID.REJUVENATION_POTION_UNF)) {
+                return;
+            }
             // ensure tap to drop is disabled
             UIResult<Boolean> tapToDrop = getWidgetManager().getHotkeys().isTapToDropEnabled();
             if (tapToDrop.isFound() && tapToDrop.get()) {
                 if (!getWidgetManager().getHotkeys().setTapToDropEnabled(false)) {
-                    log(getClass().getSimpleName(), "Failed to deactivate tap to drop...");
+                    log(Wintertodt.class, "Failed to deactivate tap to drop...");
                     return;
                 }
             }
             // make potions
             switch (healType) {
-                case REJUVENATION_BREWMA -> useIngredientsOnBrewMa(brumaHerbs, unfPotions);
-                case REJUVENATION -> combineIngredients(brumaHerbs, unfPotions);
+                case REJUVENATION_BREWMA -> useIngredientsOnBrewMa(inventorySnapshot);
+                case REJUVENATION -> combineIngredients(inventorySnapshot);
             }
         }
     }
 
-    private void useIngredientsOnBrewMa(UIResultList<ItemSearchResult> unfPotions, UIResultList<ItemSearchResult> brumaHerbs) {
+    private void useIngredientsOnBrewMa(ItemGroupResult inventorySnapshot) {
         Polygon tilePoly = getBrewmaTileCube(0.6);
 
         if (tilePoly == null) {
@@ -914,8 +909,10 @@ public class Wintertodt extends Script {
             return;
         }
         // select "Use" on a random ingredient
-        List<ItemSearchResult> items = random(2) == 0 ? brumaHerbs.asList() : unfPotions.asList();
-        ItemSearchResult randomItem = items.get(random(items.size()));
+        ItemSearchResult randomItem = inventorySnapshot.getRandomItem((random(2) == 0 ? ItemID.BRUMA_HERB : ItemID.REJUVENATION_POTION_UNF));
+        if (randomItem == null) {
+            return;
+        }
         // check result as it will return false if we have a purpose miss click
         if (!randomItem.interact()) {
             return;
@@ -932,11 +929,11 @@ public class Wintertodt extends Script {
         }
         if (getFinger().tapGameScreen(tilePoly, "Use " + itemDefinition.name + " -> " + "Brew'ma")) {
             submitTask(() -> {
-                ItemGroupResult inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.REJUVENATION_POTION_UNF, ItemID.BRUMA_HERB));
-                if (inventorySnapshot == null) {
+                this.inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.REJUVENATION_POTION_UNF, ItemID.BRUMA_HERB));
+                if (this.inventorySnapshot == null) {
                     return false;
                 }
-                return !inventorySnapshot.contains(ItemID.REJUVENATION_POTION_UNF) || !inventorySnapshot.contains(ItemID.BRUMA_HERB);
+                return !this.inventorySnapshot.contains(ItemID.REJUVENATION_POTION_UNF) || !inventorySnapshot.contains(ItemID.BRUMA_HERB);
             }, 7000);
         }
     }
@@ -967,64 +964,19 @@ public class Wintertodt extends Script {
             if (getWorldPosition() == null) {
                 return false;
             }
-            Polygon tilePoly = getSceneProjector().getTilePoly(BREWMA_POSITION, true);
+            Polygon tilePoly = getBrewmaTileCube(0.6);
             return tilePoly != null && getWidgetManager().insideGameScreen(tilePoly, Collections.emptyList());
         });
         getWalker().walkTo(BREWMA_POSITION, builder.build());
     }
 
-    private void combineIngredients(UIResultList<ItemSearchResult> unfPotions, UIResultList<ItemSearchResult> brumaHerbs) {
-        if (unfPotions.size() != brumaHerbs.size() || unfPotions.isEmpty()) {
-            return;
-        }
-        UIResult<Boolean> tapToDropResult = getWidgetManager().getHotkeys().isTapToDropEnabled();
-        if (tapToDropResult.isFound() && tapToDropResult.get()) {
-            if (!getWidgetManager().getHotkeys().setTapToDropEnabled(false)) {
-                return;
-            }
-        }
-        int randomNumber = random(5);
-        boolean makeFast = randomNumber != 0;
-        log(getClass().getSimpleName(), "Make fast result = " + randomNumber + "(" + makeFast + ")");
-        Supplier<WalkConfig> combineSupplier;
-        if (makeFast) {
-            // pair here
-            unfPotions.shuffleResults();
-            brumaHerbs.shuffleResults();
-            AtomicInteger count = new AtomicInteger(0);
-            combineSupplier = () -> {
-                submitTask(() -> {
-                    if (count.get() >= unfPotions.size()) {
-                        return true;
-                    }
-
-                    if (!getFinger().tap(false, unfPotions.get(count.get())) || !getFinger().tap(false, brumaHerbs.get(count.getAndIncrement()))) {
-                        return true;
-                    }
-                    submitTask(() -> false, random(RandomUtils.weightedRandom(200, 800)));
-                    return false;
-                }, 8000);
-                return null;
-            };
-
-        } else {
-            combineSupplier = () -> {
-                if (unfPotions.getRandom().interact() && brumaHerbs.getRandom().interact()) {
-                    // sleep until potions are made
-                    submitTask(() -> {
-                        UIResultList<ItemSearchResult> unfPotions_ = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.REJUVENATION_POTION_UNF);
-                        if (unfPotions_.isNotVisible()) {
-                            return false;
-                        }
-                        return !unfPotions_.isFound();
-                    }, random(3000, 8000));
-                }
-                return null;
-            };
-        }
+    private void combineIngredients(ItemGroupResult inventorySnapshot) {
+        boolean makeFast = random(5) != 0;
+        Supplier<WalkConfig> combineSupplier = getCombineSupplier(inventorySnapshot, makeFast);
         RectangleArea area = null;
         Integer warmth = overlay.getWarmthPercent();
         WorldPosition myPos = getWorldPosition();
+
         if (overlay.isVisible() && warmth != null && warmth > minDrinkPercent) {
             if (!focusedBrazier.getArea().contains(myPos)) {
                 Boolean isBossActive = overlay.isBossActive();
@@ -1038,76 +990,125 @@ public class Wintertodt extends Script {
             }
         }
 
-        if (area != null) {
-            final RectangleArea finalArea = area;
-            BooleanSupplier breakCondition = () -> {
-                UIResultList<ItemSearchResult> unfPotions_ = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.REJUVENATION_POTION_UNF);
-                UIResultList<ItemSearchResult> brumaHerbs_ = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BRUMA_HERB);
-                if (brumaHerbs_.isNotVisible() || unfPotions_.isNotVisible()) {
-                    return true;
-                }
-                if (unfPotions_.isEmpty() || brumaHerbs.isEmpty()) {
-                    return true;
-                }
-                return getWorldPosition() != null && finalArea.contains(getWorldPosition());
-            };
-            WalkConfig.Builder builder = new WalkConfig.Builder();
-            builder.breakCondition(breakCondition);
-            builder.doWhileWalking(combineSupplier);
-            getWalker().walkTo(finalArea.getRandomPosition(), builder.build());
-        } else {
+        if (area == null) {
             combineSupplier.get();
-        }
-    }
-
-    private void getUnfPotions(UIResultList<ItemSearchResult> unfPotions, int unfPotionsNeeded) {
-        RSObject crate = getCrate("take-concoction", REJUVENATION_CRATE_POSITIONS);
-        if (crate == null) {
-            log(getClass().getSimpleName(), "Can't find Crate object...");
             return;
         }
-        AtomicInteger initialAmount = new AtomicInteger(unfPotions.size());
+        final RectangleArea finalArea = area;
+        WalkConfig.Builder builder = new WalkConfig.Builder();
+        builder.breakCondition(
+                () -> {
+                    this.inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.REJUVENATION_POTION_UNF, ItemID.BRUMA_HERB));
+                    if (this.inventorySnapshot == null) {
+                        return false;
+                    }
+                    if (!inventorySnapshot.contains(ItemID.REJUVENATION_POTION_UNF) || !inventorySnapshot.contains(ItemID.BRUMA_HERB)) {
+                        return true;
+                    }
+                    return getWorldPosition() != null && finalArea.contains(getWorldPosition());
+                }
+        );
+        builder.doWhileWalking(combineSupplier);
+        getWalker().walkTo(finalArea.getRandomPosition(), builder.build());
+    }
+
+    private Supplier<WalkConfig> getCombineSupplier(ItemGroupResult inventorySnapshot, boolean makeFast) {
+        if(!inventorySnapshot.contains(ItemID.BRUMA_HERB) || !inventorySnapshot.contains(ItemID.REJUVENATION_POTION_UNF)) {
+            return null;
+        }
+        Supplier<WalkConfig> combineSupplier;
+        if (makeFast) {
+            AtomicInteger count = new AtomicInteger(0);
+            final int amountToMake = Math.min(inventorySnapshot.getAmount(ItemID.BRUMA_HERB), inventorySnapshot.getAmount(ItemID.REJUVENATION_POTION_UNF));
+            List<ItemSearchResult> brumaHerbs = new ArrayList<>(inventorySnapshot.getAllOfItem(ItemID.BRUMA_HERB));
+            List<ItemSearchResult> unfPotions = new ArrayList<>(inventorySnapshot.getAllOfItem(ItemID.REJUVENATION_POTION_UNF));
+            Collections.shuffle(brumaHerbs);
+            Collections.shuffle(unfPotions);
+            combineSupplier = () -> {
+                submitTask(() -> {
+                    if (count.get() >= amountToMake) {
+                        return true;
+                    }
+                    if (!getFinger().tap(false, unfPotions.get(count.get())) || !getFinger().tap(false, brumaHerbs.get(count.getAndIncrement()))) {
+                        return true;
+                    }
+                    submitTask(() -> false, random(RandomUtils.weightedRandom(200, 800)));
+                    return false;
+                }, 8000);
+                return null;
+            };
+        } else {
+            combineSupplier = () -> {
+                this.inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.REJUVENATION_POTION_UNF, ItemID.BRUMA_HERB));
+                if(this.inventorySnapshot == null) {
+                    return null;
+                }
+                int rand = random(2);
+                ItemSearchResult item1 = this.inventorySnapshot.getRandomItem((rand == 0 ? ItemID.REJUVENATION_POTION_UNF : ItemID.BRUMA_HERB));
+                ItemSearchResult item2 = this.inventorySnapshot.getRandomItem((rand == 0 ? ItemID.BRUMA_HERB : ItemID.REJUVENATION_POTION_UNF));
+                if(item1 == null && item2 == null) {
+                    return null;
+                }
+                if (item1.interact() && item2.interact()) {
+                    // sleep until potions are made
+                    submitTask(() -> {
+                        this.inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.REJUVENATION_POTION_UNF));
+                        if (this.inventorySnapshot == null) {
+                            return false;
+                        }
+                        return !inventorySnapshot.contains(ItemID.REJUVENATION_POTION_UNF);
+                    }, random(3000, 8000));
+                }
+                return null;
+            };
+        }
+        return combineSupplier;
+    }
+
+    private void getUnfPotions(final int initialAmount, int unfPotionsNeeded) {
+        RSObject crate = getCrate("take-concoction", REJUVENATION_CRATE_POSITIONS);
+        if (crate == null) {
+            log(Wintertodt.class, "Can't find Crate object...");
+            return;
+        }
         String menuOption = getMenuOption(unfPotionsNeeded);
-        log(getClass().getSimpleName(), "Option: " + menuOption);
+        log(Wintertodt.class, "Option: " + menuOption);
         if (!crate.interact(menuOption)) {
             // failed to interact
             return;
         }
         if (submitHumanTask(() -> {
-            UIResultList<ItemSearchResult> item = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.REJUVENATION_POTION_UNF);
-            if (item.isNotVisible()) {
-                // inv not visible
+            inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.REJUVENATION_POTION_UNF));
+            if (inventorySnapshot == null) {
                 return false;
             }
-            return item.size() > initialAmount.get();
+            return inventorySnapshot.getAmount(ItemID.REJUVENATION_POTION_UNF) > initialAmount;
         }, 10000)) ;
 
     }
 
-    private void pickHerbs(UIResultList<ItemSearchResult> brumaHerbs, int herbsNeeded, int freeSlots) {
+    private void pickHerbs(final int initialAmount, int herbsNeeded, int initialFreeSlots) {
         RSObject sproutingRoots = getObjectManager().getClosestObject("Sprouting roots");
         if (sproutingRoots == null) {
-            log(getClass().getSimpleName(), "Can't find Sprouting roots object");
+            log(Wintertodt.class, "Can't find Sprouting roots object");
             return;
         }
         if (!sproutingRoots.interact("Pick")) {
             //failed to interact
             return;
         }
-        AtomicInteger initialAmount = new AtomicInteger(brumaHerbs.size());
-        AtomicInteger previousFreeSlots = new AtomicInteger(freeSlots);
+        AtomicInteger previousFreeSlots = new AtomicInteger(initialFreeSlots);
         Timer positionChangeTimer = new Timer();
         Timer slotChangeTimer = new Timer();
         AtomicReference<WorldPosition> previousPosition = new AtomicReference<>(null);
         if (submitHumanTask(() -> {
-            UIResultList<ItemSearchResult> item = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BRUMA_HERB);
-            Optional<Integer> freeSlotsCurrent = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory());
-            if (item.isNotVisible() || !freeSlotsCurrent.isPresent()) {
-                // inv not visible
+            inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.BRUMA_HERB));
+            if (inventorySnapshot == null) {
                 return false;
             }
-            int herbsGained = item.size() - initialAmount.get();
-            if (herbsGained >= herbsNeeded || freeSlotsCurrent.get() == 0) {
+
+            int herbsGained = inventorySnapshot.getAmount(ItemID.BRUMA_HERB) - initialAmount;
+            if (herbsGained >= herbsNeeded || inventorySnapshot.isFull()) {
                 // if we have enough or inv is full
                 return true;
             }
@@ -1120,7 +1121,7 @@ public class Wintertodt extends Script {
 
             if (myPos.distanceTo(sproutingRoots.getWorldPosition()) <= 1) {
                 // if at the roots listen for item change
-                if (freeSlotsCurrent.get() < previousFreeSlots.get()) {
+                if (inventorySnapshot.getFreeSlots() < previousFreeSlots.get()) {
                     slotChangeTimer.reset();
                 } else if (slotChangeTimer.timeElapsed() > 6000) {
                     return true;
@@ -1142,8 +1143,7 @@ public class Wintertodt extends Script {
                     positionChangeTimer.reset();
                 }
             }
-
-            return herbsGained >= herbsNeeded;
+            return false;
         }, 20000)) ;
 
     }
@@ -1187,19 +1187,18 @@ public class Wintertodt extends Script {
             return contains;
         });
         if (crate.isEmpty()) {
-            log(getClass().getSimpleName(), "Can't find Crate...");
+            log(Wintertodt.class, "Can't find Crate...");
             return null;
         }
         WorldPosition myPos = getWorldPosition();
         // get closest
-        RSObject closestCrate = Collections.min(crate, Comparator.comparingInt(obj -> myPos.distanceTo(obj.getWorldPosition())));
-        return closestCrate;
+        return Collections.min(crate, Comparator.comparingInt(obj -> myPos.distanceTo(obj.getWorldPosition())));
     }
 
     private void waitForBoss() {
         RSObject brazier = getBrazier();
         if (brazier == null) {
-            log(getClass().getSimpleName(), "Can't find Brazier object in the loaded scene, lets try walk towards it.");
+            log(Wintertodt.class, "Can't find Brazier object in the loaded scene, lets try walk towards it.");
             WalkConfig.Builder builder = new WalkConfig.Builder();
             builder.breakCondition(() -> getBrazier() != null);
             getWalker().walkTo(focusedBrazier.getBrazierPosition(), builder.build());
@@ -1214,7 +1213,7 @@ public class Wintertodt extends Script {
     private void walkToBossArea() {
         RSObject doors = getObjectManager().getClosestObject("Doors of dinh");
         if (doors == null) {
-            log(getClass().getSimpleName(), "Can't find Doors of dinh, please run the script in the Wintertodt area.");
+            log(Wintertodt.class, "Can't find Doors of dinh, please run the script in the Wintertodt area.");
             stop();
         } else {
             if (doors.interact("Enter")) {
