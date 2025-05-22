@@ -210,15 +210,17 @@ public class PotionMixer {
         List<BankEntry> bankEntries = new ArrayList<>();
         // go over and check if we have too many
         for (Ingredient ingredient : ingredientsList) {
+            int inventoryAmount = inventorySnapshot.getAmount(ingredient.getItemID());
+            script.log(PotionMixer.class, "Amount of itemid: " + ingredient.getItemID() + " amount: " + inventoryAmount);
+            int amountNeeded = (ingredient.getAmount() * amountOfPotions) - inventoryAmount;
+
             if (script.getItemManager().isStackable(ingredient.getItemID())) {
                 ItemSearchResult stackableIngredient = inventorySnapshot.getItem(ingredient.getItemID());
-                if (stackableIngredient == null || stackableIngredient.getStackAmount() < ingredient.getAmount()) {
-                    bankEntries.add(new BankEntry(ingredient.getItemID(), Integer.MAX_VALUE));
+                if (stackableIngredient == null || inventorySnapshot.getAmount(ingredient.getItemID()) < ingredient.getAmount()) {
+                    bankEntries.add(new BankEntry(ingredient.getItemID(), amountNeeded));
                 }
             } else {
-                int inventoryAmount = inventorySnapshot.getAmount(ingredient.getItemID());
-                script.log(PotionMixer.class, "Amount of itemid: " + ingredient.getItemID() + " amount: " + inventoryAmount);
-                int amountNeeded = (ingredient.getAmount() * amountOfPotions) - inventoryAmount;
+
                 script.log(PotionMixer.class, "Amount needed: " + amountNeeded);
                 if (amountNeeded == 0) continue;
                 bankEntries.add(new BankEntry(ingredient.getItemID(), amountNeeded));
@@ -233,12 +235,14 @@ public class PotionMixer {
             script.log(PotionMixer.class, "Processing bank entry: " + bankEntry);
             if (bankEntry.amount > 0) {
                 // withdraw
-                if (bankSnapshot.getAmount(bankEntry.itemID) < bankEntry.amount) {
-                    script.log(PotionMixer.class,"Insufficient supplies. Item ID: "+bankEntry.itemID);
+                boolean stackable = script.getItemManager().isStackable(bankEntry.itemID);
+                boolean notEnough = bankSnapshot.getAmount(bankEntry.itemID) < bankEntry.amount;
+                if (notEnough) {
+                    script.log(PotionMixer.class, "Insufficient supplies. Item ID: " + bankEntry.itemID);
                     script.stop();
                     return;
                 }
-                script.getWidgetManager().getBank().withdraw(bankEntry.itemID, bankEntry.amount);
+                script.getWidgetManager().getBank().withdraw(bankEntry.itemID, stackable ? Integer.MAX_VALUE : bankEntry.amount);
             } else {
                 // deposit
                 script.getWidgetManager().getBank().deposit(bankEntry.itemID, bankEntry.amount);
