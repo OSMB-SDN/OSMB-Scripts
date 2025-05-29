@@ -23,10 +23,18 @@ public class Relleka implements Course {
 
     private static final Area END_AREA = new RectangleArea(2651, 3675, 2, 2, 0);
 
+    private static final Area HOUSE_AREA = new RectangleArea(2622, 3672, 4, 4, 0);
+
     @Override
     public int poll(AIOAgility core) {
         WorldPosition pos = core.getWorldPosition();
 
+        if(HOUSE_AREA.contains(pos)) {
+            // Handle the house area, if needed
+            core.log(Relleka.class, "Seems like we are trapped inside the house, stopping script.");
+            core.stop();
+            return 0;
+        }
         if (AREA_1.contains(pos)) {
             AIOAgility.handleObstacle(core, "Gap", "Leap", AREA_2, 15000);
             return 0;

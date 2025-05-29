@@ -28,7 +28,9 @@ import com.osmb.script.agility.courses.pollnivneach.Pollnivneach;
 import com.osmb.script.agility.ui.javafx.UI;
 import javafx.scene.Scene;
 
+import java.awt.*;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 @ScriptDefinition(name = "AIO Agility", author = "Joe", version = 1.0, description = "Provides support over a range of agility courses.", skillCategory = SkillCategory.AGILITY)
@@ -36,8 +38,8 @@ public class AIOAgility extends Script {
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
     public static final String[] BANK_ACTIONS = {"bank", "open"};
     private static final ToleranceComparator MOG_TOLERANCE_COMPARATOR = new ChannelThresholdComparator(2, 2, 2);
-    private static final SearchablePixel[] MOG_PIXELS_RED = new SearchablePixel[]{new SearchablePixel(-6741740, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL), new SearchablePixel(-5826292, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),};
-    private static final SearchablePixel[] MOG_PIXELS_GOLD = new SearchablePixel[]{new SearchablePixel(-4414953, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL), new SearchablePixel(-5336052, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),};
+    private static final SearchablePixel[] MOG_PIXELS_RED = new SearchablePixel[]{new SearchablePixel(-6741740, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL), new SearchablePixel(-5826292, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),new SearchablePixel(-7004140, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),};
+    private static final SearchablePixel[] MOG_PIXELS_GOLD = new SearchablePixel[]{new SearchablePixel(-4414953, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL), new SearchablePixel(-5336052, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),new SearchablePixel(-3888359, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),};
     private static final int[] ITEMS_TO_IGNORE = new int[]{ItemID.MARK_OF_GRACE, ItemID.LAW_RUNE, ItemID.AIR_RUNE, ItemID.FIRE_RUNE};
     private static final WorldPosition ARDY_MOG_POS = new WorldPosition(2657, 3318, 3);
     private static final WorldPosition POLL_MOG_POS = new WorldPosition(3359, 2983, 2);
@@ -58,6 +60,12 @@ public class AIOAgility extends Script {
         super(object);
     }
 
+    public static void main(String[] args) {
+        Color gold = new Color(196,171,25);
+        Color red = new Color(149,32,20);
+        System.out.println(gold.getRGB());
+        System.out.println(red.getRGB());
+    }
     public static boolean handleMOG(AIOAgility core) {
         UIResultList<WorldPosition> groundItems = core.getWidgetManager().getMinimap().getItemPositions();
         if (!groundItems.isFound()) {
@@ -285,8 +293,8 @@ public class AIOAgility extends Script {
 
     @Override
     public void onStart() {
-        // show the UI on the javafx UI thread
-        //            FXMLLoader loader = new FXMLLoader(AIOAgility.class.getResource("/ui.fxml"));
+        // fxml loading
+//            FXMLLoader loader = new FXMLLoader(AIOAgility.class.getResource("/ui.fxml"));
 //            // initializing the controller
 //            popupController = new Controller();
 //            loader.setController(popupController);
