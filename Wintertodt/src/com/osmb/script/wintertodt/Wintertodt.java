@@ -19,7 +19,6 @@ import com.osmb.api.utils.UIResultList;
 import com.osmb.api.utils.timing.Stopwatch;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.visual.drawing.Canvas;
-import com.osmb.api.visual.image.ImageImport;
 import com.osmb.api.walker.WalkConfig;
 import com.osmb.script.wintertodt.ui.ScriptOptions;
 import javafx.scene.Scene;
@@ -852,7 +851,9 @@ public class Wintertodt extends Script {
         }
 
         // work out how many of each to get
-        int maxResourceAmount = inventorySnapshot.getFreeSlots() / 2;
+        int rejuvenationPotions = inventorySnapshot.getAmount(ItemID.REJUVENATION_POTION_UNF);
+        int brumaHerbs = inventorySnapshot.getAmount(ItemID.BRUMA_HERB);
+        int maxResourceAmount = inventorySnapshot.getFreeSlots() + rejuvenationPotions + brumaHerbs / 2;
 
         if (maxResourceAmount > potionsToPrep) {
             maxResourceAmount = potionsToPrep;
@@ -861,8 +862,8 @@ public class Wintertodt extends Script {
         int dosesRemaining = totalDoses - currentDoses;
         int potionsNeeded = dosesRemaining / 4;
         // work out how much more to retrieve based on resources in inv
-        int unfPotionsNeeded = potionsNeeded - inventorySnapshot.getAmount(ItemID.REJUVENATION_POTION_UNF);
-        int brumaHerbsNeeded = potionsNeeded - inventorySnapshot.getAmount(ItemID.BRUMA_HERB);
+        int unfPotionsNeeded = potionsNeeded - rejuvenationPotions;
+        int brumaHerbsNeeded = potionsNeeded - brumaHerbs;
 
         log(Wintertodt.class, "Unf potions needed: " + unfPotionsNeeded + " Bruma herbs needed: " + brumaHerbsNeeded);
         // drop if we have too many
@@ -876,12 +877,12 @@ public class Wintertodt extends Script {
         // if we need more
         else if (unfPotionsNeeded > 0) {
             log(Wintertodt.class, "Need more unf potions");
-            getUnfPotions(inventorySnapshot.getAmount(ItemID.REJUVENATION_POTION_UNF), unfPotionsNeeded);
+            getUnfPotions(rejuvenationPotions, unfPotionsNeeded);
         } else if (brumaHerbsNeeded > 0) {
             log(Wintertodt.class, "Need more herbs");
-            pickHerbs(inventorySnapshot.getAmount(ItemID.BRUMA_HERB), brumaHerbsNeeded, inventorySnapshot.getFreeSlots());
+            pickHerbs(brumaHerbs, brumaHerbsNeeded, inventorySnapshot.getFreeSlots());
         } else {
-            if(!inventorySnapshot.contains(ItemID.BRUMA_HERB) || !inventorySnapshot.contains(ItemID.REJUVENATION_POTION_UNF)) {
+            if (!inventorySnapshot.contains(ItemID.BRUMA_HERB) || !inventorySnapshot.contains(ItemID.REJUVENATION_POTION_UNF)) {
                 return;
             }
             // ensure tap to drop is disabled
@@ -1013,7 +1014,7 @@ public class Wintertodt extends Script {
     }
 
     private Supplier<WalkConfig> getCombineSupplier(ItemGroupResult inventorySnapshot, boolean makeFast) {
-        if(!inventorySnapshot.contains(ItemID.BRUMA_HERB) || !inventorySnapshot.contains(ItemID.REJUVENATION_POTION_UNF)) {
+        if (!inventorySnapshot.contains(ItemID.BRUMA_HERB) || !inventorySnapshot.contains(ItemID.REJUVENATION_POTION_UNF)) {
             return null;
         }
         Supplier<WalkConfig> combineSupplier;
@@ -1040,13 +1041,13 @@ public class Wintertodt extends Script {
         } else {
             combineSupplier = () -> {
                 this.inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.REJUVENATION_POTION_UNF, ItemID.BRUMA_HERB));
-                if(this.inventorySnapshot == null) {
+                if (this.inventorySnapshot == null) {
                     return null;
                 }
                 int rand = random(2);
                 ItemSearchResult item1 = this.inventorySnapshot.getRandomItem((rand == 0 ? ItemID.REJUVENATION_POTION_UNF : ItemID.BRUMA_HERB));
                 ItemSearchResult item2 = this.inventorySnapshot.getRandomItem((rand == 0 ? ItemID.BRUMA_HERB : ItemID.REJUVENATION_POTION_UNF));
-                if(item1 == null && item2 == null) {
+                if (item1 == null && item2 == null) {
                     return null;
                 }
                 if (item1.interact() && item2.interact()) {
