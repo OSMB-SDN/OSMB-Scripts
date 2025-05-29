@@ -60,12 +60,6 @@ public class AIOAgility extends Script {
         super(object);
     }
 
-    public static void main(String[] args) {
-        Color gold = new Color(196,171,25);
-        Color red = new Color(149,32,20);
-        System.out.println(gold.getRGB());
-        System.out.println(red.getRGB());
-    }
     public static boolean handleMOG(AIOAgility core) {
         UIResultList<WorldPosition> groundItems = core.getWidgetManager().getMinimap().getItemPositions();
         if (!groundItems.isFound()) {
