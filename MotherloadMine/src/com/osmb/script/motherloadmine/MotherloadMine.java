@@ -46,7 +46,8 @@ public class MotherloadMine extends Script {
             ItemID.PAYDIRT, ItemID.BRONZE_PICKAXE, ItemID.IRON_PICKAXE,
             ItemID.STEEL_PICKAXE, ItemID.BLACK_PICKAXE, ItemID.MITHRIL_PICKAXE,
             ItemID.ADAMANT_PICKAXE, ItemID.RUNE_PICKAXE, ItemID.DRAGON_PICKAXE,
-            ItemID.DRAGON_PICKAXE_OR, ItemID.CRYSTAL_PICKAXE, ItemID.INFERNAL_PICKAXE,
+            ItemID.DRAGON_PICKAXE_12797, ItemID.DRAGON_PICKAXE_OR_25376, ItemID.DRAGON_PICKAXE_OR_30351,
+            ItemID.DRAGON_PICKAXE_OR, ItemID.CRYSTAL_PICKAXE,ItemID.CRYSTAL_PICKAXE_INACTIVE, ItemID.INFERNAL_PICKAXE,
             ItemID.INFERNAL_PICKAXE_OR, ItemID.ANTIQUE_LAMP
     ));
     public static final Predicate<RSObject> LADDER_QUERY = (rsObject) -> {
@@ -490,14 +491,16 @@ public class MotherloadMine extends Script {
         if (depositBoxSnapshot == null) {
             return;
         }
+
         if (depositBoxSnapshot.containsAny(ITEM_IDS_TO_NOT_DEPOSIT)) {
-            if (!getWidgetManager().getDepositBox().depositAll(ITEM_IDS_TO_NOT_DEPOSIT)) {
-                log(MotherloadMine.class, "Failed depositing items...");
-                return;
-            }
+        if (!getWidgetManager().getDepositBox().depositAll(ITEM_IDS_TO_NOT_DEPOSIT)) {
+            log(MotherloadMine.class, "Failed depositing items...");
+            return;
+        }
         } else {
             // deposit all button
             if (!getWidgetManager().getDepositBox().depositAll(Collections.emptySet())) {
+                log(MotherloadMine.class, "Failed depositing all");
                 return;
             }
         }
@@ -808,6 +811,7 @@ public class MotherloadMine extends Script {
                 failed.set(true);
                 return true;
             }
+
             if (animatingTimer.timeElapsed() > animationTimeout) {
                 log(MotherloadMine.class, "Animation timeout");
                 this.animationTimeout = random(4000, 6000);
@@ -819,7 +823,7 @@ public class MotherloadMine extends Script {
             if (polygon == null) {
                 return false;
             }
-            if (getPixelAnalyzer().isAnimating(0.25, polygon)) {
+            if (getPixelAnalyzer().isPlayerAnimating(0.1)) {
                 animatingTimer.reset();
             }
 
