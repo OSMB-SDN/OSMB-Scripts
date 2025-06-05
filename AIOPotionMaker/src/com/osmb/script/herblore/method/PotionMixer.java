@@ -55,7 +55,7 @@ public class PotionMixer {
         if (inventorySnapshot == null) {
             return;
         }
-        // calculate how many slots it takes to make a single potion
+
         Boolean hasIngredients = hasIngredients();
         if (hasIngredients) {
             script.log(PotionMixer.class, "We have ingredients...");
@@ -125,7 +125,7 @@ public class PotionMixer {
         interactAndWaitForDialogue(ingredientResults[index1], ingredientResults[index2]);
     }
 
-    private Boolean hasIngredients() {
+    private boolean hasIngredients() {
         Ingredient[] ingredientsList = selectedPotion.getIngredients();
         for (Ingredient ingredient : ingredientsList) {
             if (script.getItemManager().isStackable(ingredient.getItemID())) {
@@ -220,7 +220,6 @@ public class PotionMixer {
                     bankEntries.add(new BankEntry(ingredient.getItemID(), amountNeeded));
                 }
             } else {
-
                 script.log(PotionMixer.class, "Amount needed: " + amountNeeded);
                 if (amountNeeded == 0) continue;
                 bankEntries.add(new BankEntry(ingredient.getItemID(), amountNeeded));
@@ -252,7 +251,7 @@ public class PotionMixer {
 
     public boolean interactAndWaitForDialogue(ItemSearchResult item1, ItemSearchResult item2) {
         // use chisel on gems and wait for dialogue
-        int random = script.random(1);
+        int random = script.random(2);
         ItemSearchResult interact1 = random == 0 ? item1 : item2;
         ItemSearchResult interact2 = random == 0 ? item2 : item1;
         if (interact1.interact() && interact2.interact()) {
