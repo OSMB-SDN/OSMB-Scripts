@@ -70,7 +70,7 @@ public class NightmareZone extends Script {
     );
     private static final List<String> DOMINIC_SUCCESS_CHAT_DIALOGUES = Arrays.asList(
             "I've already created a dream for you Do you want me to cancel it?",
-            "I've prepared your dream. Step into the enclosure invite up to 4 players to join you, then drink from the vial to begin .  E a ch of y ou will ne e d to u nlo ck the coffer and have 26,000 coins deposited first"
+            "I've prepared your dream. Step into the enclosure invite up to 4 players to join you, then drink from the vial to begin. Each of you will need to unlock the coffer and have 26,000 coins deposited first"
     );
     private static final DialogueOption[] DOMINIC_DIALOGUE_OPTIONS = new DialogueOption[]{
             new DialogueOption("which dream would you like to experience?", "Previous:"),
@@ -78,6 +78,7 @@ public class NightmareZone extends Script {
     };
     // Misc
     private static final java.awt.Font ARIEL = java.awt.Font.getFont("Ariel");
+    public static final List<Integer> RUNES = List.of(ItemID.RUNE_POUCH, ItemID.DIVINE_RUNE_POUCH, ItemID.AIR_RUNE, ItemID.WATER_RUNE, ItemID.EARTH_RUNE, ItemID.FIRE_RUNE, ItemID.ASTRAL_RUNE, ItemID.NATURE_RUNE, ItemID.CHAOS_RUNE, ItemID.DEATH_RUNE, ItemID.BLOOD_RUNE, ItemID.SOUL_RUNE, ItemID.BODY_RUNE, ItemID.MIND_RUNE, ItemID.LAW_RUNE, ItemID.COSMIC_RUNE, ItemID.STEAM_RUNE, ItemID.SMOKE_RUNE, ItemID.MIST_RUNE, ItemID.DUST_RUNE, ItemID.LAVA_RUNE, ItemID.MUD_RUNE, ItemID.WRATH_RUNE);
     // Collections
     private final List<ItemSearchResult> itemsToEquip = new ArrayList<>();
     private final Map<Potion, Integer> barrelDoseCache = Collections.synchronizedMap(new HashMap<>());
@@ -777,6 +778,12 @@ public class NightmareZone extends Script {
         }, timeout);
     }
 
+    @Override
+    public int onRelog() {
+        guzzleFirstOption = false;
+        return 0;
+    }
+
     private void enterDream() {
         if (!potionInterface.isVisible()) {
             log(NightmareZone.class, "Interacting with potion...");
@@ -904,19 +911,14 @@ public class NightmareZone extends Script {
     }
 
     private void interactWithDominic() {
-        RSTile dominicTile = getSceneManager().getTile(DOMINIC_POSITION);
-        if (dominicTile == null) {
-            walkToDominic();
-            return;
-        }
         boolean isGameScreen = false;
-        Polygon tilePoly = dominicTile.getTilePoly();
+        Polygon tilePoly = getSceneProjector().getTilePoly(DOMINIC_POSITION);
         if (tilePoly == null) {
             walkToDominic();
             return;
         }
         Polygon tilePolyResized = tilePoly.getResized(0.7);
-        isGameScreen = getWidgetManager().insideGameScreen(tilePolyResized, ChatboxComponent.class);
+        isGameScreen = getWidgetManager().insideGameScreen(tilePolyResized, List.of(ChatboxComponent.class));
 
         WorldPosition myPosition = getWorldPosition();
         if (myPosition == null) {
@@ -940,14 +942,10 @@ public class NightmareZone extends Script {
             if (getWorldPosition() == null) {
                 return false;
             }
-            RSTile dominicTile = getSceneManager().getTile(DOMINIC_POSITION);
-            if (dominicTile == null) {
-                return false;
-            }
-            Polygon tilePoly2 = dominicTile.getTilePoly();
+            Polygon tilePoly2 = getSceneProjector().getTilePoly(DOMINIC_POSITION);
             if (tilePoly2 != null) {
                 tilePoly2 = tilePoly2.getResized(0.7);
-                return getWidgetManager().insideGameScreen(tilePoly2, ChatboxComponent.class);
+                return getWidgetManager().insideGameScreen(tilePoly2, List.of(ChatboxComponent.class));
             }
             return false;
         });
@@ -968,7 +966,7 @@ public class NightmareZone extends Script {
             return;
         }
         Polygon tilePolyResized = tilePoly.getResized(0.7);
-        isGameScreen = getWidgetManager().insideGameScreen(tilePolyResized, ChatboxComponent.class);
+        isGameScreen = getWidgetManager().insideGameScreen(tilePolyResized, List.of(ChatboxComponent.class));
 
         log(NightmareZone.class, "Geniune: " + tilePoly + " resized: " + tilePolyResized);
         WorldPosition myPosition = getWorldPosition();
@@ -1028,15 +1026,17 @@ public class NightmareZone extends Script {
             if (potionTile == null) {
                 return false;
             }
+            if (potionTile.distance() >= 13) {
+                return false;
+            }
             Polygon tilePoly2 = potionTile.getTilePoly();
             if (tilePoly2 != null) {
                 tilePoly2 = tilePoly2.getResized(0.7);
-                return getWidgetManager().insideGameScreen(tilePoly2, ChatboxComponent.class);
+                return getWidgetManager().insideGameScreen(tilePoly2, List.of(ChatboxComponent.class));
             }
             return false;
         });
         getWalker().walkTo(POTION_TILE, builder.build());
-        return;
     }
 
     private void handleChest() {
@@ -1224,8 +1224,9 @@ public class NightmareZone extends Script {
 
     }
 
-    private int[] getItemsToIgnore() {
-        List<Integer> itemsToIgnore = new ArrayList<>();
+    private Set<Integer> getItemsToIgnore() {
+        Set<Integer> itemsToIgnore = new HashSet<>();
+        itemsToIgnore.addAll(RUNES);
         if (specialAttackWeapon != null) {
             itemsToIgnore.add(specialAttackWeapon.getItemID());
         }
@@ -1258,18 +1259,12 @@ public class NightmareZone extends Script {
         if (lowerHealthMethod != null) {
             itemsToIgnore.add(lowerHealthMethod.getItemID());
         }
-
-        // convert to int array
-        int[] itemsToIgnoreArray = new int[itemsToIgnore.size()];
-        for (int i = 0; i < itemsToIgnoreArray.length; i++) {
-            itemsToIgnoreArray[i] = itemsToIgnore.get(i);
-        }
-        return itemsToIgnoreArray;
+        return itemsToIgnore;
     }
 
     private void handleBank() {
         // deposit unwanted items
-        int[] itemsToIgnore = getItemsToIgnore();
+        Set<Integer> itemsToIgnore = getItemsToIgnore();
         if (!getWidgetManager().getBank().depositAll(itemsToIgnore)) {
             // if we fail to deposit all
             return;
@@ -1727,7 +1722,7 @@ public class NightmareZone extends Script {
         submitTask(() -> {
             WorldPosition worldPosition_ = getWorldPosition();
             return worldPosition_ != null && !isArena(worldPosition_);
-        }, (int) TimeUnit.MINUTES.toMillis(6), true, false, true);
+        }, (int) TimeUnit.MINUTES.toMillis(6), false, true);
     }
 
     @Override
