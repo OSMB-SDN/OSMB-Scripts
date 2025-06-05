@@ -108,4 +108,9 @@ public class CofferOverlay extends OverlayBoundary implements ItemGroup {
     public Rectangle getGroupBounds() {
         return getBounds();
     }
+
+    @Override
+    public ScriptCore getCore() {
+        return core;
+    }
 }
