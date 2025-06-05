@@ -419,7 +419,7 @@ public class CharterCrafting extends Script {
 
     public boolean interactAndWaitForDialogue(ItemSearchResult item1, ItemSearchResult item2) {
         // use chisel on gems and wait for dialogue
-        int random = random(1);
+        int random = random(2);
         ItemSearchResult interact1 = random == 0 ? item1 : item2;
         ItemSearchResult interact2 = random == 0 ? item2 : item1;
         if (interact1.interact() && interact2.interact()) {
