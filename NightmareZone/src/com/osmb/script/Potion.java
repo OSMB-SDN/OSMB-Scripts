@@ -52,25 +52,6 @@ public enum Potion {
         return null;
     }
 
-    public static ItemSearchResult getSmallestConsumable(Potion potion, UIResultList<ItemSearchResult> itemSearchResults) {
-        List<ItemSearchResult> results = new ArrayList<>();
-        int biggestIndex = 0;
-        for (ItemSearchResult result : itemSearchResults) {
-            int itemID = result.getId();
-            int index = getArrayIndex(potion.itemIDs, itemID);
-            if (index >= 0) {
-                if (index > biggestIndex) {
-                    biggestIndex = index;
-                    results.clear();
-                    results.add(result);
-                } else if (index == biggestIndex) {
-                    results.add(result);
-                }
-            }
-        }
-        return results.get(Utils.random(results.size()));
-    }
-
     public static Potion getPotionForID(int itemID) {
         for (Potion potion : Potion.values()) {
             for (int id : potion.getItemIDs()) {
