@@ -28,10 +28,9 @@ public class AIOFletcher extends Script {
     // little cheap fix as our Image class doesn't allow alpha channel
     public static final Color MENU_COLOR_BACKGROUND = new Color(58, 65, 66);
     public static final int[] FEATHERS = new int[]{ItemID.FEATHER, ItemID.BLUE_FEATHER, ItemID.ORANGE_FEATHER, ItemID.RED_FEATHER, ItemID.YELLOW_FEATHER, ItemID.STRIPY_FEATHER};
-    // names of possible banks
+    public static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 6;
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth", "Bank counter", "Bank table"};
     public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
-    public static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 6;
     private static final Predicate<RSObject> BANK_QUERY = gameObject -> {
         // if object has no name
         if (gameObject.getName() == null) {

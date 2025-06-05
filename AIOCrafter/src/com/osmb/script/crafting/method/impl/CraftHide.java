@@ -84,7 +84,6 @@ public class CraftHide extends Method {
 
         if (inventorySnapshot.isFull()) {
             script.getWidgetManager().getBank().close();
-            return;
         } else {
             if (!bankSnapshot.contains(hideID)) {
                 script.log(getClass().getSimpleName(), "No hides found in bank, stopping script.");

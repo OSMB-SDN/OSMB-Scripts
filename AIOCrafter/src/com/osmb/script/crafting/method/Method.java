@@ -40,17 +40,13 @@ public abstract class Method {
     public void onGamestateChanged(GameState gameState) {
     }
 
-    public boolean checkItemResult(Result uiResult) {
-        if (uiResult.isNotVisible()) {
-            return false;
-        }
-        if (uiResult.isNotFound()) {
-            script.setBank(true);
-            return false;
-        }
-        return true;
-    }
-
+    /**
+     * Waits until the specified resources are finished producing.
+     * This method will check the inventory for the specified resources and wait until their amounts stop changing.
+     * If the amount of any resource goes to 0, it will also break out of the sleep.
+     *
+     * @param resources The resource IDs to wait for.
+     */
     public void waitUntilFinishedProducing(int... resources) {
         AtomicReference<Map<Integer, Integer>> previousAmounts = new AtomicReference<>(new HashMap<>());
         for (int resource : resources) {
@@ -98,17 +94,19 @@ public abstract class Method {
             return false;
         }, 60000, false, true);
     }
+    /**
+     * Interacts with two items and waits for dialogue to appear.
+     *
+     * @param item1 First item to interact with.
+     * @param item2 Second item to interact with.
+     * @return true if dialogue appears, false otherwise.
+     */
     public boolean interactAndWaitForDialogue(ItemSearchResult item1, ItemSearchResult item2) {
-        // use chisel on gems and wait for dialogue
-        int random = script.random(1);
+        int random = script.random(2);
         ItemSearchResult interact1 = random == 0 ? item1 : item2;
         ItemSearchResult interact2 = random == 0 ? item2 : item1;
         if (interact1.interact() && interact2.interact()) {
-            return script.submitHumanTask(() -> {
-                DialogueType dialogueType1 = script.getWidgetManager().getDialogue().getDialogueType();
-                if (dialogueType1 == null) return false;
-                return dialogueType1 == DialogueType.ITEM_OPTION;
-            }, 3000);
+            return script.submitHumanTask(() -> script.getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION, 3000);
         }
         return false;
     }

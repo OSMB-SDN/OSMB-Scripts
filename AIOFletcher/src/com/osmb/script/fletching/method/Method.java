@@ -53,7 +53,7 @@ public abstract class Method {
     }
 
     public boolean interactAndWaitForDialogue(ItemSearchResult item1, ItemSearchResult item2) {
-        int random = script.random(1);
+        int random = script.random(2);
         ItemSearchResult interact1 = random == 0 ? item1 : item2;
         ItemSearchResult interact2 = random == 0 ? item2 : item1;
 
