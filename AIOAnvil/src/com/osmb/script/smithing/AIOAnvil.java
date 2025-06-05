@@ -150,28 +150,23 @@ public class AIOAnvil extends Script {
         if (!getWidgetManager().getBank().depositAll(ITEM_IDS_TO_RECOGNISE)) {
             return;
         }
-        UIResultList<ItemSearchResult> barsInventory = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedBarID);
-        // free slots
-        Optional<Integer> freeSlots = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory());
-        if (freeSlots.isEmpty() || barsInventory.isNotVisible()) {
+        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        ItemGroupResult bankSnapshot = getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
+        if(inventorySnapshot == null || bankSnapshot == null) {
+            log(AIOAnvil.class, "Inventory or bank snapshot is null");
             return;
         }
         // we have bars in inventory and no free slots, close bank
-        if (freeSlots.get() == 0 && !barsInventory.isEmpty()) {
+        if (inventorySnapshot.isFull() && inventorySnapshot.contains(selectedBarID)) {
             getWidgetManager().getBank().close();
             return;
         }
-
-        UIResult<ItemSearchResult> barsBank = getItemManager().findItem(getWidgetManager().getBank(), selectedBarID);
-        if (barsBank.isNotVisible()) {
-            return;
-        }
-        if (barsBank.isNotFound()) {
+        if (!bankSnapshot.contains(selectedBarID)) {
             log(getClass().getSimpleName(), "Can't find bars in bank, stopping script...");
             stop();
             return;
         }
-
+        // withdraw bars
         getWidgetManager().getBank().withdraw(selectedBarID, Integer.MAX_VALUE);
     }
 
