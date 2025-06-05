@@ -37,6 +37,7 @@ public class AIOAnvil extends Script {
     private AnvilInterface anvilInterface;
 
     private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.HAMMER));
+    private ItemGroupResult inventorySnapshot;
 
     public AIOAnvil(Object scriptCore) {
         super(scriptCore);
@@ -63,6 +64,15 @@ public class AIOAnvil extends Script {
             return 0;
         }
 
+        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        if(inventorySnapshot == null) {
+            return 0;
+        }
+        if(!inventorySnapshot.contains(ItemID.HAMMER)) {
+            log(AIOAnvil.class, "Hammer not found in inventory, stopping script...");
+            stop();
+            return 0;
+        }
         if (anvilInterface.isVisible()) {
             log(AIOAnvil.class,"Anvil interface is visible");
             if (handleAnvilInterface()) {
@@ -70,13 +80,8 @@ public class AIOAnvil extends Script {
             }
             return 0;
         }
-
-        UIResultList<ItemSearchResult> bars = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedBarID);
-        if (bars.isNotVisible()) {
-            return 0;
-        }
         // bank
-        if (bars.isNotFound() || bars.size() < selectedProduct.getBarsNeeded()) {
+        if (inventorySnapshot.getAmount(selectedBarID) < selectedProduct.getBarsNeeded()) {
             openBank();
             return 0;
         }
@@ -108,24 +113,23 @@ public class AIOAnvil extends Script {
                     return true;
                 }
             }
-
+            inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.HAMMER, selectedBarID));
+            if (inventorySnapshot == null) {
+                return false;
+            }
             // If the amount of gems in the inventory hasn't changed and the timeout is exceeded, then return true to break out of the sleep method
             if (amountChangeTimer.timeElapsed() > TimeUnit.SECONDS.toMillis(AMOUNT_CHANGE_TIMEOUT_SECONDS)) {
                 return true;
             }
-            UIResultList<ItemSearchResult> bars = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedBarID);
-            if (bars.isNotVisible()) {
-                return false;
-            }
-            int amount = bars.size();
 
             // if no bars left break out
-            if (amount < selectedProduct.getBarsNeeded()) {
+            int amountOfBars = inventorySnapshot.getAmount(selectedBarID);
+            if (amountOfBars < selectedProduct.getBarsNeeded()) {
                 return true;
             }
             // check if bars have decremented
-            if (amount < previousAmount.get() || previousAmount.get() == -1) {
-                previousAmount.set(amount);
+            if (amountOfBars < previousAmount.get() || previousAmount.get() == -1) {
+                previousAmount.set(amountOfBars);
                 amountChangeTimer.reset();
             }
 
