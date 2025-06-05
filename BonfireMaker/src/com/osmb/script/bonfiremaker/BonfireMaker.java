@@ -371,19 +371,31 @@ public class BonfireMaker extends Script {
         // resize the poly to minimise missclicks
         if (!getFinger().tapGameScreen(tilePoly, "Use " + logName + " -> fire",
                 "Use " + logName + " -> Forester's Campfire")) {
+            // remove the highlight after failing interacting
             getScreen().removeCanvasDrawable("highlightFireTile");
-            if (tries > 2) {
-                bonfirePosition = null;
+            // if we failed to interact with the fire, we need to reset the bonfire position
+            if (failed()) {
                 return false;
             }
-            tries++;
             return true;
         }
+        // reset tries, as we successfully interacted with the fire
         tries = 0;
+        // remove the highlight after interacting
         getScreen().removeCanvasDrawable("highlightFireTile");
+
         log(getClass().getSimpleName(), "Waiting for dialogue");
         // sleep until dialogue is visible
         return submitHumanTask(() -> getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION, 7000);
+    }
+
+    private boolean failed() {
+        if (tries > 2) {
+            bonfirePosition = null;
+            return true;
+        }
+        tries++;
+        return false;
     }
 
     private MenuHook createBurnMenuHook() {
