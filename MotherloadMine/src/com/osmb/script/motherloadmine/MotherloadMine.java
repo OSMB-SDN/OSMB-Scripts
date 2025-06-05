@@ -689,19 +689,22 @@ public class MotherloadMine extends Script {
         List<LocalPosition> waterTiles = WATER_INNER_AREA.getSurroundingPositions(this, 1);
         boolean found = false;
         for (LocalPosition worldPosition : waterTiles) {
+            // create a polygon for the tile
             Polygon polygon = getSceneProjector().getTilePoly(worldPosition, true);
             if (polygon == null || getWidgetManager().insideGameScreenFactor(polygon, Collections.emptyList()) < 0.4) {
-                // not on screen or blocked by ui
+                // not on the screen or blocked by ui
                 continue;
             }
 
             List<Point> pixels = getPixelAnalyzer().findPixelsOnGameScreen(polygon, FLOWING_WATER_PIXEL);
-            boolean contains = !pixels.isEmpty();
-            log(MotherloadMine.class, "");
-            int color = contains ? Color.GREEN.getRGB() : Color.RED.getRGB();
-            getScreen().getDrawableCanvas().drawPolygon(polygon, color, 1);
+            boolean hasFlowingWaterPixels = !pixels.isEmpty();
+            int color = pixels.isEmpty() ? Color.GREEN.getRGB() : Color.RED.getRGB();
+            // draw the polygon and fill it with color
             getScreen().getDrawableCanvas().fillPolygon(polygon, color, 0.5);
-            if (contains && !found) {
+            // apply outline
+            getScreen().getDrawableCanvas().drawPolygon(polygon, color, 1);
+
+            if (hasFlowingWaterPixels && !found) {
                 found = true;
                 // we continue the loop just to draw the tiles as it looks fancy
                 //     new ImagePanel(getScreen().getDrawableCanvas().toImage().toBufferedImage()).showInFrame("");
@@ -823,7 +826,7 @@ public class MotherloadMine extends Script {
             if (polygon == null) {
                 return false;
             }
-            if (getPixelAnalyzer().isPlayerAnimating(0.1)) {
+            if (getPixelAnalyzer().isPlayerAnimating(0.15)) {
                 animatingTimer.reset();
             }
 
