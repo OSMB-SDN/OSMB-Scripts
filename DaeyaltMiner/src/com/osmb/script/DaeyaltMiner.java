@@ -10,6 +10,7 @@ import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
 import com.osmb.api.ui.component.tabs.SettingsTabComponent;
 import com.osmb.api.utils.UIResult;
+import com.osmb.api.utils.timing.Stopwatch;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.visual.SearchablePixel;
 import com.osmb.api.visual.color.ColorModel;
@@ -19,12 +20,14 @@ import com.osmb.api.walker.WalkConfig;
 import java.awt.*;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @ScriptDefinition(name = "Daeyalt Miner", description = "Mines Daeyalt essence in the Daeyalt mines.", version = 1.0, author = "Joe", skillCategory = SkillCategory.MINING)
 public class DaeyaltMiner extends Script {
 
     private static final Area CENTER_AREA = new RectangleArea(3676, 9756, 5, 3, 2);
     private static final Font ARIEL = Font.getFont("Ariel");
+    private static final int MAX_ZOOM = 20;
     private final SearchablePixel[] ACTIVE_ROCK_PIXELS = {
             new SearchablePixel(-15646911, new SingleThresholdComparator(3), ColorModel.HSL),
             new SearchablePixel(-14978699, new SingleThresholdComparator(3), ColorModel.HSL),
@@ -32,6 +35,7 @@ public class DaeyaltMiner extends Script {
     };
     private int animationTimeout;
     private boolean setZoom = false;
+
     public DaeyaltMiner(Object scriptCore) {
         super(scriptCore);
     }
@@ -41,23 +45,21 @@ public class DaeyaltMiner extends Script {
         this.animationTimeout = random(4000, 6000);
     }
 
-    private static final int MAX_ZOOM = 20;
-
     @Override
     public int poll() {
-        if(!setZoom) {
+        if (!setZoom) {
             log(DaeyaltMiner.class, "Checking zoom level...");
             // check if the settings tab + display sub-tab is open, if not, open it
-            if(!getWidgetManager().getSettings().openSubTab(SettingsTabComponent.SettingsSubTabType.DISPLAY_TAB)) {
+            if (!getWidgetManager().getSettings().openSubTab(SettingsTabComponent.SettingsSubTabType.DISPLAY_TAB)) {
                 return 0;
             }
             UIResult<Integer> zoomResult = getWidgetManager().getSettings().getZoomLevel();
-            if(zoomResult.isFound()) {
+            if (zoomResult.isFound()) {
                 int currentZoom = zoomResult.get();
                 if (currentZoom > MAX_ZOOM) {
                     // generate random zoom level between 0 and MAX_ZOOM
                     int zoomLevel = random(0, MAX_ZOOM);
-                    if(getWidgetManager().getSettings().setZoomLevel(zoomLevel)) {
+                    if (getWidgetManager().getSettings().setZoomLevel(zoomLevel)) {
                         log(DaeyaltMiner.class, "Zoom level set to: " + zoomLevel);
                         // zoom level set, set flag to true
                         setZoom = true;
@@ -125,7 +127,7 @@ public class DaeyaltMiner extends Script {
         // if an active rock is found, interact
         if (targetRock.interact("Mine")) {
             log(DaeyaltMiner.class, "Interacted with rock: " + activeRockEntry.getKey());
-             waitUntilFinishedMining(targetRock);
+            waitUntilFinishedMining(targetRock);
         }
         return 0;
     }
@@ -159,13 +161,23 @@ public class DaeyaltMiner extends Script {
         }
         log(DaeyaltMiner.class, "Waiting until finished mining rock");
         Timer animatingTimer = new Timer();
+        AtomicInteger rockActiveCheckFails = new AtomicInteger(0);
+        Stopwatch rockCheckTimer = new Stopwatch();
         submitHumanTask(() -> {
             if (animatingTimer.timeElapsed() > animationTimeout) {
                 log(DaeyaltMiner.class, "Animation timeout");
                 this.animationTimeout = random(2000, 4000);
                 return true;
             }
-
+            if (!isRockActive(targetRock)) {
+                // use a timer as frames are updated super quick with OSMB
+                rockCheckTimer.reset(200);
+                rockActiveCheckFails.incrementAndGet();
+                if (rockActiveCheckFails.get() > 3) {
+                    log(DaeyaltMiner.class, "Rock is no longer active.");
+                    return true;
+                }
+            }
             if (getPixelAnalyzer().isPlayerAnimating(0.2)) {
                 animatingTimer.reset();
             }
@@ -216,15 +228,21 @@ public class DaeyaltMiner extends Script {
 
     private Map.Entry<Rock, RSObject> findActiveRock(Map<Rock, RSObject> rocksOnScreen) {
         for (Map.Entry<Rock, RSObject> entry : rocksOnScreen.entrySet()) {
-            Polygon polygon = entry.getValue().getConvexHull();
-            if (polygon == null) {
-                continue;
-            }
-            if (getPixelAnalyzer().findPixel(polygon, ACTIVE_ROCK_PIXELS) != null) {
+            if (isRockActive(entry.getValue())) {
+                log(DaeyaltMiner.class, "Found active rock: " + entry.getKey());
                 return entry;
             }
         }
         return null;
+    }
+
+    private boolean isRockActive(RSObject rock) {
+        Polygon polygon = rock.getConvexHull();
+        if (polygon == null) {
+            return false;
+        }
+        // check if the rock has active pixels
+        return getPixelAnalyzer().findPixel(polygon, ACTIVE_ROCK_PIXELS) != null;
     }
 
     private Map<Rock, RSObject> getRocksOnScreen(List<RSObject> rocks) {
@@ -245,7 +263,7 @@ public class DaeyaltMiner extends Script {
 
     @Override
     public int[] regionsToPrioritise() {
-        return new int[]{14744,14484};
+        return new int[]{14744, 14484};
     }
 
     enum Rock {
