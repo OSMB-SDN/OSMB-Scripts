@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @ScriptDefinition(name = "Daeyalt Miner", description = "Mines Daeyalt essence in the Daeyalt mines.", version = 1.0, author = "Joe", skillCategory = SkillCategory.MINING)
 public class DaeyaltMiner extends Script {
 
-    private static final Area CENTER_AREA = new RectangleArea(3676, 9756, 5, 3, 2);
+    private static final Area CENTER_AREA = new RectangleArea(3673, 9755, 9, 5, 2);
     private static final Font ARIEL = Font.getFont("Ariel");
     private static final int MAX_ZOOM = 20;
     private final SearchablePixel[] ACTIVE_ROCK_PIXELS = {
@@ -101,15 +101,30 @@ public class DaeyaltMiner extends Script {
         if (activeRockEntry == null) {
             // if no active rock is found
             log(DaeyaltMiner.class, "No active rock found.");
+            for(Map.Entry<Rock, RSObject> entry : rocksOnScreen.entrySet()) {
+                log(DaeyaltMiner.class, "Rock on screen: " + entry.getKey() + " at " + entry.getValue().getWorldPosition());
+            }
             List<Rock> rocksList = new ArrayList<>(List.of(Rock.values()));
             rocksList.removeAll(rocksOnScreen.keySet());
+            log(DaeyaltMiner.class, "Rocks we can't see: " + rocksList);
 
             // if only 1 rock remains, then this must be the active rock
             if (rocksList.size() == 1) {
                 log(DaeyaltMiner.class, "There is only one rock we can't see, assuming it is the active rock.");
-                RSObject rock = rocks.get(0);
-                log(DaeyaltMiner.class, "Walking to rock: " + rock.getWorldPosition());
-                walkToRock(rock);
+                Rock rock = rocksList.get(0);
+                RSObject targetRock = null;
+                for(RSObject rsObject : rocks) {
+                    if (rsObject.getWorldPosition().equals(rock.getRockPosition())) {
+                        targetRock = rsObject;
+                        break;
+                    }
+                }
+                if( targetRock == null) {
+                    log(DaeyaltMiner.class, "Target rock is null, cannot walk to it.");
+                    return 0;
+                }
+                log(DaeyaltMiner.class, "Walking to rock: " + targetRock.getWorldPosition());
+                walkToRock(targetRock);
             } else {
                 log(DaeyaltMiner.class, "Can't see multiple rocks, walking to center area.");
                 walkToCenter();
@@ -252,7 +267,7 @@ public class DaeyaltMiner extends Script {
             if (polygon == null) {
                 continue;
             }
-            if (getWidgetManager().insideGameScreenFactor(polygon, Collections.emptyList()) < 0.5) {
+            if (getWidgetManager().insideGameScreenFactor(polygon, Collections.emptyList()) < 0.3) {
                 continue;
             }
             Rock rockType = Rock.getRockByPosition(rock.getWorldPosition());
