@@ -2,6 +2,7 @@ package com.osmb.script.component;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.item.ItemGroup;
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.shape.Rectangle;
 import com.osmb.api.ui.component.ComponentCentered;
@@ -19,6 +20,7 @@ import com.osmb.api.visual.ocr.fonts.Font;
 
 import java.awt.*;
 import java.util.List;
+import java.util.Set;
 
 import static com.osmb.api.visual.color.ColorUtils.ORANGE_UI_TEXT;
 
@@ -79,15 +81,16 @@ public class ChestInterface extends ComponentCentered implements ItemGroup {
     }
 
     public UIResult<Integer> getStoredDoses(int itemID) {
-        Rectangle bounds = getBounds();
-        if (bounds == null) {
+        ItemGroupResult chestSnapshot = core.getItemManager().scanItemGroup(this, Set.of(itemID));
+        if(chestSnapshot == null) {
+            core.log(ChestInterface.class, "Failed to scan chest for item: " + itemID);
             return UIResult.notVisible();
         }
-        UIResult<ItemSearchResult> result = core.getItemManager().findItem(this, itemID);
-        if (result.isNotFound()) {
+        ItemSearchResult result = chestSnapshot.getItem(itemID);
+        if (result == null) {
             return UIResult.of(null);
         }
-        Rectangle resultBounds = result.get().getBounds();
+        Rectangle resultBounds = result.getBounds();
         Rectangle doseBounds = new Rectangle(resultBounds.x, resultBounds.y + 49, resultBounds.width, 12);
         core.getScreen().getDrawableCanvas().drawRect(doseBounds, Color.RED.getRGB());
         String text = core.getOCR().getText(Font.STANDARD_FONT, doseBounds, WHITE_PIXEL).replaceAll("[^0-9]", "");

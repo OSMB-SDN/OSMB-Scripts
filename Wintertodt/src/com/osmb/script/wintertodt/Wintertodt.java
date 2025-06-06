@@ -276,7 +276,12 @@ public class Wintertodt extends Script {
             }
         }
         // check if we reached next point milestone with our inventory contents
-        boolean reachedGoal = hasReachedGoal();
+        Boolean reachedGoal = hasReachedGoal();
+        if(reachedGoal == null) {
+            log(Wintertodt.class, "Failed to determine if goal reached.");
+            return null;
+        }
+
         boolean reachedFirstMilestone = points >= FIRST_MILESTONE_POINTS;
         boolean fletch = fletchType == FletchType.YES || !reachedFirstMilestone && fletchType == FletchType.UNTIL_MILESTONE;
 
@@ -325,18 +330,13 @@ public class Wintertodt extends Script {
     }
 
     private UIResult<Integer> calculateResourcePoints(int currentPoints) {
-        UIResultList<ItemSearchResult> kindling = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BRUMA_KINDLING);
-        UIResultList<ItemSearchResult> roots = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BRUMA_ROOT);
-        if (kindling.isNotVisible() || roots.isNotVisible()) {
-            return UIResult.notVisible();
-        }
-        int kindlingPoints = 25 * kindling.size();
+        int kindlingPoints = 25 * inventorySnapshot.getAmount(ItemID.BRUMA_KINDLING);
         boolean reachedFirstMilestone = currentPoints >= 500;
 
         boolean fletch = fletchType == FletchType.YES || !reachedFirstMilestone && fletchType == FletchType.UNTIL_MILESTONE;
 
         int rootXp = fletch ? 25 : 10;
-        int rootsPoints = roots.size() * rootXp;
+        int rootsPoints = inventorySnapshot.getAmount(ItemID.BRUMA_ROOT) * rootXp;
         return UIResult.of(kindlingPoints + rootsPoints);
     }
 
@@ -413,15 +413,14 @@ public class Wintertodt extends Script {
         }
 
         Equipment itemToRetrieve = missingEquipment.iterator().next();
-        UIResult<ItemSearchResult> item = getItemManager().findItem(getWidgetManager().getInventory(), itemToRetrieve.getItemIds());
-
-        if (item.isFound()) {
+        ItemSearchResult item = inventorySnapshot.getItem(itemToRetrieve.getItemIds());
+        if (item != null) {
             missingEquipment.remove(itemToRetrieve);
             return;
         }
 
         log(Wintertodt.class, "Getting crate with menu option: " + itemToRetrieve.getName().toLowerCase());
-        RSObject crate = getCrate("take-" + itemToRetrieve.getName().toLowerCase(), null);
+        RSObject crate = getCrate("take-" + itemToRetrieve.getName().toLowerCase(), (WorldPosition) null);
 
         if (crate == null) {
             log(Wintertodt.class, "Can't find crate for " + itemToRetrieve.getName());
@@ -431,8 +430,12 @@ public class Wintertodt extends Script {
             log(Wintertodt.class, "Interacted with crate for " + itemToRetrieve.getName());
             // wait for item to be in the inventory and remove from missing equipment list
             if (submitHumanTask(() -> {
-                UIResult<ItemSearchResult> item_ = getItemManager().findItem(getWidgetManager().getInventory(), itemToRetrieve.getItemIds());
-                return item_.isFound();
+                inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+                if (inventorySnapshot == null) {
+                    log(Wintertodt.class, "Failed to retrieve inventory snapshot.");
+                    return false;
+                }
+                return inventorySnapshot.containsAny(itemToRetrieve.getItemIds());
             }, 10000)) {
                 missingEquipment.remove(itemToRetrieve);
             }
@@ -458,6 +461,11 @@ public class Wintertodt extends Script {
             AtomicInteger previousFreeSlots = new AtomicInteger(-1);
             Timer slotChangeTimer = new Timer();
             submitTask(() -> {
+                inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+                if (inventorySnapshot == null) {
+                    log(Wintertodt.class, "Failed to retrieve inventory snapshot.");
+                    return false;
+                }
                 Boolean reachedGoal = hasReachedGoal();
                 log(Wintertodt.class, "Reached goal: " + reachedGoal);
                 if (Boolean.TRUE.equals(reachedGoal)) {
@@ -477,20 +485,18 @@ public class Wintertodt extends Script {
                     sleep(RandomUtils.weightedRandom(200, 1500));
                     return true;
                 }
-                Optional<Integer> freeSlots = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory());
-                if (!freeSlots.isPresent()) {
-                    return false;
-                }
-                if (freeSlots.get() == 0) {
+
+                int freeSlots = inventorySnapshot.getFreeSlots();
+                if (freeSlots == 0) {
                     log(Wintertodt.class, "No free slots left");
                     sleep(RandomUtils.weightedRandom(200, 1000));
                     return true;
                 } else if (previousFreeSlots.get() == -1) {
                     slotChangeTimer.reset();
-                    previousFreeSlots.set(freeSlots.get());
-                } else if (previousFreeSlots.get() != freeSlots.get()) {
+                    previousFreeSlots.set(freeSlots);
+                } else if (previousFreeSlots.get() != freeSlots) {
                     slotChangeTimer.reset();
-                    previousFreeSlots.set(freeSlots.get());
+                    previousFreeSlots.set(freeSlots);
                 } else if (slotChangeTimer.timeElapsed() > chopRootsTimeout) {
                     log(Wintertodt.class, "Slot change timeout");
                     // change the timeout so we don't keep interacting with the roots after a set time
@@ -517,11 +523,18 @@ public class Wintertodt extends Script {
                 this.checkedEquipment = true;
                 return true;
             }
+            if(!checkedInventory.get()) {
+                inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+                if (inventorySnapshot == null) {
+                    log(Wintertodt.class, "Failed to retrieve inventory snapshot.");
+                    return false;
+                }
+            }
             for (Equipment equipment : Equipment.values()) {
                 UIResult<ItemSearchResult> result;
                 if (!checkedInventory.get()) {
                     log(Wintertodt.class, "Searching inventory for: " + equipment);
-                    result = getItemManager().findItem(getWidgetManager().getInventory(), equipment.getItemIds());
+                    result = UIResult.of(inventorySnapshot.getItem(equipment.getItemIds()));
                 } else {
                     log(Wintertodt.class, "Searching equipment for: " + equipment);
                     result = getWidgetManager().getEquipment().findItem(equipment.getItemIds());
@@ -746,11 +759,8 @@ public class Wintertodt extends Script {
             builder.breakCondition(() -> getBrazier() != null);
             return;
         }
-        UIResultList<ItemSearchResult> initialBrazierFeed = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BRUMA_ROOT, ItemID.BRUMA_KINDLING);
-        if (initialBrazierFeed.isNotVisible()) {
-            return;
-        }
-        AtomicInteger previousAmountOfFeed = new AtomicInteger(initialBrazierFeed.size());
+
+        AtomicInteger previousAmountOfFeed = new AtomicInteger(inventorySnapshot.getAmount(ItemID.BRUMA_ROOT, ItemID.BRUMA_KINDLING));
         Timer itemAmountChangeTimer = new Timer();
         Integer warmth = overlay.getWarmthPercent();
         if (warmth == null) {
@@ -760,6 +770,11 @@ public class Wintertodt extends Script {
         if (brazier.interact("Burning brazier", new String[]{"feed", "fix", "light"})) {
             // sleep until brazier status changes
             submitTask(() -> {
+                inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+                if (inventorySnapshot == null) {
+                    log(Wintertodt.class, "Failed to retrieve inventory snapshot.");
+                    return false;
+                }
                 //listen hitpoints
                 Integer warmthCurrent = overlay.getWarmthPercent();
                 if (warmthCurrent != null) {
@@ -781,16 +796,9 @@ public class Wintertodt extends Script {
                     return true;
                 }
 
-                UIResultList<ItemSearchResult> brazierFeed = getItemManager().findAllOfItem(getWidgetManager().getInventory(), ItemID.BRUMA_ROOT, ItemID.BRUMA_KINDLING);
-                if (brazierFeed.isNotVisible()) {
-                    return false;
-                }
-                if (brazierFeed.isNotFound()) {
-                    log(Wintertodt.class, "Ran out of brazier feed...");
-                    return true;
-                }
+       
                 //TODO doesn't work
-                int rootAmount = brazierFeed.size();
+                int rootAmount = inventorySnapshot.getAmount(ItemID.BRUMA_ROOT, ItemID.BRUMA_KINDLING);
                 if (rootAmount < previousAmountOfFeed.get()) {
                     itemAmountChangeTimer.reset();
                 } else if (itemAmountChangeTimer.timeElapsed() > brazierTimeout) {
