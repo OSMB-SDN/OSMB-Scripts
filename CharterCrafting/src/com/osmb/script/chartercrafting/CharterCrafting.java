@@ -191,7 +191,12 @@ public class CharterCrafting extends Script {
     }
 
     private void hopWorlds() {
-        forceHop();
+        if (!getProfileManager().hasHopProfile()) {
+            log(CharterCrafting.class, "No hop profile set, please make sure to select a hop profile when running this script.");
+            stop();
+            return;
+        }
+        getProfileManager().forceHop();
         hopFlag = false;
     }
 
