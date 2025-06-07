@@ -6,6 +6,7 @@ import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.location.area.impl.RectangleArea;
+import com.osmb.api.location.position.types.LocalPosition;
 import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.scene.RSObject;
 import com.osmb.api.scene.RSTile;
@@ -15,7 +16,6 @@ import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
 import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.utils.UIResult;
-import com.osmb.api.utils.UIResultList;
 import com.osmb.api.utils.timing.Stopwatch;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.visual.drawing.Canvas;
@@ -163,7 +163,7 @@ public class Wintertodt extends Script {
         if (!missingEquipment.isEmpty()) {
             return Task.GET_EQUIPMENT;
         }
-        if (isDueToBreak()) {
+        if (getProfileManager().isDueToBreak()) {
             if (breakDelay != null && breakDelay.hasFinished()) {
                 if (!SAFE_AREA.contains(worldPosition)) {
                     return Task.WALK_TO_SAFE_AREA;
@@ -277,7 +277,7 @@ public class Wintertodt extends Script {
         }
         // check if we reached next point milestone with our inventory contents
         Boolean reachedGoal = hasReachedGoal();
-        if(reachedGoal == null) {
+        if (reachedGoal == null) {
             log(Wintertodt.class, "Failed to determine if goal reached.");
             return null;
         }
@@ -420,7 +420,7 @@ public class Wintertodt extends Script {
         }
 
         log(Wintertodt.class, "Getting crate with menu option: " + itemToRetrieve.getName().toLowerCase());
-        RSObject crate = getCrate("take-" + itemToRetrieve.getName().toLowerCase(), (WorldPosition) null);
+        RSObject crate = getCrate("take-" + itemToRetrieve.getName().toLowerCase(), null);
 
         if (crate == null) {
             log(Wintertodt.class, "Can't find crate for " + itemToRetrieve.getName());
@@ -523,7 +523,7 @@ public class Wintertodt extends Script {
                 this.checkedEquipment = true;
                 return true;
             }
-            if(!checkedInventory.get()) {
+            if (!checkedInventory.get()) {
                 inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
                 if (inventorySnapshot == null) {
                     log(Wintertodt.class, "Failed to retrieve inventory snapshot.");
@@ -796,7 +796,7 @@ public class Wintertodt extends Script {
                     return true;
                 }
 
-       
+
                 //TODO doesn't work
                 int rootAmount = inventorySnapshot.getAmount(ItemID.BRUMA_ROOT, ItemID.BRUMA_KINDLING);
                 if (rootAmount < previousAmountOfFeed.get()) {
@@ -876,10 +876,10 @@ public class Wintertodt extends Script {
         log(Wintertodt.class, "Unf potions needed: " + unfPotionsNeeded + " Bruma herbs needed: " + brumaHerbsNeeded);
         // drop if we have too many
         if (unfPotionsNeeded < 0) {
-            log(Wintertodt.class, "Too many unf potions, dropping...");
+            log(Wintertodt.class, "Too many unf potions, dropping" + " " + Math.abs(unfPotionsNeeded) + " unf potions...");
             getWidgetManager().getInventory().dropItem(ItemID.REJUVENATION_POTION_UNF, Math.abs(unfPotionsNeeded));
         } else if (brumaHerbsNeeded < 0) {
-            log(Wintertodt.class, "Too many herbs, dropping...");
+            log(Wintertodt.class, "Too many herbs, dropping " + Math.abs(brumaHerbsNeeded) + " herbs...");
             getWidgetManager().getInventory().dropItem(ItemID.BRUMA_HERB, Math.abs(brumaHerbsNeeded));
         }
         // if we need more
@@ -1119,6 +1119,19 @@ public class Wintertodt extends Script {
             int herbsGained = inventorySnapshot.getAmount(ItemID.BRUMA_HERB) - initialAmount;
             if (herbsGained >= herbsNeeded || inventorySnapshot.isFull()) {
                 // if we have enough or inv is full
+                LocalPosition localPosition = getLocalPosition();
+                if (localPosition != null) {
+                    submitTask(() -> false, RandomUtils.weightedRandom(0, 1000, 0.005));
+                    // walk away to stop picking roots
+                    List<LocalPosition> positions = getWalker().getCollisionManager().findReachableTiles(localPosition, 3);
+                    List<LocalPosition> validPositions = positions.stream()
+                            .filter(pos -> SOCIAL_SAFE_AREA.contains(pos.toWorldPosition(this)))
+                            .toList();
+                    LocalPosition randomPosition = validPositions.isEmpty() ? null : validPositions.get(random(validPositions.size()));
+                    if (randomPosition != null) {
+                        getWalker().walkTo(SOCIAL_SAFE_AREA.getRandomPosition());
+                    }
+                }
                 return true;
             }
 
