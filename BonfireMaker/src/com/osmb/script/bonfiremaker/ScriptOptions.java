@@ -12,7 +12,6 @@ import java.util.prefs.Preferences;
 
 public class ScriptOptions {
 
-    private static final int[] LOGS = new int[]{ItemID.LOGS, ItemID.OAK_LOGS, ItemID.WILLOW_LOGS, ItemID.MAPLE_LOGS, ItemID.TEAK_LOGS, ItemID.ARCTIC_PINE_LOGS, ItemID.MAPLE_LOGS, ItemID.MAHOGANY_LOGS, ItemID.YEW_LOGS, ItemID.BLISTERWOOD_LOGS, ItemID.MAGIC_LOGS, ItemID.REDWOOD_LOGS};
     private ComboBox<Integer> logComboBox;
 
     private static final Preferences prefs = Preferences.userNodeForPackage(ScriptOptions.class);
@@ -23,11 +22,11 @@ public class ScriptOptions {
         root.setStyle("-fx-background-color: #636E72; -fx-padding: 10; -fx-spacing: 10; -fx-alignment: center");
 
         Label logLabel = new Label("Choose log to burn");
-        logComboBox = JavaFXUtils.createItemCombobox(core, LOGS);
+        logComboBox = JavaFXUtils.createItemCombobox(core, BonfireMaker.LOGS);
 
         // Load saved selection
         int savedLogId = prefs.getInt(PREF_SELECTED_LOG_ID, ItemID.LOGS);
-        for (Integer logId : LOGS) {
+        for (Integer logId : BonfireMaker.LOGS) {
             if (logId == savedLogId) {
                 logComboBox.getSelectionModel().select(logId);
                 break;

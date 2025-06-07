@@ -12,7 +12,9 @@ import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
+import com.osmb.api.ui.chatbox.ChatboxFilterTab;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
+import com.osmb.api.utils.UIResultList;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.api.walker.WalkConfig;
@@ -31,8 +33,10 @@ public class BonfireMaker extends Script {
 
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth", "Bank counter", "Bank table"};
     public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
-    private static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 6;
+    public static final int[] LOGS = new int[]{ItemID.LOGS, ItemID.OAK_LOGS, ItemID.WILLOW_LOGS, ItemID.MAPLE_LOGS, ItemID.TEAK_LOGS, ItemID.ARCTIC_PINE_LOGS, ItemID.MAPLE_LOGS, ItemID.MAHOGANY_LOGS, ItemID.YEW_LOGS, ItemID.BLISTERWOOD_LOGS, ItemID.MAGIC_LOGS, ItemID.REDWOOD_LOGS};
+    private int amountChangeTimeout;
     private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.TINDERBOX));
+    private static final List<String> PREVIOUS_CHATBOX_LINES = new ArrayList<>();
     private final Predicate<RSObject> bankQuery = gameObject -> {
         // if object has no name
         if (gameObject.getName() == null) {
@@ -59,11 +63,10 @@ public class BonfireMaker extends Script {
     private WorldPosition bonfireTargetCreationPos;
     private int logsBurnt;
     private int logsBurntOnFire;
-    private String logName;
     private boolean forceNewPosition = false;
     private ItemGroupResult inventorySnapshot;
     private int tries = 0;
-    private MenuHook burnMenuHook;
+    private Map<Integer, String> logNames = new HashMap<>();
 
     public BonfireMaker(Object scriptCore) {
         super(scriptCore);
@@ -76,13 +79,13 @@ public class BonfireMaker extends Script {
         getStageController().show(scene, "Options", false);
         selectedLogsID = ui.getSelectedLog();
         ITEM_IDS_TO_RECOGNISE.add(selectedLogsID);
-
-        logName = getItemManager().getItemName(selectedLogsID);
-        if (logName == null) {
-            log(getClass().getSimpleName(), "Could not find name of selected logs...");
-            stop();
+        for (int logID : LOGS) {
+            String name = getItemManager().getItemName(logID);
+            if (name != null) {
+                logNames.put(logID, name);
+            }
         }
-        burnMenuHook = createBurnMenuHook();
+        amountChangeTimeout = random(6200, 9000);
     }
 
     @Override
@@ -124,7 +127,6 @@ public class BonfireMaker extends Script {
         }
 
         if (bonfirePosition == null) {
-            resetTries();
             if (inventorySnapshot.getSelectedSlot().isPresent()) {
                 // unselect item if selected
                 if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
@@ -133,43 +135,29 @@ public class BonfireMaker extends Script {
             }
             log(getClass().getSimpleName(), "No bonfire active, we need to light a bonfire");
             // walk to target position, if one is valid
-            if (bonfireTargetCreationPos != null) {
-                escapeActiveFire();
-            } else if (forceNewPosition) {
+            if (forceNewPosition) {
                 log(getClass().getSimpleName(), "Moving to new light position...");
                 moveToNewPosition();
             } else {
                 log(getClass().getSimpleName(), "Lighting bonfire...");
-//                if (!inventorySnapshot.containsAll(Set.of(ItemID.TINDERBOX, selectedLogsID))) {
-//                    log(BonfireMaker.class,"Don't have everything to light a fire...");
-//                    return 0;
-//                }
                 lightBonfire(inventorySnapshot.getItem(ItemID.TINDERBOX), inventorySnapshot.getRandomItem(selectedLogsID));
+                listenChatbox();
             }
         } else {
             log(getClass().getSimpleName(), "Bonfire active");
             burnLogsOnBonfire(inventorySnapshot);
+            listenChatbox();
         }
         return 0;
     }
 
-    private void resetTries() {
-        if (tries > 0) {
-            tries = 0;
+    private void hopWorlds() {
+        if (!getProfileManager().hasHopProfile()) {
+            log(BonfireMaker.class, "No hop profile set, please make sure to select a hop profile when running this script.");
+            stop();
+            return;
         }
-    }
-
-    private void escapeActiveFire() {
-        log(getClass().getSimpleName(), "Running to target light position to escape a currently active bonfire...");
-        WorldPosition myPos = getWorldPosition();
-        if (!bonfireTargetCreationPos.equals(myPos)) {
-            WalkConfig.Builder builder = new WalkConfig.Builder();
-            builder.breakDistance(0).tileRandomisationRadius(0);
-            getWalker().walkTo(bonfireTargetCreationPos, builder.build());
-        } else {
-            log(getClass().getSimpleName(), "Arrived at target position...");
-            bonfireTargetCreationPos = null;
-        }
+        getProfileManager().forceHop();
     }
 
     private void handleBank() {
@@ -326,9 +314,9 @@ public class BonfireMaker extends Script {
         if (!interactAndWaitForDialogue(inventorySnapshot)) {
             // walk a few tiles away, probably another camp fire close by
             LocalPosition myPos = getLocalPosition();
-            List<LocalPosition> nearbyPositions = getWalker().getCollisionManager().findReachableTiles(myPos, 10);
+            List<LocalPosition> nearbyPositions = getWalker().getCollisionManager().findReachableTiles(myPos, 15);
             // remove tiles < 7 away, leaving tiles only 7-10 tiles away
-            nearbyPositions.removeIf(localPosition -> myPos.distanceTo(localPosition) < 7);
+            nearbyPositions.removeIf(localPosition -> myPos.distanceTo(localPosition) < 13);
             LocalPosition posToWalk = nearbyPositions.get(random(nearbyPositions.size()));
             bonfireTargetCreationPos = posToWalk.toWorldPosition(this);
             bonfirePosition = null;
@@ -341,6 +329,65 @@ public class BonfireMaker extends Script {
         builder.breakDistance(2).tileRandomisationRadius(2);
         builder.breakCondition(() -> getBonfireTile() != null);
         getWalker().walkTo(bonfirePosition, builder.build());
+    }
+
+    private void listenChatbox() {
+        if (getWidgetManager().getChatbox().getActiveFilterTab() != ChatboxFilterTab.GAME) {
+            getWidgetManager().getChatbox().openFilterTab(ChatboxFilterTab.GAME);
+            return;
+        }
+        UIResultList<String> textLines = getWidgetManager().getChatbox().getText();
+        if (textLines.isNotVisible()) {
+            log("Chatbox not visible");
+            return;
+        }
+        List<String> currentLines = textLines.asList();
+        if (currentLines.isEmpty()) {
+            return;
+        }
+        int firstDifference = 0;
+        if (!PREVIOUS_CHATBOX_LINES.isEmpty()) {
+            if (currentLines.equals(PREVIOUS_CHATBOX_LINES)) {
+                return;
+            }
+            int currSize = currentLines.size();
+            int prevSize = PREVIOUS_CHATBOX_LINES.size();
+            for (int i = 0; i < currSize; i++) {
+                int suffixLen = currSize - i;
+                if (suffixLen > prevSize) continue;
+                boolean match = true;
+                for (int j = 0; j < suffixLen; j++) {
+                    if (!currentLines.get(i + j).equals(PREVIOUS_CHATBOX_LINES.get(j))) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    firstDifference = i;
+                    break;
+                }
+            }
+        } else {
+            PREVIOUS_CHATBOX_LINES.addAll(currentLines);
+        }
+        List<String> newLines = currentLines.subList(0, firstDifference);
+        PREVIOUS_CHATBOX_LINES.clear();
+        PREVIOUS_CHATBOX_LINES.addAll(currentLines);
+        onNewChatBoxMessage(newLines);
+    }
+
+    private void onNewChatBoxMessage(List<String> newLines) {
+        for (String line : newLines) {
+            line = line.toLowerCase();
+            log("Chatbox listener", "New line: " + line);
+            if (line.endsWith("further away.")) {
+                hopWorlds();
+                bonfirePosition = null;
+            } else if (line.endsWith("light a fire here.")) {
+                forceNewPosition = true;
+                bonfirePosition = null;
+            }
+        }
     }
 
     public boolean interactAndWaitForDialogue(ItemGroupResult inventorySnapshot) {
@@ -367,10 +414,31 @@ public class BonfireMaker extends Script {
         }
 
         getScreen().queueCanvasDrawable("highlightFireTile", canvas -> canvas.drawPolygon(tilePoly, Color.GREEN.getRGB(), 1));
-
+        MenuHook menuHook = menuEntries -> {
+            for (MenuEntry entry : menuEntries) {
+                String rawText = entry.getRawText();
+                log(BonfireMaker.class, "Menu text: " + rawText);
+                for (int logID : LOGS) {
+                    String logName = logNames.get(logID);
+                    if (logName == null) {
+                        log(BonfireMaker.class, "Log name not found for ID: " + logID);
+                        continue;
+                    }
+                    log("Log name: " + logName);
+                    if (rawText.equalsIgnoreCase("Use " + logName + " -> fire") || rawText.equalsIgnoreCase("Use " + logName + " -> Forester's Campfire")) {
+                        if (logID != selectedLogsID) {
+                            log(BonfireMaker.class, "Selected log is not the same as the one we are trying to burn, stopping script.");
+                            stop();
+                            return null;
+                        }
+                        return entry;
+                    }
+                }
+            }
+            return null;
+        };
         // resize the poly to minimise missclicks
-        if (!getFinger().tapGameScreen(tilePoly, "Use " + logName + " -> fire",
-                "Use " + logName + " -> Forester's Campfire")) {
+        if (!getFinger().tapGameScreen(tilePoly, menuHook)) {
             // remove the highlight after failing interacting
             getScreen().removeCanvasDrawable("highlightFireTile");
             // if we failed to interact with the fire, we need to reset the bonfire position
@@ -386,7 +454,10 @@ public class BonfireMaker extends Script {
 
         log(getClass().getSimpleName(), "Waiting for dialogue");
         // sleep until dialogue is visible
-        return submitHumanTask(() -> getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION, 7000);
+        return submitHumanTask(() -> {
+            listenChatbox();
+            return getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION;
+        }, random(5000,8000));
     }
 
     private boolean failed() {
@@ -398,27 +469,6 @@ public class BonfireMaker extends Script {
         return false;
     }
 
-    private MenuHook createBurnMenuHook() {
-        return burnMenuHook = menuEntries -> {
-            boolean foundAshes = false;
-            Set<String> burnEntries = Set.of("Use " + logName + " -> fire", "Use " + logName + " -> Forester's Campfire");
-            for (MenuEntry entry : menuEntries) {
-                String rawText = entry.getRawText();
-                if (burnEntries.contains(rawText)) {
-                    return entry;
-                }
-                if (!foundAshes && rawText.toLowerCase().contains("-> ashes")) {
-                    foundAshes = true;
-                }
-            }
-            // if we don't find the burn entries, but we found ashes, then presume fire has gone out.
-            if (foundAshes) {
-                bonfirePosition = null;
-                tries = 0;
-            }
-            return null;
-        };
-    }
 
     private ItemSearchResult getSelectedLog() {
         for (ItemSearchResult recognisedItem : inventorySnapshot.getRecognisedItems()) {
@@ -445,7 +495,8 @@ public class BonfireMaker extends Script {
                 }
             }
 
-            if (amountChangeTimer.timeElapsed() > TimeUnit.SECONDS.toMillis(AMOUNT_CHANGE_TIMEOUT_SECONDS)) {
+            if (amountChangeTimer.timeElapsed() > amountChangeTimeout) {
+                amountChangeTimeout = random(6200, 9000);
                 // usually happens when the bonfire extinguishes, so we clear our known bonfire position
                 bonfirePosition = null;
                 return true;
@@ -469,7 +520,7 @@ public class BonfireMaker extends Script {
                 amountChangeTimer.reset();
             }
             return false;
-        }, 80000, false, true);
+        }, 160000, false, true);
     }
 
     @Override
@@ -493,7 +544,8 @@ public class BonfireMaker extends Script {
         return true;
     }
 
-    enum BurnResponse {
-
+    @Override
+    public boolean canHopWorlds() {
+        return false;
     }
 }
