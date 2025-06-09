@@ -2,6 +2,7 @@ package com.osmb.script.overlay;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.item.ItemGroup;
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.shape.Rectangle;
@@ -13,8 +14,11 @@ import com.osmb.api.visual.ocr.fonts.Font;
 
 import java.awt.*;
 import java.util.List;
+import java.util.Set;
 
 public class CofferOverlay extends OverlayBoundary implements ItemGroup {
+    public static final Rectangle TITLE_BOUNDS = new Rectangle(5, 4, 36, 13);
+
     public CofferOverlay(ScriptCore core) {
         super(core);
     }
@@ -29,7 +33,6 @@ public class CofferOverlay extends OverlayBoundary implements ItemGroup {
         return 57;
     }
 
-    public static final Rectangle TITLE_BOUNDS = new Rectangle(5, 4, 36, 13);
     @Override
     protected boolean checkVisibility(Rectangle bounds) {
         Rectangle titleBounds = bounds.getSubRectangle(TITLE_BOUNDS);
@@ -64,15 +67,18 @@ public class CofferOverlay extends OverlayBoundary implements ItemGroup {
 
     public UIResult<Integer> getCofferValue() {
         Rectangle bounds = getBounds();
-        if(bounds == null) {
+        if (bounds == null) {
             return UIResult.notVisible();
         }
-        UIResult<ItemSearchResult> itemSearchResult = core.getItemManager().findItem(this, ItemID.COINS_995);
-        if(itemSearchResult.isNotFound()) {
-            return UIResult.of(null);
+        ItemGroupResult cofferSnapshot = core.getItemManager().scanItemGroup(this, Set.of(ItemID.COINS_995));
+        if (cofferSnapshot == null) {
+            return UIResult.notVisible();
         }
-
-        return UIResult.of(itemSearchResult.get().getStackAmount());
+        ItemSearchResult coins = cofferSnapshot.getItem(ItemID.COINS_995);
+        if (coins == null) {
+            return UIResult.notVisible();
+        }
+        return UIResult.of(coins.getStackAmount());
     }
 
     @Override
