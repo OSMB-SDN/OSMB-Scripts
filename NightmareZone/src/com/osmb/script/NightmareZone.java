@@ -120,6 +120,8 @@ public class NightmareZone extends Script {
     private boolean guzzleFirstOption = false;
     private BuffOverlay overloadBuffOverlay;
     private ItemGroupResult inventorySnapshot;
+    private ItemGroupResult bankSnapshot;
+    private boolean forceEnter = false;
 
     public NightmareZone(Object scriptCore) {
         super(scriptCore);
@@ -206,16 +208,18 @@ public class NightmareZone extends Script {
         this.overloadBuffOverlay = new BuffOverlay(this, ItemID.OVERLOAD_4);
 
         // add items to recognise
-        for (Potion potion : Potion.values()) {
-            for (int itemID : potion.getItemIDs()) {
+        if (statBoostPotion != null) {
+            for (int itemID : statBoostPotion.getItemIDs()) {
+                ITEM_IDS_TO_RECOGNISE.add(itemID);
+            }
+        }
+        if (secondaryPotion != null) {
+            for (int itemID : secondaryPotion.getItemIDs()) {
                 ITEM_IDS_TO_RECOGNISE.add(itemID);
             }
         }
         for (LowerHealthMethod method : LowerHealthMethod.values()) {
             ITEM_IDS_TO_RECOGNISE.add(method.getItemID());
-        }
-        for (SpecialAttackWeapon weapon : SpecialAttackWeapon.values()) {
-            ITEM_IDS_TO_RECOGNISE.add(weapon.getItemID());
         }
         for (SpecialAttackWeapon specWeapon : SpecialAttackWeapon.values()) {
             ITEM_IDS_TO_RECOGNISE.add(specWeapon.getItemID());
@@ -287,8 +291,15 @@ public class NightmareZone extends Script {
         if (statBoostPotion != null && (boostPotions.size() != statBoostPotionAmount || !allFullDoses(boostPotions, statBoostPotion.getFullID()))) {
             log(NightmareZone.class, "Need boost potions");
             if (!isBarrelPotion(statBoostPotion)) {
-                log(NightmareZone.class, "Not a barrel potion");
-                dynamicTasks.add(Task.OPEN_BANK);
+                if (bankSnapshot != null && !bankSnapshot.contains(statBoostPotion.getFullID())) {
+                    if (!inventorySnapshot.containsAny(statBoostPotion.getItemIDs())) {
+                        log(NightmareZone.class, "No boost potions in inventory or bank, stopping script!");
+                        stop();
+                    }
+                } else {
+                    log(NightmareZone.class, "Boost potion needs bank");
+                    dynamicTasks.add(Task.OPEN_BANK);
+                }
             } else {
                 log(NightmareZone.class, "Is barrel potion");
                 if (boostPotions.size() > statBoostPotionAmount) {
@@ -307,8 +318,17 @@ public class NightmareZone extends Script {
         int secondariesNeeded = getSecondaryPotionsNeeded();
         if (secondariesNeeded > 0 || !allFullDoses(secondaryPotions, secondaryPotion.getFullID())) {
             if (!isBarrelPotion(secondaryPotion)) {
-                log(NightmareZone.class, "Secondary needs bank");
-                dynamicTasks.add(Task.OPEN_BANK);
+                if (bankSnapshot != null && !bankSnapshot.contains(secondaryPotion.getFullID())) {
+                    if (!inventorySnapshot.containsAny(secondaryPotion.getItemIDs())) {
+                        log(NightmareZone.class, "No secondary potions in inventory or bank, stopping script!");
+                        stop();
+                    }
+                } else {
+                    log(NightmareZone.class, "Secondary needs bank");
+                    if (!dynamicTasks.contains(Task.OPEN_BANK)) {
+                        dynamicTasks.add(Task.OPEN_BANK);
+                    }
+                }
             } else {
                 // check ignore flags (used for when we don't have enough points to fully stock etc.)
                 int requiredAmount = inventorySnapshot.getFreeSlots() + secondaryPotions.size();
@@ -369,7 +389,7 @@ public class NightmareZone extends Script {
             return Task.EQUIP_ITEMS;
         }
 
-        if (isDueToBreak()) {
+        if (getProfileManager().isDueToBreak()) {
             log(NightmareZone.class, "Due to break, suiciding...");
             return Task.SUICIDE;
         }
@@ -808,6 +828,7 @@ public class NightmareZone extends Script {
         if (!potionInterface.accept()) {
             return;
         }
+        setExpectedRegionId(ARENA_REGION);
         // wait until inside arena
         submitHumanTask(() -> {
             WorldPosition worldPosition = getWorldPosition();
@@ -928,12 +949,11 @@ public class NightmareZone extends Script {
     private void interactWithDominic() {
         boolean isGameScreen = false;
         Polygon tilePoly = getSceneProjector().getTilePoly(DOMINIC_POSITION);
-        if (tilePoly == null) {
+        if (tilePoly == null || (tilePoly = tilePoly.getResized(0.7)) == null) {
             walkToDominic();
             return;
         }
-        Polygon tilePolyResized = tilePoly.getResized(0.7);
-        isGameScreen = getWidgetManager().insideGameScreen(tilePolyResized, List.of(ChatboxComponent.class));
+        isGameScreen = getWidgetManager().insideGameScreen(tilePoly, List.of(ChatboxComponent.class));
 
         WorldPosition myPosition = getWorldPosition();
         if (myPosition == null) {
@@ -945,7 +965,7 @@ public class NightmareZone extends Script {
             walkToDominic();
             return;
         }
-        if (getFinger().tap(tilePolyResized, "Dream")) {
+        if (getFinger().tap(tilePoly, "Dream")) {
             submitTask(() -> getWidgetManager().getDialogue().getDialogueType() != null, random(4000, 6000));
         }
     }
@@ -954,15 +974,18 @@ public class NightmareZone extends Script {
         log(NightmareZone.class, "Walking to Dominic...");
         WalkConfig.Builder builder = new WalkConfig.Builder();
         builder.breakCondition(() -> {
-            if (getWorldPosition() == null) {
+            WorldPosition worldPosition = getWorldPosition();
+            if (worldPosition == null) {
+                return false;
+            }
+            if (DOMINIC_POSITION.distanceTo(worldPosition) >= 13) {
                 return false;
             }
             Polygon tilePoly2 = getSceneProjector().getTilePoly(DOMINIC_POSITION);
-            if (tilePoly2 != null) {
-                tilePoly2 = tilePoly2.getResized(0.7);
-                return getWidgetManager().insideGameScreen(tilePoly2, List.of(ChatboxComponent.class));
+            if (tilePoly2 == null || (tilePoly2 = tilePoly2.getResized(0.7)) == null) {
+                return false;
             }
-            return false;
+            return getWidgetManager().insideGameScreen(tilePoly2, List.of(ChatboxComponent.class));
         });
         getWalker().walkTo(DOMINIC_POSITION, builder.build());
     }
@@ -975,15 +998,13 @@ public class NightmareZone extends Script {
         }
         boolean isGameScreen = false;
         Polygon tilePoly = potionTile.getTilePoly();
-        if (tilePoly == null) {
+        if (tilePoly == null || (tilePoly = tilePoly.getResized(0.7)) == null) {
             log(NightmareZone.class, "Potion tile polygon is null.");
             getWalker().walkTo(POTION_TILE, new WalkConfig.Builder().breakDistance(1).build());
             return;
         }
-        Polygon tilePolyResized = tilePoly.getResized(0.7);
-        isGameScreen = getWidgetManager().insideGameScreen(tilePolyResized, List.of(ChatboxComponent.class));
+        isGameScreen = getWidgetManager().insideGameScreen(tilePoly, List.of(ChatboxComponent.class));
 
-        log(NightmareZone.class, "Geniune: " + tilePoly + " resized: " + tilePolyResized);
         WorldPosition myPosition = getWorldPosition();
         if (myPosition == null) {
             return;
@@ -993,7 +1014,7 @@ public class NightmareZone extends Script {
             walkToPotion();
             return;
         }
-        if (!getFinger().tap(tilePolyResized, menuEntries -> {
+        if (!getFinger().tap(tilePoly, menuEntries -> {
             // pre check for investigate option
             for (MenuEntry entry : menuEntries) {
                 if (entry.getRawText().startsWith("investigate")) {
@@ -1045,11 +1066,10 @@ public class NightmareZone extends Script {
                 return false;
             }
             Polygon tilePoly2 = potionTile.getTilePoly();
-            if (tilePoly2 != null) {
-                tilePoly2 = tilePoly2.getResized(0.7);
-                return getWidgetManager().insideGameScreen(tilePoly2, List.of(ChatboxComponent.class));
+            if (tilePoly2 == null || (tilePoly2 = tilePoly2.getResized(0.7)) == null) {
+                return false;
             }
-            return false;
+            return getWidgetManager().insideGameScreen(tilePoly2, List.of(ChatboxComponent.class));
         });
         getWalker().walkTo(POTION_TILE, builder.build());
     }
@@ -1281,8 +1301,8 @@ public class NightmareZone extends Script {
             // if we fail to deposit all
             return;
         }
-        ItemGroupResult inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-        ItemGroupResult bankSnapshot = getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
+        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        bankSnapshot = getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
         if (inventorySnapshot == null || bankSnapshot == null) {
             log(NightmareZone.class, "Can't get inventory or bank snapshot.");
             return;
@@ -1304,16 +1324,20 @@ public class NightmareZone extends Script {
         Map<Integer, Integer> itemsToWithdraw = new HashMap<>();
 
         if (handleStatBoostPotion) {
-            int amountToWithdraw = statBoostPotionAmount - boostPotions.size();
-            log(NightmareZone.class, "Amount needed: " + statBoostPotionAmount + " Amount to withdraw: " + amountToWithdraw);
-            if (amountToWithdraw != 0)
-                itemsToWithdraw.put(statBoostPotion.getFullID(), amountToWithdraw);
+            if (bankSnapshot.contains(statBoostPotion.getFullID())) {
+                int amountToWithdraw = statBoostPotionAmount - boostPotions.size();
+                log(NightmareZone.class, "Amount needed: " + statBoostPotionAmount + " Amount to withdraw: " + amountToWithdraw);
+                if (amountToWithdraw != 0)
+                    itemsToWithdraw.put(statBoostPotion.getFullID(), amountToWithdraw);
+            }
         }
         if (handleSecondaryPotion) {
-            int amountNeeded = getSecondaryPotionsNeeded();
-            log(NightmareZone.class, "Amount needed: " + amountNeeded);
-            if (amountNeeded != 0)
-                itemsToWithdraw.put(secondaryPotion.getFullID(), amountNeeded);
+            if (bankSnapshot.contains(secondaryPotion.getFullID())) {
+                int amountNeeded = getSecondaryPotionsNeeded();
+                log(NightmareZone.class, "Amount needed: " + amountNeeded);
+                if (amountNeeded != 0)
+                    itemsToWithdraw.put(secondaryPotion.getFullID(), amountNeeded);
+            }
         }
 
         if (itemsToWithdraw.isEmpty()) {
@@ -1335,6 +1359,9 @@ public class NightmareZone extends Script {
         } else {
             log(NightmareZone.class, "Withdrawing item ID: " + itemId + ", amount: " + amount);
             if (!bankSnapshot.contains(itemId)) {
+                if (inventorySnapshot.contains(itemId)) {
+
+                }
                 log(NightmareZone.class, "Item ID: " + itemId + " not found in bank. Stopping script...");
                 stop();
                 return;
@@ -1388,14 +1415,16 @@ public class NightmareZone extends Script {
     private void restockBoostPotions() {
         if (!isBarrelPotion(statBoostPotion)) {
             // open bank if potion is not available in barrels
+            log(NightmareZone.class, "Boost potion is not available in barrels, opening bank.");
             openBank();
             return;
         }
         // check here if we have room, deposit absorptions if needed
         int slotsExclBoost = inventorySnapshot.getFreeSlots() + boostPotions.size();
-
+        log(NightmareZone.class, "Free slots: " + inventorySnapshot.getFreeSlots() + " Boost potions: " + boostPotions.size());
         if (slotsExclBoost < statBoostPotionAmount) {
             // no room bank secondaries
+            log(NightmareZone.class, "Not enough free slots for boost potions, restocking secondary potions instead.");
             restockSecondaryPotions();
             return;
         }
