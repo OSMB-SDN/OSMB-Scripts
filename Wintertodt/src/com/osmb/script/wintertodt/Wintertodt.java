@@ -1027,20 +1027,23 @@ public class Wintertodt extends Script {
         }
         Supplier<WalkConfig> combineSupplier;
         if (makeFast) {
-            AtomicInteger count = new AtomicInteger(0);
-            final int amountToMake = Math.min(inventorySnapshot.getAmount(ItemID.BRUMA_HERB), inventorySnapshot.getAmount(ItemID.REJUVENATION_POTION_UNF));
             List<ItemSearchResult> brumaHerbs = new ArrayList<>(inventorySnapshot.getAllOfItem(ItemID.BRUMA_HERB));
             List<ItemSearchResult> unfPotions = new ArrayList<>(inventorySnapshot.getAllOfItem(ItemID.REJUVENATION_POTION_UNF));
             Collections.shuffle(brumaHerbs);
             Collections.shuffle(unfPotions);
             combineSupplier = () -> {
                 submitTask(() -> {
-                    if (count.get() >= amountToMake) {
+                    if (brumaHerbs.isEmpty() || unfPotions.isEmpty()) {
                         return true;
                     }
-                    if (!getFinger().tap(false, unfPotions.get(count.get())) || !getFinger().tap(false, brumaHerbs.get(count.getAndIncrement()))) {
+                    ItemSearchResult unfPotion = unfPotions.get(0);
+                    ItemSearchResult herb = brumaHerbs.get(0);
+                    if (!getFinger().tap(false, unfPotion) || !getFinger().tap(false, herb)) {
                         return true;
                     }
+                    brumaHerbs.remove(0);
+                    unfPotions.remove(0);
+
                     submitTask(() -> false, random(RandomUtils.weightedRandom(200, 800)));
                     return false;
                 }, 8000);
