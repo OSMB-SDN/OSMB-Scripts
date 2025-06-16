@@ -99,8 +99,8 @@ public class NightmareZone extends Script {
     private boolean flickRapidHeal = false;
     private AFKPosition afkPosition;
     private boolean noBoostSuicide;
-    private int shieldItemID;
-    private int weaponItemID;
+    private int shieldItemID = -1;
+    private int weaponItemID = -1;
     // State Trackers
     private boolean setupDream = false;
     private boolean outOfPointsFlag = false;
@@ -187,6 +187,8 @@ public class NightmareZone extends Script {
         this.statBoostPotionAmount = ui.getBoostPotionAmount();
         this.secondaryPotion = ui.getSecondaryPotion();
         this.afkPosition = ui.getAFKPosition();
+        this.shieldItemID = ui.getShieldItemId();
+        this.weaponItemID = ui.getMainWeaponItemId();
         // suicides when out of boost potions to be more efficient xp wise
         this.noBoostSuicide = ui.suicideNoBoost();
         // flicks rapid heal to keep 1hp (only if using absorption potions as secondary)
@@ -208,6 +210,13 @@ public class NightmareZone extends Script {
         this.overloadBuffOverlay = new BuffOverlay(this, ItemID.OVERLOAD_4);
 
         // add items to recognise
+
+        if (weaponItemID != -1) {
+            ITEM_IDS_TO_RECOGNISE.add(weaponItemID);
+        }
+        if (shieldItemID != -1) {
+            ITEM_IDS_TO_RECOGNISE.add(shieldItemID);
+        }
         if (statBoostPotion != null) {
             for (int itemID : statBoostPotion.getItemIDs()) {
                 ITEM_IDS_TO_RECOGNISE.add(itemID);
@@ -947,21 +956,15 @@ public class NightmareZone extends Script {
     }
 
     private void interactWithDominic() {
-        boolean isGameScreen = false;
-        Polygon tilePoly = getSceneProjector().getTilePoly(DOMINIC_POSITION);
-        if (tilePoly == null || (tilePoly = tilePoly.getResized(0.7)) == null) {
-            walkToDominic();
-            return;
-        }
-        isGameScreen = getWidgetManager().insideGameScreen(tilePoly, List.of(ChatboxComponent.class));
-
         WorldPosition myPosition = getWorldPosition();
         if (myPosition == null) {
             return;
         }
-        // walk to if distance is > 14 as the max render distance is 15
-        if (!isGameScreen || DOMINIC_POSITION.distanceTo(myPosition) > 13) {
-            // walk to tile
+        Polygon tilePoly = getSceneProjector().getTileCube(DOMINIC_POSITION, 80);
+        if (tilePoly == null ||
+                (tilePoly = tilePoly.getResized(0.7)) == null ||
+                !getWidgetManager().insideGameScreen(tilePoly, List.of(ChatboxComponent.class)) ||
+                DOMINIC_POSITION.distanceTo(myPosition) > 13) {
             walkToDominic();
             return;
         }
@@ -981,7 +984,7 @@ public class NightmareZone extends Script {
             if (DOMINIC_POSITION.distanceTo(worldPosition) >= 13) {
                 return false;
             }
-            Polygon tilePoly2 = getSceneProjector().getTilePoly(DOMINIC_POSITION);
+            Polygon tilePoly2 = getSceneProjector().getTileCube(DOMINIC_POSITION, 80);
             if (tilePoly2 == null || (tilePoly2 = tilePoly2.getResized(0.7)) == null) {
                 return false;
             }
