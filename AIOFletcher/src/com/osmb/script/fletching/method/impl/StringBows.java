@@ -51,7 +51,7 @@ public class StringBows extends Method {
                 script.log(StringBows.class, "Failed selecting dialogue option...");
                 return;
             }
-            waitUntilFinishedProducing(selectedBow.getUnfinishedID());
+            waitUntilFinishedProducing(1, selectedBow.getUnfinishedID());
             return;
         }
 

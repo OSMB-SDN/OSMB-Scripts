@@ -41,7 +41,8 @@ public class CutLogs extends Method {
             script.stop();
             return;
         }
-        if (!inventorySnapshot.contains(selectedLog.getItemID())) {
+        int amount = inventorySnapshot.getAmount(selectedLog.getItemID());
+        if (amount < itemToCreate.getAmountNeeded()) {
             // bank if no logs inside the inventory
             script.setBank(true);
             return;
@@ -54,7 +55,7 @@ public class CutLogs extends Method {
                 script.log(CutLogs.class, "Failed selecting item " + itemToCreate.getUnfinishedID() + " in dialogue...");
                 return;
             }
-            waitUntilFinishedProducing(selectedLog.getItemID());
+            waitUntilFinishedProducing(itemToCreate.getAmountNeeded(), selectedLog.getItemID());
             return;
         }
         interactAndWaitForDialogue(inventorySnapshot.getItem(ItemID.KNIFE), inventorySnapshot.getRandomItem(selectedLog.getItemID()));

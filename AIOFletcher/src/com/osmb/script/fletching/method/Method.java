@@ -6,6 +6,7 @@ import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.ui.GameState;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.utils.Result;
+import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.fletching.AIOFletcher;
 import javafx.scene.layout.VBox;
@@ -14,10 +15,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static com.osmb.script.fletching.AIOFletcher.AMOUNT_CHANGE_TIMEOUT_SECONDS;
 
 public abstract class Method {
 
@@ -68,8 +66,9 @@ public abstract class Method {
         return false;
     }
 
+    private int amountChangeTimeout = Utils.random(3500,6000);
 
-    public void waitUntilFinishedProducing(int... resources) {
+    public void waitUntilFinishedProducing(int amountPer, int... resources) {
         AtomicReference<Map<Integer, Integer>> previousAmounts = new AtomicReference<>(new HashMap<>());
         for (int resource : resources) {
             previousAmounts.get().put(resource, -1);
@@ -88,7 +87,8 @@ public abstract class Method {
             }
 
             // If the amount of items in the inventory hasn't changed in the timeout amount, then return true to break out of the sleep method
-            if (amountChangeTimer.timeElapsed() > TimeUnit.SECONDS.toMillis(AMOUNT_CHANGE_TIMEOUT_SECONDS)) {
+            if (amountChangeTimer.timeElapsed() > amountChangeTimeout) {
+                amountChangeTimeout = Utils.random(3500,6000);
                 return true;
             }
             Set<Integer> itemIdsToRecognise = new HashSet<>();
@@ -108,7 +108,7 @@ public abstract class Method {
                     throw new RuntimeException("Definition is null for ID: " + resource);
                 }
                 int amount = inventorySnapshot.getAmount(resource);
-                if (amount == 0) {
+                if (amount < amountPer) {
                     return true;
                 }
                 int previousAmount = previousAmounts.get().get(resource);
