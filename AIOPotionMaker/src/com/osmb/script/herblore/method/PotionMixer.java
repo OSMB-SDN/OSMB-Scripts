@@ -4,6 +4,7 @@ import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.ui.GameState;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
+import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.herblore.AIOPotionMaker;
 import com.osmb.script.herblore.data.Ingredient;
@@ -15,10 +16,8 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.osmb.script.herblore.AIOPotionMaker.AMOUNT_CHANGE_TIMEOUT_SECONDS;
 
 public class PotionMixer {
     public final AIOPotionMaker script;
@@ -98,6 +97,7 @@ public class PotionMixer {
         Ingredient mandatoryIngredient = null;
         for (Ingredient ingredient : ingredients) {
             if (ingredient.isMandatoryToCombine()) {
+                script.log(PotionMixer.class,"Mandatory ingredient found: " + ingredient.getItemID());
                 mandatoryIngredient = ingredient;
                 break;
             }
@@ -107,6 +107,7 @@ public class PotionMixer {
             for (int i = 0; i < ingredients.length; i++) {
                 ItemSearchResult item = ingredientResults[i];
                 if (item.getId() == mandatoryIngredient.getItemID()) {
+                    script.log(PotionMixer.class, "Mandatory ingredient set to: " + item.getId());
                     index1 = i;
                     break;
                 }
@@ -251,10 +252,7 @@ public class PotionMixer {
 
     public boolean interactAndWaitForDialogue(ItemSearchResult item1, ItemSearchResult item2) {
         // use chisel on gems and wait for dialogue
-        int random = script.random(2);
-        ItemSearchResult interact1 = random == 0 ? item1 : item2;
-        ItemSearchResult interact2 = random == 0 ? item2 : item1;
-        if (interact1.interact() && interact2.interact()) {
+        if (item1.interact() && item2.interact()) {
             return script.submitHumanTask(() -> {
                 DialogueType dialogueType1 = script.getWidgetManager().getDialogue().getDialogueType();
                 if (dialogueType1 == null) return false;
@@ -263,6 +261,7 @@ public class PotionMixer {
         }
         return false;
     }
+    private int amountChangeTimeout = Utils.random(3500,6000);
 
     public void waitUntilFinishedProducing(Ingredient... resources) {
         AtomicReference<Map<Ingredient, Integer>> previousAmounts = new AtomicReference<>(new HashMap<>());
@@ -283,7 +282,8 @@ public class PotionMixer {
             }
 
             // If the amount of gems in the inventory hasn't changed in the timeout amount, then return true to break out of the sleep method
-            if (amountChangeTimer.timeElapsed() > TimeUnit.SECONDS.toMillis(AMOUNT_CHANGE_TIMEOUT_SECONDS)) {
+            if (amountChangeTimer.timeElapsed() > amountChangeTimeout) {
+                amountChangeTimeout = Utils.random(3500,6000);
                 return true;
             }
 
@@ -315,10 +315,6 @@ public class PotionMixer {
         }, 60000, false, true);
     }
 
-    enum Task {
-        MIX_POTIONS,
-        HANDLE_DIALOGUE
-    }
 
     private static class BankEntry {
         int amount;
@@ -337,4 +333,6 @@ public class PotionMixer {
                     '}';
         }
     }
+
+
 }

@@ -6,6 +6,7 @@ import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.ui.GameState;
+import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.herblore.data.MixedPotion;
 import com.osmb.script.herblore.data.UnfinishedPotion;
@@ -20,8 +21,6 @@ import java.util.function.Predicate;
 
 @ScriptDefinition(name = "AIO Potion maker", author = "Joe", version = 1.0, description = "Makes potions and unfinished potions", skillCategory = SkillCategory.HERBLORE)
 public class AIOPotionMaker extends Script {
-    public static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 6;
-
     // names of possible banks
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth", "Bank counter", "Bank table"};
     public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
@@ -48,7 +47,6 @@ public class AIOPotionMaker extends Script {
     };
     private PotionMixer selectedPotionMixer;
     private boolean bank = false;
-
     public AIOPotionMaker(Object o) {
         super(o);
     }
