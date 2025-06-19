@@ -22,6 +22,7 @@ public class SackOverlay extends OverlayBoundary {
     public static final Rectangle SPACE_TEXT_BOUNDS = new Rectangle(20, 40, 62, 11);
     public static final Rectangle DEPOSITED_AMOUNT_TEXT = new Rectangle(1, 4, 101, 32);
     public static final SearchablePixel BLACK_PIXEL = new SearchablePixel(-16777215, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
+    public static final int UPDATE_TEXT_COLOR = -256;
 
     public SackOverlay(ScriptCore core) {
         super(core);
@@ -90,6 +91,9 @@ public class SackOverlay extends OverlayBoundary {
 
     private Integer getDeposited(Rectangle overlayBounds) {
         Integer rgb = getTextColor(overlayBounds);
+        if(rgb == null) {
+            return null;
+        }
         String text = core.getOCR().getText(Font.FANCY_BOLD_FONT_645, overlayBounds, rgb).replaceAll("[^0-9]", "");
         if (text.isEmpty()) {
             return null;
@@ -101,12 +105,19 @@ public class SackOverlay extends OverlayBoundary {
         //    Rectangle pointsBounds = overlayBounds.getSubRectangle()
         Rectangle textBounds = overlayBounds.getSubRectangle(DEPOSITED_AMOUNT_TEXT);
         core.getScreen().getDrawableCanvas().drawRect(textBounds, Color.YELLOW.getRGB());
-        Point shadowPixel = core.getPixelAnalyzer().findPixel(textBounds, BLACK_PIXEL);
-        if (shadowPixel == null) {
+        List<Point> shadowPixels = core.getPixelAnalyzer().findPixels(textBounds, BLACK_PIXEL);
+        Image screenImage = core.getScreen().getImage();
+        if(shadowPixels.isEmpty()) {
             return null;
         }
-        Image screenImage = core.getScreen().getImage();
-        return screenImage.getRGB(shadowPixel.x - 1, shadowPixel.y - 1);
+        for(Point point : shadowPixels) {
+            int rgb = screenImage.getRGB(point.x - 1, point.y - 1);
+            if(rgb == UPDATE_TEXT_COLOR) {
+                continue;
+            }
+            return rgb;
+        }
+        return null;
     }
 
     @Override
