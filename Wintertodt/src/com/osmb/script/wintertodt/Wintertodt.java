@@ -49,7 +49,7 @@ public class Wintertodt extends Script {
     private boolean checkedEquipment = false;
     private Task task;
     private Set<Equipment> missingEquipment = new HashSet<>();
-    private Stopwatch potionDrinkCooldown = new Stopwatch();
+    private final Stopwatch potionDrinkCooldown = new Stopwatch();
     private Integer warmth;
     private Integer wintertodtEnergy;
     private int nextDrinkPercent;

@@ -41,6 +41,7 @@ public class WintertodtOverlay extends OverlayBoundary {
     private static final SearchablePixel ORANGE_PIXEL = new SearchablePixel(-761600, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
     private static final SearchablePixel TURQUOISE_PIXEL = new SearchablePixel(-16745367, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
     private static final SearchablePixel BLACK_OUTLINE = new SearchablePixel(-16777216, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
+    private static final SearchablePixel[] ACTIVE_BAR_PIXELS = new SearchablePixel[]{ORANGE_PIXEL, GREEN_PIXEL};
     private final Map<BrazierStatus, SearchableImage> statusImages;
     private final List<SearchableImage> incapacitatedImages;
 
@@ -186,11 +187,21 @@ public class WintertodtOverlay extends OverlayBoundary {
     }
 
     public Integer updateWarmthPercent(Rectangle overlayBounds) {
-        return getBarPercentage(overlayBounds, WARMTH_BAR, ORANGE_PIXEL, TURQUOISE_PIXEL);
+        Integer barPercentage = getBarPercentage(overlayBounds, WARMTH_BAR);
+        if (barPercentage == null) {
+            // Fallback solution, try to get the value from the fill
+            barPercentage = getBarValueFromFill(overlayBounds, WARMTH_BAR);
+        }
+        return barPercentage;
     }
 
     public Integer updateEnergyPercent(Rectangle overlayBounds) {
-        return getBarPercentage(overlayBounds, WINTERTODTS_ENERGY_BAR, GREEN_PIXEL, RED_BAR_PIXEL);
+        Integer barPercentage = getBarPercentage(overlayBounds, WINTERTODTS_ENERGY_BAR);
+        if (barPercentage == null) {
+            // Fallback solution, try to get the value from the fill
+            barPercentage = getBarValueFromFill(overlayBounds, WINTERTODTS_ENERGY_BAR);
+        }
+        return barPercentage;
     }
 
     public Boolean updateBossActive(Rectangle overlayBounds) {
@@ -200,7 +211,7 @@ public class WintertodtOverlay extends OverlayBoundary {
         return !(text != null && text.toLowerCase().contains("wintertodt returns"));
     }
 
-    private Integer getBarPercentage(Rectangle overlayBounds, Rectangle barBounds, SearchablePixel overlayPixel, SearchablePixel underlayPixel) {
+    private Integer getBarPercentage(Rectangle overlayBounds, Rectangle barBounds) {
         barBounds = overlayBounds.getSubRectangle(barBounds);
         core.getScreen().getDrawableCanvas().drawRect(barBounds, Color.RED.getRGB());
         String text = core.getOCR().getText(Font.SMALL_FONT, barBounds, BLACK_TEXT_COLOR);
@@ -213,25 +224,28 @@ public class WintertodtOverlay extends OverlayBoundary {
                 return null;
             }
             return Integer.parseInt(healthString);
-        } else {
-            //Update text covering, fall back solution
-            for (int x = barBounds.x; x < barBounds.x + barBounds.getWidth(); x++) {
-                for (int y = barBounds.y; y < barBounds.y + barBounds.getHeight(); y++) {
-                    if (core.getPixelAnalyzer().isPixelAt(x, y, underlayPixel)) {
-                        int health = (x - barBounds.x) / 2;
-                        return health;
+        }
+        return null;
+    }
+
+    private Integer getBarValueFromFill(Rectangle overlayBounds, Rectangle barBounds) {
+        barBounds = overlayBounds.getSubRectangle(barBounds);
+        for (int x = barBounds.x; x < barBounds.x + barBounds.width; x++) {
+            boolean lineContains = false;
+            for (int y = barBounds.y; y < barBounds.y + barBounds.height; y++) {
+                int pixelColor = core.getPixelAnalyzer().getPixelAt(x, y);
+                for (SearchablePixel pixel : ACTIVE_BAR_PIXELS) {
+                    if (pixelColor == pixel.getRgb()) {
+                        lineContains = true;
+                        break;
                     }
                 }
             }
-            // confirm the last pixel of the energy bar is green
-            for (int y = barBounds.y; y < barBounds.y + barBounds.getHeight() - 1; y++) {
-                if (core.getPixelAnalyzer().isPixelAt(barBounds.x + barBounds.getWidth() - 1, y, overlayPixel)) {
-                    return 100;
-                }
+            if (!lineContains) {
+                return (int) Math.ceil((x - barBounds.x) / (double) barBounds.width * 100);
             }
         }
-        core.log(getClass().getSimpleName(), "Can't retrieve Wintertodt's energy...");
-        return null;
+        return 100;
     }
 
     public Integer updatePoints(Rectangle overlayBounds) {
