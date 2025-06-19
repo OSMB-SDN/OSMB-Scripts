@@ -5,6 +5,7 @@ import com.osmb.api.item.SearchableItem;
 import com.osmb.api.shape.Rectangle;
 import com.osmb.api.ui.component.ComponentCentered;
 import com.osmb.api.ui.component.ComponentImage;
+import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.visual.color.ColorModel;
 import com.osmb.api.visual.color.ColorUtils;
 import com.osmb.api.visual.color.tolerance.ToleranceComparator;
@@ -46,31 +47,44 @@ public class AnvilInterface extends ComponentCentered {
     }
 
     public boolean selectItem(int itemID) {
-       // if (itemPosition == null) {
-            ImageSearchResult item = findItem(itemID);
-            if (item != null) {
-                itemPosition = item.getBounds().getPadding(0, 0, -15, -15);
-            } else {
-                core.log(AnvilInterface.class, "Can't find item" + itemID + " inside interface");
-                return false;
-            }
-   //     }
+        ImageSearchResult item = findItem(itemID);
+        if (item == null) {
+            core.log(AnvilInterface.class, "Can't find item" + itemID + " inside interface");
+            return false;
+        }
+        Rectangle itemBounds = item.getBounds();
+        Point point = RandomUtils.generateRandomPoint(itemBounds, 6.5);
 
-   //     core.getScreen().queueCanvasDrawable("r", canvas -> canvas.drawRect(itemPosition, Color.RED.getRGB()));
-        if (core.getFinger().tap(itemPosition)) {
-            return core.submitTask(() -> getBounds() == null, 3500);
+        if (core.getFinger().tap(point)) {
+            return core.submitTask(() -> !isVisible(), 3500);
         }
         return false;
     }
+    private ImageSearchResult lastFoundItem = null;
 
     public ImageSearchResult findItem(int itemID) {
-        core.log(AnvilInterface.class,"Finding item");
+        core.log(AnvilInterface.class, "Searching interface for item: " + itemID);
         Rectangle bounds = getBounds();
         if (bounds == null) {
             return null;
         }
         core.getScreen().getDrawableCanvas().drawRect(bounds, Color.RED.getRGB());
         SearchableItem[] searchableItems = core.getItemManager().getItem(itemID, false);
+
+        // try searching at the last found location first
+        if (lastFoundItem != null && bounds.contains(lastFoundItem.getBounds())) {
+            Rectangle prevBounds = lastFoundItem.getBounds();
+            for (SearchableItem searchableItem : searchableItems) {
+                if (prevBounds.width >= searchableItem.width && prevBounds.height >= searchableItem.height) {
+                    ImageSearchResult imageSearchResult = core.getItemManager().isItemAt(searchableItem, prevBounds.x, prevBounds.y);
+                    if (imageSearchResult != null) {
+                        lastFoundItem = imageSearchResult;
+                        return imageSearchResult;
+                    }
+                }
+            }
+        }
+
         int startX = bounds.x;
         int startY = bounds.y;
         int endX = bounds.x + bounds.width;
@@ -82,12 +96,14 @@ public class AnvilInterface extends ComponentCentered {
                         continue;
                     }
                     ImageSearchResult imageSearchResult = core.getItemManager().isItemAt(searchableItem, x, y);
-                    if(imageSearchResult != null) {
+                    if (imageSearchResult != null) {
+                        lastFoundItem = imageSearchResult;
                         return imageSearchResult;
                     }
                 }
             }
         }
+        lastFoundItem = null;
         return null;
     }
 
