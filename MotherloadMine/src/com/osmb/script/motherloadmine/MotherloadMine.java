@@ -199,7 +199,6 @@ public class MotherloadMine extends Script {
     private Integer spaceLeft;
     private Integer deposited;
     private int payDirtMined = 0;
-    private List<LocalPosition> waterTiles;
     private Stopwatch dropDelayTimer;
 
     public MotherloadMine(Object scriptCore) {
@@ -208,10 +207,6 @@ public class MotherloadMine extends Script {
 
     @Override
     public int poll() {
-        if (waterTiles == null) {
-            waterTiles = WATER_INNER_AREA.getSurroundingPositions(this, 1);
-        }
-
         task = decideTask();
         if (task == null) {
             return 0;
@@ -686,9 +681,9 @@ public class MotherloadMine extends Script {
     }
 
     private void scanWater() {
-        List<LocalPosition> waterTiles = WATER_INNER_AREA.getSurroundingPositions(this, 1);
+        List<WorldPosition> waterTiles = WATER_INNER_AREA.getSurroundingPositions(1);
         boolean found = false;
-        for (LocalPosition worldPosition : waterTiles) {
+        for (WorldPosition worldPosition : waterTiles) {
             // create a polygon for the tile
             Polygon polygon = getSceneProjector().getTilePoly(worldPosition, true);
             if (polygon == null || getWidgetManager().insideGameScreenFactor(polygon, Collections.emptyList()) < 0.4) {
