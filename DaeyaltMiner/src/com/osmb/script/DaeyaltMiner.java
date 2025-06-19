@@ -139,6 +139,10 @@ public class DaeyaltMiner extends Script {
             return 0;
         }
         RSObject targetRock = rocks.stream().filter(rock -> rock.getWorldPosition().equals(activeRockEntry.getKey().getRockPosition())).findFirst().orElse(null);
+        if(targetRock == null) {
+            log(DaeyaltMiner.class, "Target rock is null, cannot interact with it.");
+            return 0;
+        }
         // if an active rock is found, interact
         if (targetRock.interact("Mine")) {
             log(DaeyaltMiner.class, "Interacted with rock: " + activeRockEntry.getKey());
