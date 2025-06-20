@@ -138,7 +138,7 @@ public class Minnows extends Script {
         }, random(16000, 22000));
         // random delay before next fishing attempt
         int randomDelay = RandomUtils.gaussianRandom(300, 5000, 500, 1500);
-        log(Minnows.class, "⏳ Executing humanised delay before next fishing attempt: " + randomDelay + "ms");
+        log(Minnows.class, "⏳ - Executing humanised delay before next fishing attempt: " + randomDelay + "ms");
         submitTask(() -> false, randomDelay);
     }
 
