@@ -207,8 +207,6 @@ public class CharterCrafting extends Script {
             return;
         }
 
-        log(CharterCrafting.class, "My position: " + myPosition);
-
         if (!selectedDock.getWanderArea().contains(myPosition)) {
             // walk to area
             walkToNPCWanderArea();
