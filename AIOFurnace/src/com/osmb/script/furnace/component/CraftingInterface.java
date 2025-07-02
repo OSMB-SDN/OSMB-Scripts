@@ -43,10 +43,10 @@ public class CraftingInterface extends ComponentCentered {
     @Override
     public Rectangle getBounds() {
         Rectangle bounds = super.getBounds();
-        if (bounds != null && productionQuantityButtons == null) {
-            core.log(CraftingInterface.class, "Registering interface buttons...");
-            this.productionQuantityButtons = findQuantityButtons(bounds);
+        if(bounds == null) {
+            return null;
         }
+        this.productionQuantityButtons = findQuantityButtons(bounds);
         return bounds;
     }
 
@@ -109,7 +109,8 @@ public class CraftingInterface extends ComponentCentered {
             return false;
         }
         Rectangle screenBounds = bounds.getSubRectangle(buttonBounds);
-        core.getFinger().tap(screenBounds);
+        Point point = RandomUtils.generateRandomPoint(screenBounds, 6.5);
+        core.getFinger().tap(point);
         return core.submitTask(() -> getSelectedProductionQuantity() == quantity, 3000);
     }
 
