@@ -28,9 +28,7 @@ import com.osmb.script.agility.courses.pollnivneach.Pollnivneach;
 import com.osmb.script.agility.ui.javafx.UI;
 import javafx.scene.Scene;
 
-import java.awt.*;
 import java.util.*;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 @ScriptDefinition(name = "AIO Agility", author = "Joe", version = 1.0, description = "Provides support over a range of agility courses.", skillCategory = SkillCategory.AGILITY)
@@ -38,8 +36,16 @@ public class AIOAgility extends Script {
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth"};
     public static final String[] BANK_ACTIONS = {"bank", "open"};
     private static final ToleranceComparator MOG_TOLERANCE_COMPARATOR = new ChannelThresholdComparator(2, 2, 2);
-    private static final SearchablePixel[] MOG_PIXELS_RED = new SearchablePixel[]{new SearchablePixel(-6741740, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL), new SearchablePixel(-5826292, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),new SearchablePixel(-7004140, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),};
-    private static final SearchablePixel[] MOG_PIXELS_GOLD = new SearchablePixel[]{new SearchablePixel(-4414953, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL), new SearchablePixel(-5336052, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),new SearchablePixel(-3888359, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),};
+    private static final SearchablePixel[] MOG_PIXELS_RED = new SearchablePixel[]{
+            new SearchablePixel(-6741740, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),
+            new SearchablePixel(-5826292, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),
+            new SearchablePixel(-7004140, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),
+    };
+    private static final SearchablePixel[] MOG_PIXELS_GOLD = new SearchablePixel[]{
+            new SearchablePixel(-4414953, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),
+            new SearchablePixel(-5336052, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),
+            new SearchablePixel(-3888359, MOG_TOLERANCE_COMPARATOR, ColorModel.HSL),
+    };
     private static final int[] ITEMS_TO_IGNORE = new int[]{ItemID.MARK_OF_GRACE, ItemID.LAW_RUNE, ItemID.AIR_RUNE, ItemID.FIRE_RUNE};
     private static final WorldPosition ARDY_MOG_POS = new WorldPosition(2657, 3318, 3);
     private static final WorldPosition POLL_MOG_POS = new WorldPosition(3359, 2983, 2);
@@ -106,33 +112,39 @@ public class AIOAgility extends Script {
             if (inventorySnapshot == null) {
                 return false;
             }
-            if (!inventorySnapshot.contains(ItemID.MARK_OF_GRACE)) {
-                // check if we have free spaces
-                if (inventorySnapshot.isFull()) {
-                    core.log(AIOAgility.class.getSimpleName(), "MOG Found but no inventory slots free in the inventory...");
-                    if(core.foodItemID != null) {
-                        ItemSearchResult food = inventorySnapshot.getRandomItem(core.foodItemID);
-                        if (food != null) {
-                            core.log(AIOAgility.class.getSimpleName(), "Eating food to make space for MOG!");
-                            if (!food.interact("eat", "drink")) {
-                                return false;
-                            }
-                        } else {
-                            core.log(AIOAgility.class.getSimpleName(), "No room to pick up MOG.");
-                            core.stop();
+            // check if we have free spaces
+            if (inventorySnapshot.isFull() && !inventorySnapshot.contains(ItemID.MARK_OF_GRACE)) {
+                core.log(AIOAgility.class.getSimpleName(), "MOG Found but no inventory slots free in the inventory...");
+                if (core.foodItemID != null) {
+                    ItemSearchResult food = inventorySnapshot.getRandomItem(core.foodItemID);
+                    if (food != null) {
+                        core.log(AIOAgility.class.getSimpleName(), "Eating food to make space for MOG!");
+                        if (!food.interact("eat", "drink")) {
+                            return false;
                         }
                     } else {
-                        core.log(AIOAgility.class, "Inventory is full, cannot pick up MOG!");
+                        core.log(AIOAgility.class.getSimpleName(), "No room to pick up MOG.");
+                        core.stop();
                     }
+                } else {
+                    core.log(AIOAgility.class, "Inventory is full, cannot pick up MOG!");
+                    return false;
                 }
             }
+            int previousAmount = inventorySnapshot.getAmount(ItemID.MARK_OF_GRACE);
             core.log(AIOAgility.class.getSimpleName(), "Attempting to interact with MOG");
             if (core.getFinger().tapGameScreen(tilePoly, "Take mark of grace")) {
                 // sleep until we picked up the mark
                 core.submitHumanTask(() -> {
-                    WorldPosition position = core.getWorldPosition();
-                    if (position == null) return false;
-                    return position.equals(tile.getWorldPosition());
+                    ItemGroupResult inventorySnapshot1 = core.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+                    if (inventorySnapshot1 == null) {
+                        return false;
+                    }
+                    if (inventorySnapshot1.getAmount(ItemID.MARK_OF_GRACE) > previousAmount) {
+                        core.log(AIOAgility.class.getSimpleName(), "Successfully picked up MOG!");
+                        return true;
+                    }
+                    return false;
                 }, 7000);
             }
             return true;
@@ -151,7 +163,8 @@ public class AIOAgility extends Script {
      * @param timeout      The timeout when to the {@param endPosition}, method will return {@link ObstacleHandleResponse#TIMEOUT} if the specified timeout is surpassed
      * @return
      */
-    public static ObstacleHandleResponse handleObstacle(AIOAgility core, String obstacleName, String menuOption, Object end, int timeout) {
+    public static ObstacleHandleResponse handleObstacle(AIOAgility core, String obstacleName, String
+            menuOption, Object end, int timeout) {
         return handleObstacle(core, obstacleName, menuOption, end, 1, timeout);
     }
 
@@ -166,7 +179,8 @@ public class AIOAgility extends Script {
      * @param timeout          The timeout when to the {@param endPosition}, method will return {@link ObstacleHandleResponse#TIMEOUT} if the specified timeout is surpassed
      * @return
      */
-    public static ObstacleHandleResponse handleObstacle(AIOAgility core, String obstacleName, String menuOption, Object end, int interactDistance, int timeout) {
+    public static ObstacleHandleResponse handleObstacle(AIOAgility core, String obstacleName, String
+            menuOption, Object end, int interactDistance, int timeout) {
         return handleObstacle(core, obstacleName, menuOption, end, interactDistance, true, timeout);
     }
 
@@ -182,7 +196,8 @@ public class AIOAgility extends Script {
      * @param timeout          The timeout when to the {@param endPosition}, method will return {@link ObstacleHandleResponse#TIMEOUT} if the specified timeout is surpassed
      * @return
      */
-    public static ObstacleHandleResponse handleObstacle(AIOAgility core, String obstacleName, String menuOption, Object end, int interactDistance, boolean canReach, int timeout) {
+    public static ObstacleHandleResponse handleObstacle(AIOAgility core, String obstacleName, String
+            menuOption, Object end, int interactDistance, boolean canReach, int timeout) {
         return handleObstacle(core, obstacleName, menuOption, end, interactDistance, canReach, timeout, null);
     }
 
@@ -199,7 +214,8 @@ public class AIOAgility extends Script {
      * @param objectBaseTile   The base tile of the object. If null we avoid this check.
      * @return
      */
-    public static ObstacleHandleResponse handleObstacle(AIOAgility core, String obstacleName, String menuOption, Object end, int interactDistance, boolean canReach, int timeout, WorldPosition objectBaseTile) {
+    public static ObstacleHandleResponse handleObstacle(AIOAgility core, String obstacleName, String
+            menuOption, Object end, int interactDistance, boolean canReach, int timeout, WorldPosition objectBaseTile) {
         // cache hp, we determine if we failed the obstacle via hp decrementing
         UIResult<Integer> hitpoints = core.getWidgetManager().getMinimapOrbs().getHitpointsPercentage();
         Optional<RSObject> result = core.getObjectManager().getObject(gameObject -> {
