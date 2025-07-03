@@ -12,6 +12,7 @@ import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.furnace.component.CraftingInterface;
 import com.osmb.script.furnace.data.Jewellery;
+import com.osmb.script.furnace.data.Misc;
 import com.osmb.script.furnace.javafx.ScriptOptions;
 import javafx.scene.Scene;
 
@@ -55,7 +56,8 @@ public class AIOFurnace extends Script {
     private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>();
     private CraftingInterface craftingInterface;
     private Product selectedProduct = Jewellery.SAPPHIRE_RING;
-    private int amountChangeTimeout = Utils.random(3500, 6000);
+    private int amountChangeTimeout;
+
 
     public AIOFurnace(Object scriptCore) {
         super(scriptCore);
@@ -79,6 +81,7 @@ public class AIOFurnace extends Script {
             ITEM_IDS_TO_RECOGNISE.addAll(mouldIDs);
         }
         this.craftingInterface = new CraftingInterface(this);
+        this.amountChangeTimeout = selectedProduct == Misc.CANNONBALLS ? Utils.random(5800,9000) : Utils.random(3500, 6000);
     }
 
     @Override
@@ -190,7 +193,8 @@ public class AIOFurnace extends Script {
             }
             // If the amount of items in the inventory hasn't changed in the timeout amount, then return true to break out of the sleep method
             if (amountChangeTimer.timeElapsed() > amountChangeTimeout) {
-                amountChangeTimeout = Utils.random(3500, 6000);
+                log(AIOFurnace.class, "No item amount change detected in " + amountChangeTimer.timeElapsed() + "ms. Breaking out of the sleep method.");
+                amountChangeTimeout = selectedProduct == Misc.CANNONBALLS ? Utils.random(5800,9000) : Utils.random(3500, 6000);
                 return true;
             }
 
