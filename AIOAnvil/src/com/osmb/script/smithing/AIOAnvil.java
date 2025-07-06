@@ -5,7 +5,6 @@ import com.osmb.api.item.ItemID;
 import com.osmb.api.location.area.impl.RectangleArea;
 import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.scene.RSObject;
-import com.osmb.api.scene.RSTile;
 import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
@@ -19,7 +18,6 @@ import javafx.scene.Scene;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 @ScriptDefinition(name = "AIO Anvil", skillCategory = SkillCategory.SMITHING, version = 1, author = "Joe", description = "Uses bars at anvils to create weapons and armour.")
@@ -27,12 +25,12 @@ public class AIOAnvil extends Script {
 
     private static final RectangleArea VARROCK_AREA = new RectangleArea(3131, 3391, 109, 75, 0);
     private static final WorldPosition VARROCK_BANK_BOOTH_POSITION = new WorldPosition(3186, 3436, 0);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.HAMMER));
     private int selectedBarID;
     private int selectedProductID;
     private Product selectedProduct;
     private AnvilInterface anvilInterface;
-    private int amountChangeTimeout = Utils.random(4000,6500);
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.HAMMER));
+    private int amountChangeTimeout = Utils.random(4000, 6500);
     private ItemGroupResult inventorySnapshot;
 
     public AIOAnvil(Object scriptCore) {
@@ -61,16 +59,16 @@ public class AIOAnvil extends Script {
         }
 
         inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-        if(inventorySnapshot == null) {
+        if (inventorySnapshot == null) {
             return 0;
         }
-        if(!inventorySnapshot.contains(ItemID.HAMMER)) {
+        if (!inventorySnapshot.contains(ItemID.HAMMER)) {
             log(AIOAnvil.class, "Hammer not found in inventory, stopping script...");
             stop();
             return 0;
         }
         if (anvilInterface.isVisible()) {
-            log(AIOAnvil.class,"Anvil interface is visible");
+            log(AIOAnvil.class, "Anvil interface is visible");
             if (handleAnvilInterface()) {
                 waitUntilFinishedSmithing();
             }
@@ -148,7 +146,7 @@ public class AIOAnvil extends Script {
         }
         inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
         ItemGroupResult bankSnapshot = getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
-        if(inventorySnapshot == null || bankSnapshot == null) {
+        if (inventorySnapshot == null || bankSnapshot == null) {
             log(AIOAnvil.class, "Inventory or bank snapshot is null");
             return;
         }
@@ -174,36 +172,14 @@ public class AIOAnvil extends Script {
 
     private void openBank() {
         log(AIOAnvil.class, "Opening bank...");
-        WorldPosition position = getWorldPosition();
-        // the bank booth closest to the anvil has no name in object def (will be some anti-botting thing where its info is loaded on login)
-        // to combat this we just get the object from the tile
-        if (VARROCK_AREA.contains(position)) {
-            RSTile bankTile = getSceneManager().getTile(VARROCK_BANK_BOOTH_POSITION);
-            if (bankTile == null) {
-                log(getClass().getSimpleName(), "Bank tile is null.");
-                return;
-            }
-            RSObject bank = bankTile.getObjects().get(0);
-            if (bank != null) {
-                if (bank.interact("Bank booth", new String[] {"Bank"})) {
-                    log(AIOAnvil.class, "Interacted successfully, waiting for bank to be visible.");
-                    if (submitTask(() -> getWidgetManager().getBank().isVisible(), 12000)) {
-                        log(AIOAnvil.class, "Bank is visible.");
-                    } else {
-                        log(AIOAnvil.class, "Timed out waiting for bank to open");
-                    }
-                }
-            }
-        } else {
-            RSObject bank = getObjectManager().getClosestObject("Bank booth");
-            if (bank == null) {
-                log(getClass().getSimpleName(), "Can't find Bank booth...");
-                return;
-            }
-            if (bank.interact("Bank")) {
-                // wait for bank to be visible
-                submitTask(() -> getWidgetManager().getBank().isVisible(), 10000);
-            }
+        RSObject bank = getObjectManager().getClosestObject("Bank booth", "Bank chest");
+        if (bank == null) {
+            log(getClass().getSimpleName(), "Can't find Bank booth...");
+            return;
+        }
+        if (bank.interact("Bank")) {
+            // wait for bank to be visible
+            submitTask(() -> getWidgetManager().getBank().isVisible(), 10000);
         }
     }
 }
