@@ -407,8 +407,7 @@ public class AIOAgility extends Script {
         return selectedCourse.poll(this);
     }
 
-    private void eatFood(int hitpoints) {
-        log(getClass().getSimpleName(), "Hitpoints: " + hitpoints + "%" + " Block timer finished: " + eatBlockTimer.hasFinished() + " Eating at: " + hitpoints + "%");
+    private void eatFood() {
             // eat food
             ItemSearchResult foodToEat;
             if (multiConsumable != null) {
