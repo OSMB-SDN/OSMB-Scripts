@@ -20,6 +20,7 @@ import com.osmb.api.utils.timing.Stopwatch;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.api.walker.WalkConfig;
+import com.osmb.api.world.World;
 import com.osmb.script.wintertodt.ui.ScriptOptions;
 import javafx.scene.Scene;
 
@@ -43,13 +44,14 @@ public class Wintertodt extends Script {
     private static final WorldPosition[] REJUVENATION_CRATE_POSITIONS = new WorldPosition[]{new WorldPosition(1634, 3982, 0), new WorldPosition(1626, 3982, 0)};
     private static final WorldPosition BREWMA_POSITION = new WorldPosition(1635, 3986, 0);
     private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.BRUMA_HERB, ItemID.BRUMA_ROOT, ItemID.BRUMA_KINDLING, ItemID.REJUVENATION_POTION_UNF));
+    private static final Font ARIEL = new Font("Arial", Font.PLAIN, 14);
+    private final Stopwatch potionDrinkCooldown = new Stopwatch();
     private WintertodtOverlay overlay;
     private Brazier focusedBrazier;
     private Method method;
     private boolean checkedEquipment = false;
     private Task task;
     private Set<Equipment> missingEquipment = new HashSet<>();
-    private final Stopwatch potionDrinkCooldown = new Stopwatch();
     private Integer warmth;
     private Integer wintertodtEnergy;
     private int nextDrinkPercent;
@@ -66,6 +68,9 @@ public class Wintertodt extends Script {
     private HealType healType;
     private FletchType fletchType;
     private ItemGroupResult inventorySnapshot;
+    private WintertodtOverlay.BrazierStatus brazierStatus;
+    private int nextMilestone;
+    private Integer points;
 
     public Wintertodt(Object scriptCore) {
         super(scriptCore);
@@ -117,6 +122,9 @@ public class Wintertodt extends Script {
 
     @Override
     public int poll() {
+        if (checkWorld()) {
+            return 0;
+        }
         log(Wintertodt.class, "Deciding task...");
         this.task = decideTask(method);
         log(Wintertodt.class, "Executing task: " + task);
@@ -129,6 +137,32 @@ public class Wintertodt extends Script {
 
     @Override
     public void onPaint(Canvas c) {
+        FontMetrics metrics = c.getFontMetrics(ARIEL);
+        int padding = 5;
+
+        List<String> lines = new ArrayList<>();
+        lines.add("Task: " + (task == null ? "None" : task));
+
+        lines.add("Warmth: " + (warmth == null ? "Unknown" : warmth + "%") + " Next drink @ " + nextDrinkPercent + "%");
+        lines.add("Points: " + (points == null ? "Unknown" : points) + " Next milestone: " + nextMilestone);
+
+        // Calculate max width and total height
+        int maxWidth = 0;
+        for (String line : lines) {
+            int w = metrics.stringWidth(line);
+            if (w > maxWidth) maxWidth = w;
+        }
+        int totalHeight = metrics.getHeight() * lines.size();
+        int drawX = 10;
+        // Draw background rectangle
+        c.fillRect(drawX - padding, 40, maxWidth + padding * 2, totalHeight + padding * 2, Color.BLACK.getRGB(), 0.8);
+        c.drawRect(drawX - padding, 40, maxWidth + padding * 2, totalHeight + padding * 2, Color.ORANGE.getRGB());
+        // Draw text lines
+        int drawY = 40;
+        for (String line : lines) {
+            int color = Color.WHITE.getRGB();
+            c.drawText(line, drawX, drawY += metrics.getHeight(), color, ARIEL);
+        }
     }
 
     @Override
@@ -244,7 +278,7 @@ public class Wintertodt extends Script {
     private Task decideGroupTask() {
         WorldPosition myPosition = getWorldPosition();
 
-        Integer points = overlay.getPoints();
+        points = overlay.getPoints();
         if (points == null) {
             log(Wintertodt.class, "Failed reading points value.");
             return null;
@@ -296,7 +330,6 @@ public class Wintertodt extends Script {
         }
         // or if goal reached
         if (inventorySnapshot.isFull() || reachedGoal) {
-            log(Wintertodt.class, "Reached goal: " + reachedGoal + " Free slots: " + inventorySnapshot.getFreeSlots());
             if (fletch && inventorySnapshot.containsAny(ItemID.BRUMA_ROOT)) {
                 return Task.FLETCH_ROOTS;
             } else {
@@ -312,17 +345,16 @@ public class Wintertodt extends Script {
     }
 
     private Boolean hasReachedGoal() {
-        Integer currentPoints = overlay.getPoints();
-        if (currentPoints == null) {
+        points = overlay.getPoints();
+        if (points == null) {
             return null;
         }
-        int nextMilestone = calculateNextMilestone(currentPoints);
-// get points in inventory
-        UIResult<Integer> resourcePointsResult = calculateResourcePoints(currentPoints);
+        nextMilestone = calculateNextMilestone(points);
+        // get points in inventory
+        UIResult<Integer> resourcePointsResult = calculateResourcePoints(points);
         if (resourcePointsResult.isFound()) {
-            log(Wintertodt.class, "Resource points: " + resourcePointsResult.get() + " Current points: " + currentPoints + " nextMilestone: " + nextMilestone);
             int resourcePoints = resourcePointsResult.get();
-            return nextMilestone - (currentPoints + resourcePoints) <= 0;
+            return nextMilestone - (points + resourcePoints) <= 0;
         } else {
             log(Wintertodt.class, "Resource points not found");
         }
@@ -354,6 +386,27 @@ public class Wintertodt extends Script {
 
         }
         return null;
+    }
+
+    private boolean checkWorld() {
+        Integer currentWorld = getCurrentWorld();
+        // filter worlds that have "Guardians of the Rift" in their activity
+        List<World> wintertodtWorlds = World.getWorlds().stream()
+                .filter(world -> {
+                    String activity = world.getActivity();
+                    return activity != null && activity.toLowerCase().contains("wintertodt");
+                }).toList();
+        boolean correctWorld = wintertodtWorlds.stream()
+                .anyMatch(world -> world.getId() == currentWorld);
+        if (!correctWorld) {
+            World world = wintertodtWorlds.stream()
+                    .max(Comparator.comparingInt(World::getPlayerCount))
+                    .orElse(null);
+            log(Wintertodt.class, "Current world is not a Wintertodt world: " + currentWorld + " Hopping to world " + world.getId());
+            getProfileManager().forceHop(world);
+            return true;
+        }
+        return false;
     }
 
     public void executeTask(Task task) {
@@ -470,26 +523,27 @@ public class Wintertodt extends Script {
                 log(Wintertodt.class, "Reached goal: " + reachedGoal);
                 if (Boolean.TRUE.equals(reachedGoal)) {
                     log(Wintertodt.class, "Reached goal!");
+                    sleep(RandomUtils.weightedRandom(200, 3500));
                     return true;
                 }
 
-                Integer warmth = overlay.getWarmthPercent();
-                if (warmth != null) {
-                    log(Wintertodt.class, "Current warmth: " + warmth + " Next drinking @ " + nextDrinkPercent);
-                    if (warmth <= nextDrinkPercent) {
+                Integer currentWarmth = overlay.getWarmthPercent();
+                if (currentWarmth != null) {
+                    this.warmth = currentWarmth;
+                    if (currentWarmth <= nextDrinkPercent) {
                         return true;
                     }
                 }
                 if (getWidgetManager().getDialogue().isVisible()) {
                     log(Wintertodt.class, "Dialogue visible");
-                    sleep(RandomUtils.weightedRandom(200, 1500));
+                    sleep(RandomUtils.weightedRandom(200, 2500));
                     return true;
                 }
 
                 int freeSlots = inventorySnapshot.getFreeSlots();
                 if (freeSlots == 0) {
                     log(Wintertodt.class, "No free slots left");
-                    sleep(RandomUtils.weightedRandom(200, 1000));
+                    sleep(RandomUtils.weightedRandom(200, 2500));
                     return true;
                 } else if (previousFreeSlots.get() == -1) {
                     slotChangeTimer.reset();
@@ -599,6 +653,7 @@ public class Wintertodt extends Script {
             WalkConfig.Builder builder = new WalkConfig.Builder();
             builder.breakCondition(() -> getBrazier() != null);
             getWalker().walkTo(focusedBrazier.getBrazierPosition(), builder.build());
+            return;
         }
         if (SAFE_AREA.contains(myPosition)) {
             // cannot fletch in safe area
@@ -611,7 +666,7 @@ public class Wintertodt extends Script {
             tapBrazierOrTileNearby(brazier, focusedBrazier);
         }
 
-        Integer warmth = overlay.getWarmthPercent();
+        warmth = overlay.getWarmthPercent();
         if (warmth == null) {
             log(Wintertodt.class, "Can't retrieve warmth value.");
             return;
@@ -627,9 +682,9 @@ public class Wintertodt extends Script {
         submitTask(() -> {
             Integer warmthCurrent = overlay.getWarmthPercent();
             if (warmthCurrent != null) {
-                log(Wintertodt.class, "Current warmth: " + warmthCurrent + " Next drinking @ " + nextDrinkPercent);
                 if (warmthCurrent < warmth || warmthCurrent <= nextDrinkPercent) {
                     // if damage taken
+                    warmth = warmthCurrent;
                     return true;
                 }
             }
@@ -644,7 +699,6 @@ public class Wintertodt extends Script {
             }
             if (getWidgetManager().getDialogue().isVisible()) {
                 log(Wintertodt.class, "Dialogue visible");
-                sleep(RandomUtils.weightedRandom(200, 1500));
                 return true;
             }
             this.inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
@@ -655,7 +709,6 @@ public class Wintertodt extends Script {
             int amountOfRoots = inventorySnapshot.getAmount(ItemID.BRUMA_ROOT);
             if (amountOfRoots == 0) {
                 log(Wintertodt.class, "Roots not found");
-                sleep(RandomUtils.weightedRandom(200, 1000));
                 return true;
             }
             if (amountOfRoots < previousAmountOfRoots.get()) {
@@ -708,10 +761,7 @@ public class Wintertodt extends Script {
             }
             return object.getWorldPosition().equals(focusedBrazier.getBrazierPosition());
         });
-        if (!brazier.isPresent()) {
-            return null;
-        }
-        return brazier.get();
+        return brazier.orElse(null);
     }
 
     private void repairLightBrazier() {
@@ -730,7 +780,7 @@ public class Wintertodt extends Script {
         if (!brazier.isInteractableOnScreen()) {
             log(Wintertodt.class, "Brazier is not interactable on screen, walking to it to repair/light.");
             WalkConfig.Builder builder = new WalkConfig.Builder();
-            builder.breakCondition(() -> brazier.isInteractableOnScreen());
+            builder.breakCondition(brazier::isInteractableOnScreen);
             getWalker().walkTo(brazier, builder.build());
             return;
         }
@@ -739,7 +789,7 @@ public class Wintertodt extends Script {
             return;
         }
         // cast menuHook to avoid ambigious call
-        if (getFinger().tapGameScreen(brazierPoly, (MenuHook) null)) {
+        if (getFinger().tapGameScreen(brazierPoly)) {
             // sleep until brazier status changes
             submitTask(() -> {
                 WintertodtOverlay.BrazierStatus brazierStatus = overlay.getBrazierStatus(focusedBrazier);
@@ -748,6 +798,7 @@ public class Wintertodt extends Script {
                 }
                 return false;
             }, 7000);
+            sleep(RandomUtils.weightedRandom(100, 800));
         }
     }
 
@@ -762,7 +813,7 @@ public class Wintertodt extends Script {
 
         AtomicInteger previousAmountOfFeed = new AtomicInteger(inventorySnapshot.getAmount(ItemID.BRUMA_ROOT, ItemID.BRUMA_KINDLING));
         Timer itemAmountChangeTimer = new Timer();
-        Integer warmth = overlay.getWarmthPercent();
+        warmth = overlay.getWarmthPercent();
         if (warmth == null) {
             log(Wintertodt.class, "Can't read Warmth value...");
             return;
@@ -775,29 +826,29 @@ public class Wintertodt extends Script {
                     log(Wintertodt.class, "Failed to retrieve inventory snapshot.");
                     return false;
                 }
-                //listen hitpoints
+                if (!inventorySnapshot.containsAny(ItemID.BRUMA_ROOT, ItemID.BRUMA_KINDLING)) {
+                    sleep(RandomUtils.weightedRandom(400, 3500));
+                    return true;
+                }
                 Integer warmthCurrent = overlay.getWarmthPercent();
                 if (warmthCurrent != null) {
-                    log(Wintertodt.class, "Current warmth: " + warmthCurrent + " Next drinking @ " + nextDrinkPercent);
                     if (warmthCurrent < warmth || warmthCurrent <= nextDrinkPercent) {
                         // if damage taken
                         log(Wintertodt.class, "warmth decreased");
+                        warmth = warmthCurrent;
                         return true;
                     }
-                }
-                if (getWidgetManager().getDialogue().isVisible()) {
-                    sleep(RandomUtils.weightedRandom(200, 1500));
-                    return true;
+                } else {
+                    log(Wintertodt.class, "Failed to retrieve warmth value.");
+                    return false;
                 }
                 // listen for brazier status
-                WintertodtOverlay.BrazierStatus brazierStatus = overlay.getBrazierStatus(focusedBrazier);
+                brazierStatus = overlay.getBrazierStatus(focusedBrazier);
                 if (brazierStatus != null && brazierStatus != WintertodtOverlay.BrazierStatus.LIT) {
                     log(Wintertodt.class, "Brazier is not lit");
                     return true;
                 }
 
-
-                //TODO doesn't work
                 int rootAmount = inventorySnapshot.getAmount(ItemID.BRUMA_ROOT, ItemID.BRUMA_KINDLING);
                 if (rootAmount < previousAmountOfFeed.get()) {
                     itemAmountChangeTimer.reset();
