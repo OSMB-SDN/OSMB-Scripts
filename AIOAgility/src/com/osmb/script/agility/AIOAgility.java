@@ -30,6 +30,7 @@ import javafx.scene.Scene;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 @ScriptDefinition(name = "AIO Agility", author = "Joe", version = 1.0, description = "Provides support over a range of agility courses.", skillCategory = SkillCategory.AGILITY)
 public class AIOAgility extends Script {
@@ -64,93 +65,6 @@ public class AIOAgility extends Script {
 
     public AIOAgility(Object object) {
         super(object);
-    }
-
-    public static boolean handleMOG(AIOAgility core) {
-        UIResultList<WorldPosition> groundItems = core.getWidgetManager().getMinimap().getItemPositions();
-        if (!groundItems.isFound()) {
-            return false;
-        }
-
-        WorldPosition myPosition = core.getWorldPosition();
-        for (WorldPosition groundItem : groundItems) {
-            core.log("Ground item found");
-            RSTile tile = core.getSceneManager().getTile(groundItem);
-            if (tile == null) {
-                core.log(AIOAgility.class.getSimpleName(), "Tile is null.");
-                continue;
-            }
-
-            if (!tile.isOnGameScreen(ChatboxComponent.class)) {
-                core.log(AIOAgility.class.getSimpleName(), "WARNING: Tile containing item is not on screen, reduce your zoom level.");
-                continue;
-            }
-
-            // handle ardy mog tile as we can't reach this one
-            if (tile.getWorldPosition().equals(ARDY_MOG_POS) || tile.getWorldPosition().equals(POLL_MOG_POS)) {
-                if (!Ardougne.AREA_3.contains(myPosition) && !Pollnivneach.AREA_6.contains(myPosition)) {
-                    continue;
-                }
-            } else if (!tile.canReach()) {
-                continue;
-            }
-
-            Polygon tilePoly = tile.getTilePoly();
-            if (tilePoly == null) {
-                core.log(AIOAgility.class.getSimpleName(), "Tile poly is null.");
-                continue;
-            }
-            core.log("Checking ground item for MOG");
-            tilePoly = tilePoly.getResized(0.8);
-            // if the tile contains all pixels
-
-            if (core.getPixelAnalyzer().findPixel(tilePoly, MOG_PIXELS_GOLD) == null || core.getPixelAnalyzer().findPixel(tilePoly, MOG_PIXELS_RED) == null) {
-                continue;
-            }
-
-            ItemGroupResult inventorySnapshot = core.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-            if (inventorySnapshot == null) {
-                return false;
-            }
-            // check if we have free spaces
-            if (inventorySnapshot.isFull() && !inventorySnapshot.contains(ItemID.MARK_OF_GRACE)) {
-                core.log(AIOAgility.class.getSimpleName(), "MOG Found but no inventory slots free in the inventory...");
-                if (core.foodItemID != null) {
-                    ItemSearchResult food = inventorySnapshot.getRandomItem(core.foodItemID);
-                    if (food != null) {
-                        core.log(AIOAgility.class.getSimpleName(), "Eating food to make space for MOG!");
-                        if (!food.interact("eat", "drink")) {
-                            return false;
-                        }
-                    } else {
-                        core.log(AIOAgility.class.getSimpleName(), "No room to pick up MOG.");
-                        core.stop();
-                    }
-                } else {
-                    core.log(AIOAgility.class, "Inventory is full, cannot pick up MOG!");
-                    return false;
-                }
-            }
-            int previousAmount = inventorySnapshot.getAmount(ItemID.MARK_OF_GRACE);
-            core.log(AIOAgility.class.getSimpleName(), "Attempting to interact with MOG");
-            if (core.getFinger().tapGameScreen(tilePoly, "Take mark of grace")) {
-                // sleep until we picked up the mark
-                core.submitHumanTask(() -> {
-                    ItemGroupResult inventorySnapshot1 = core.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-                    if (inventorySnapshot1 == null) {
-                        return false;
-                    }
-                    if (inventorySnapshot1.getAmount(ItemID.MARK_OF_GRACE) > previousAmount) {
-                        core.log(AIOAgility.class.getSimpleName(), "Successfully picked up MOG!");
-                        return true;
-                    }
-                    return false;
-                }, 7000);
-            }
-            return true;
-        }
-
-        return false;
     }
 
     /**
@@ -301,6 +215,93 @@ public class AIOAgility extends Script {
         }
     }
 
+    public static boolean handleMOG(AIOAgility core) {
+        UIResultList<WorldPosition> groundItems = core.getWidgetManager().getMinimap().getItemPositions();
+        if (!groundItems.isFound()) {
+            return false;
+        }
+
+        WorldPosition myPosition = core.getWorldPosition();
+        for (WorldPosition groundItem : groundItems) {
+            core.log("Ground item found");
+            RSTile tile = core.getSceneManager().getTile(groundItem);
+            if (tile == null) {
+                core.log(AIOAgility.class.getSimpleName(), "Tile is null.");
+                continue;
+            }
+
+            if (!tile.isOnGameScreen(ChatboxComponent.class)) {
+                core.log(AIOAgility.class.getSimpleName(), "WARNING: Tile containing item is not on screen, reduce your zoom level.");
+                continue;
+            }
+
+            // handle ardy mog tile as we can't reach this one
+            if (tile.getWorldPosition().equals(ARDY_MOG_POS) || tile.getWorldPosition().equals(POLL_MOG_POS)) {
+                if (!Ardougne.AREA_3.contains(myPosition) && !Pollnivneach.AREA_6.contains(myPosition)) {
+                    continue;
+                }
+            } else if (!tile.canReach()) {
+                continue;
+            }
+
+            Polygon tilePoly = tile.getTilePoly();
+            if (tilePoly == null) {
+                core.log(AIOAgility.class.getSimpleName(), "Tile poly is null.");
+                continue;
+            }
+            core.log("Checking ground item for MOG");
+            tilePoly = tilePoly.getResized(0.8);
+            // if the tile contains all pixels
+
+            if (core.getPixelAnalyzer().findPixel(tilePoly, MOG_PIXELS_GOLD) == null || core.getPixelAnalyzer().findPixel(tilePoly, MOG_PIXELS_RED) == null) {
+                continue;
+            }
+
+            ItemGroupResult inventorySnapshot = core.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+            if (inventorySnapshot == null) {
+                return false;
+            }
+            // check if we have free spaces
+            if (inventorySnapshot.isFull() && !inventorySnapshot.contains(ItemID.MARK_OF_GRACE)) {
+                core.log(AIOAgility.class.getSimpleName(), "MOG Found but no inventory slots free in the inventory...");
+                if (core.foodItemID != null) {
+                    ItemSearchResult food = inventorySnapshot.getRandomItem(core.foodItemID);
+                    if (food != null) {
+                        core.log(AIOAgility.class.getSimpleName(), "Eating food to make space for MOG!");
+                        if (!food.interact("eat", "drink")) {
+                            return false;
+                        }
+                    } else {
+                        core.log(AIOAgility.class.getSimpleName(), "No room to pick up MOG.");
+                        core.stop();
+                    }
+                } else {
+                    core.log(AIOAgility.class, "Inventory is full, cannot pick up MOG!");
+                    return false;
+                }
+            }
+            int previousAmount = inventorySnapshot.getAmount(ItemID.MARK_OF_GRACE);
+            core.log(AIOAgility.class.getSimpleName(), "Attempting to interact with MOG");
+            if (core.getFinger().tapGameScreen(tilePoly, "Take mark of grace")) {
+                // sleep until we picked up the mark
+                core.submitHumanTask(() -> {
+                    ItemGroupResult inventorySnapshot1 = core.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+                    if (inventorySnapshot1 == null) {
+                        return false;
+                    }
+                    if (inventorySnapshot1.getAmount(ItemID.MARK_OF_GRACE) > previousAmount) {
+                        core.log(AIOAgility.class.getSimpleName(), "Successfully picked up MOG!");
+                        return true;
+                    }
+                    return false;
+                }, 7000);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
     @Override
     public void onStart() {
         // fxml loading
@@ -353,6 +354,11 @@ public class AIOAgility extends Script {
             }
             return 0;
         }
+        WorldPosition position = getWorldPosition();
+        if (position == null) {
+            log(getClass().getSimpleName(), "Position is null.");
+            return 0;
+        }
 
         if (foodItemID != null) {
             UIResult<Integer> hpOpt = getWidgetManager().getMinimapOrbs().getHitpointsPercentage();
@@ -360,40 +366,25 @@ public class AIOAgility extends Script {
                 log(getClass().getSimpleName(), "Hitpoints orb not visible...");
                 return 0;
             }
+            // get a snapshot of the inventory
             inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
             if (inventorySnapshot == null) {
                 return 0;
             }
-            // walk to bank to restock, stop script if course doesn't have a bank
-            if (!inventorySnapshot.containsAny(foodItemID)) {
-                // if on the ground floor
-                WorldPosition position = getWorldPosition();
-                if (position != null && position.getPlane() == 0) {
-                    Area bankArea = selectedCourse.getBankArea();
-                    if (bankArea != null) {
-                        //restock
-                        return navigateToBank();
-                    } else {
-                        stop();
-                        log(getClass().getSimpleName(), "Ran out of food, stopping script...");
-                        return 0;
-                    }
+            // walk to bank to restock if on the ground floor, stop script if course doesn't have a bank
+            if (!inventorySnapshot.containsAny(foodItemID) && position.getPlane() == 0) {
+                Area bankArea = selectedCourse.getBankArea();
+                if (bankArea != null) {
+                    //restock
+                    return navigateToBank();
+                } else {
+                    stop();
+                    log(getClass().getSimpleName(), "Ran out of food, stopping script...");
+                    return 0;
                 }
-            } else {
-                int hitpoints = hpOpt.get();
-                log(getClass().getSimpleName(), "Hitpoints: " + hitpoints + "%" + " Block timer finished: " + eatBlockTimer.hasFinished() + " Eating at: " + hitpoints + "%");
-                if (hitpoints <= hitpointsToEat && eatBlockTimer.hasFinished()) {
-                    // eat food
-                    ItemSearchResult foodToEat;
-                    if (multiConsumable != null) {
-                        foodToEat = MultiConsumable.getSmallestConsumable(multiConsumable, inventorySnapshot.getAllOfItems(foodItemID));
-                    } else {
-                        foodToEat = inventorySnapshot.getRandomItem(foodItemID);
-                    }
-                    foodToEat.interact();
-                    eatBlockTimer.reset(3000);
-                    hitpointsToEat = random(eatLow, eatHigh);
-                }
+            } else if(hpOpt.get() <= hitpointsToEat && eatBlockTimer.hasFinished()) {
+                eatFood();
+                return 0;
             }
         }
 
@@ -409,21 +400,31 @@ public class AIOAgility extends Script {
                 nextRunActivate = random(30, 70);
             }
         }
-        WorldPosition position = getWorldPosition();
-        if (position == null) {
-            log(getClass().getSimpleName(), "Position is null.");
-            return 0;
-        }
+
         if (position.getPlane() > 0 && handleMOG(this)) {
             return 0;
         }
         return selectedCourse.poll(this);
     }
 
+    private void eatFood(int hitpoints) {
+        log(getClass().getSimpleName(), "Hitpoints: " + hitpoints + "%" + " Block timer finished: " + eatBlockTimer.hasFinished() + " Eating at: " + hitpoints + "%");
+            // eat food
+            ItemSearchResult foodToEat;
+            if (multiConsumable != null) {
+                foodToEat = MultiConsumable.getSmallestConsumable(multiConsumable, inventorySnapshot.getAllOfItems(foodItemID));
+            } else {
+                foodToEat = inventorySnapshot.getRandomItem(foodItemID);
+            }
+            foodToEat.interact();
+            eatBlockTimer.reset(3000);
+            hitpointsToEat = random(eatLow, eatHigh);
+    }
+
     private int navigateToBank() {
         log(getClass().getSimpleName(), "Searching for a bank...");
-        // Find bank and open it
-        List<RSObject> banksFound = getObjectManager().getObjects(gameObject -> {
+        // find bank objects
+        Predicate<RSObject> bankPredicate = gameObject -> {
             // if object has no name
             if (gameObject.getName() == null) {
                 return false;
@@ -443,15 +444,21 @@ public class AIOAgility extends Script {
             }
             // final check is if the object is reachable
             return gameObject.canReach();
-        });
+        };
 
-        // walk to bank area
+        // apply the predicate to find banks
+        List<RSObject> banksFound = getObjectManager().getObjects(bankPredicate);
+
+        // no banks found, walk to bank area
         if (banksFound.isEmpty()) {
             getWalker().walkTo(selectedCourse.getBankArea().getRandomPosition());
         } else {
+            // get closest bank object
             RSObject object = (RSObject) getUtils().getClosest(banksFound);
+            // interact with the bank object
             if (!object.interact(BANK_ACTIONS)) return 200;
-            submitTask(() -> getWidgetManager().getBank().isVisible(), 10000);
+            // wait for the bank interface to open
+            submitHumanTask(() -> getWidgetManager().getBank().isVisible(), 10000);
         }
         return 0;
     }
@@ -491,7 +498,6 @@ public class AIOAgility extends Script {
         }
 
     }
-
 
     @Override
     public boolean canBreak() {
