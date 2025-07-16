@@ -21,26 +21,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class PotionMixer {
     public final AIOPotionMaker script;
-    private final String name;
-    private final Potion[] values;
-    private Potion selectedPotion;
-    private ComboBox<ItemIdentifier> itemComboBox;
+    private final Potion selectedPotion;
     private ItemGroupResult inventorySnapshot;
 
-    /**
-     * @param script
-     * @param name   - The name of the potion mixer
-     * @param values - The potions that the method provides
-     */
-    public PotionMixer(AIOPotionMaker script, String name, Potion[] values) {
+    public PotionMixer(AIOPotionMaker script, Potion selectedPotion) {
         this.script = script;
-        this.name = name;
-        this.values = values;
-    }
-
-    @Override
-    public String toString() {
-        return name;
+        this.selectedPotion = selectedPotion;
     }
 
     public void poll() {
@@ -142,23 +128,6 @@ public class PotionMixer {
         return true;
     }
 
-    public boolean uiOptionsSufficient() {
-        if (itemComboBox.getValue() != null) {
-            selectedPotion = (Potion) itemComboBox.getValue();
-            return true;
-        }
-        return false;
-    }
-
-    public void provideUIOptions(VBox vBox) {
-        Label itemLabel = new Label("Choose potion");
-        itemComboBox = ScriptOptions.createItemCombobox(script, values);
-        vBox.getChildren().addAll(itemLabel, itemComboBox);
-        vBox.requestLayout();
-    }
-
-    public void onGamestateChanged(GameState gameState) {
-    }
 
     private Set<Integer> getItemsToNotDeposit() {
         Ingredient[] ingredients = selectedPotion.getIngredients();

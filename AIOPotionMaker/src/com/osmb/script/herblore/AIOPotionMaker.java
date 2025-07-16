@@ -5,11 +5,8 @@ import com.osmb.api.scene.RSObject;
 import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
-import com.osmb.api.ui.GameState;
-import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Timer;
-import com.osmb.script.herblore.data.MixedPotion;
-import com.osmb.script.herblore.data.UnfinishedPotion;
+import com.osmb.script.herblore.data.Potion;
 import com.osmb.script.herblore.javafx.ScriptOptions;
 import com.osmb.script.herblore.method.PotionMixer;
 import javafx.scene.Scene;
@@ -45,14 +42,10 @@ public class AIOPotionMaker extends Script {
         // final check is if the object is reachable
         return gameObject.canReach();
     };
-    private PotionMixer selectedPotionMixer;
+    private PotionMixer potionMixer;
     private boolean bank = false;
     public AIOPotionMaker(Object o) {
         super(o);
-    }
-
-    public void setSelectedMethod(PotionMixer selectedPotionMixer) {
-        this.selectedPotionMixer = selectedPotionMixer;
     }
 
     @Override
@@ -62,35 +55,31 @@ public class AIOPotionMaker extends Script {
 
     @Override
     public void onStart() {
-        PotionMixer[] potionMixers = new PotionMixer[]{
-                new PotionMixer(this, "Potion maker", MixedPotion.values()),
-                new PotionMixer(this, "Unfinished potion maker", UnfinishedPotion.values())
-        };
-        ScriptOptions scriptOptions = new ScriptOptions(this, potionMixers);
-
+        ScriptOptions scriptOptions = new ScriptOptions(this);
         Scene scene = new Scene(scriptOptions);
         scene.getStylesheets().add("style.css");
         getStageController().show(scene, "Settings", false);
-        if (selectedPotionMixer == null) {
-            throw new IllegalArgumentException("Selected method cannot be null!");
+
+        Potion selectedProduct = scriptOptions.getSelectedProduct();
+        if (selectedProduct == null) {
+            throw new IllegalArgumentException("Selected potion cannot be null!");
         }
+
+        this.potionMixer = new PotionMixer(this, selectedProduct);
+
     }
 
-    @Override
-    public void onGameStateChanged(GameState newGameState) {
-        selectedPotionMixer.onGamestateChanged(newGameState);
-    }
 
     @Override
     public int poll() {
         if (getWidgetManager().getBank().isVisible()) {
             log(getClass().getSimpleName(), "Handling bank");
             this.bank = false;
-            selectedPotionMixer.handleBankInterface();
+            potionMixer.handleBankInterface();
         } else if (bank) {
             openBank();
         } else {
-            selectedPotionMixer.poll();
+            potionMixer.poll();
         }
         return 0;
     }
