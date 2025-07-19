@@ -47,10 +47,13 @@ public class AbsorptionPointsOverlay extends OverlayBoundary {
         boolean foundTop = false;
         boolean foundBottom = false;
         for (int x = bounds.x; x < bounds.x + bounds.width; x++) {
-            if (!foundTop && screenImage.getRGB(x, bounds.y) == BORDER_PIXEL) {
+            int topPixel = screenImage.getRGB(x, bounds.y);
+            int bottomPixel = screenImage.getRGB(x, bounds.y + bounds.height - 1);
+
+            if (!foundTop && topPixel == BORDER_PIXEL) {
                 foundTop = true;
             }
-            if (!foundBottom && screenImage.getRGB(x, bounds.y) == BORDER_PIXEL) {
+            if (!foundBottom && bottomPixel == BORDER_PIXEL) {
                 foundBottom = true;
             }
             if (foundTop && foundBottom) {
