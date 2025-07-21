@@ -118,7 +118,7 @@ public class Minnows extends Script {
 
     private void waitUntilFinishedFishing() {
         log(Minnows.class, "Waiting until finished fishing...");
-        submitTask(() -> {
+        submitHumanTask(() -> {
             WorldPosition myPosition = getWorldPosition();
             if (myPosition == null) {
                 log(Minnows.class, "Failed to get position");
@@ -137,7 +137,7 @@ public class Minnows extends Script {
             return false;
         }, random(16000, 22000));
         // random delay before next fishing attempt
-        int randomDelay = RandomUtils.gaussianRandom(300, 5000, 500, 1500);
+        int randomDelay = RandomUtils.gaussianRandom(300, 10000, 500, 1500);
         log(Minnows.class, "⏳ - Executing humanised delay before next fishing attempt: " + randomDelay + "ms");
         submitTask(() -> false, randomDelay);
     }

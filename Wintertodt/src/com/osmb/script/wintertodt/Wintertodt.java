@@ -866,7 +866,7 @@ public class Wintertodt extends Script {
     private void drinkRejuvenation() {
         // drink smallest dose first
         ItemSearchResult potionToDrink = null;
-        Set<ItemSearchResult> rejuvenationPotions = inventorySnapshot.getAllOfItems(new HashSet<>(REJUVENATION_POTION_IDS));
+        List<ItemSearchResult> rejuvenationPotions = inventorySnapshot.getAllOfItems(new HashSet<>(REJUVENATION_POTION_IDS));
         for (int i = 0; i < REJUVENATION_POTION_IDS.size(); i++) {
             for (ItemSearchResult result : rejuvenationPotions) {
                 if (result.getId() == REJUVENATION_POTION_IDS.get(i)) {
@@ -888,7 +888,7 @@ public class Wintertodt extends Script {
     }
 
     private int getRejuvenationDoses(boolean update) {
-        Set<ItemSearchResult> rejuvenationPotions = inventorySnapshot.getAllOfItems(new HashSet<>(REJUVENATION_POTION_IDS));
+        List<ItemSearchResult> rejuvenationPotions = inventorySnapshot.getAllOfItems(new HashSet<>(REJUVENATION_POTION_IDS));
         AtomicInteger currentDosesAtomic = new AtomicInteger();
         rejuvenationPotions.forEach(itemSearchResult -> {
             switch (itemSearchResult.getId()) {

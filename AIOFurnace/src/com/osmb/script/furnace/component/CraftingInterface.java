@@ -6,6 +6,7 @@ import com.osmb.api.item.SearchableItem;
 import com.osmb.api.shape.Rectangle;
 import com.osmb.api.ui.component.ComponentCentered;
 import com.osmb.api.ui.component.ComponentImage;
+import com.osmb.api.utils.ImagePanel;
 import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.visual.color.ColorModel;
 import com.osmb.api.visual.color.ColorUtils;
@@ -13,6 +14,7 @@ import com.osmb.api.visual.color.tolerance.ToleranceComparator;
 import com.osmb.api.visual.color.tolerance.impl.SingleThresholdComparator;
 import com.osmb.api.visual.drawing.BorderPalette;
 import com.osmb.api.visual.drawing.Canvas;
+import com.osmb.api.visual.image.Image;
 import com.osmb.api.visual.image.ImageSearchResult;
 import com.osmb.api.visual.image.SearchableImage;
 import com.osmb.api.visual.ocr.fonts.Font;
@@ -35,8 +37,15 @@ public class CraftingInterface extends ComponentCentered {
     @Override
     protected ComponentImage buildBackgroundImage() {
         Canvas canvas = new Canvas(492, 300, ColorUtils.TRANSPARENT_PIXEL);
+        // create steel border background
         canvas.createBackground(core, BorderPalette.STEEL_BORDER, null);
+        // set middle to transparent
         canvas.fillRect(5, 5, canvas.canvasWidth - 10, canvas.canvasHeight - 10, ColorUtils.TRANSPARENT_PIXEL);
+        // display the canvas for debuggin
+        Image image = canvas.toImage();
+        ImagePanel imagePanel = new ImagePanel(image.toBufferedImage());
+        imagePanel.showInFrame("background debug");
+
         return new ComponentImage<>(canvas.toSearchableImage(new SingleThresholdComparator(10), ColorModel.RGB), -1, 1);
     }
 

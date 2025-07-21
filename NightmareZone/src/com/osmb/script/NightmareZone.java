@@ -90,8 +90,8 @@ public class NightmareZone extends Script {
     private Task previousTask = null;
     private Task task;
     // Current State
-    private Set<ItemSearchResult> boostPotions;
-    private Set<ItemSearchResult> secondaryPotions;
+    private List<ItemSearchResult> boostPotions;
+    private List<ItemSearchResult> secondaryPotions;
     private Stopwatch specialDelayTimer;
     private ItemGroupResult inventorySnapshot;
     private ItemGroupResult bankSnapshot;
@@ -275,7 +275,7 @@ public class NightmareZone extends Script {
         }
         // get potion amounts
         secondaryPotions = inventorySnapshot.getAllOfItems(secondaryPotion.getItemIDs());
-        boostPotions = statBoostPotion != null ? inventorySnapshot.getAllOfItems(statBoostPotion.getItemIDs()) : Collections.emptySet();
+        boostPotions = statBoostPotion != null ? inventorySnapshot.getAllOfItems(statBoostPotion.getItemIDs()) : Collections.emptyList();
 
         // check for interfact if at the object, this is to save searching for it constantly
         if (worldPosition.equals(REWARDS_CHEST_INTERACT_TILE)) {
@@ -550,7 +550,7 @@ public class NightmareZone extends Script {
         return null;
     }
 
-    private boolean shouldInteractWithBarrel(Potion potionType, Set<ItemSearchResult> potions, int requiredAmount) {
+    private boolean shouldInteractWithBarrel(Potion potionType, List<ItemSearchResult> potions, int requiredAmount) {
         if (potionType instanceof BarrelPotion barrelPotion) {
             if (!barrelDoseCache.containsKey(barrelPotion)) {
                 log(NightmareZone.class, "Cache does not contain barrel potion: " + barrelPotion.getName() + ".");
@@ -843,9 +843,8 @@ public class NightmareZone extends Script {
     }
 
     @Override
-    public int onRelog() {
+    public void onRelog() {
         guzzleFirstOption = false;
-        return 0;
     }
 
     private void enterDream() {
@@ -1093,7 +1092,7 @@ public class NightmareZone extends Script {
     }
 
     private void walkToPotion() {
-        log(NightmareZone.class, "Walking to dominic tile");
+        log(NightmareZone.class, "Walking to potion tile");
         // walk to tile
         WalkConfig.Builder builder = new WalkConfig.Builder();
         builder.breakCondition(() -> {
@@ -1459,7 +1458,7 @@ public class NightmareZone extends Script {
         return false;
     }
 
-    public int getDoses(Set<ItemSearchResult> potions, Potion type) {
+    public int getDoses(List<ItemSearchResult> potions, Potion type) {
         int totalDoses = 0;
         for (ItemSearchResult potion : potions) {
             totalDoses += type.getDose(potion.getId());
@@ -1467,7 +1466,7 @@ public class NightmareZone extends Script {
         return totalDoses;
     }
 
-    private boolean allFullDoses(Set<ItemSearchResult> potions, int fullID) {
+    private boolean allFullDoses(List<ItemSearchResult> potions, int fullID) {
         for (ItemSearchResult potion : potions) {
             if (potion.getId() != fullID) {
                 return false;
@@ -1476,7 +1475,7 @@ public class NightmareZone extends Script {
         return true;
     }
 
-    private void restockFromBarrel(BarrelPotion potionType, Set<ItemSearchResult> potions, int requiredAmount) {
+    private void restockFromBarrel(BarrelPotion potionType, List<ItemSearchResult> potions, int requiredAmount) {
         log("Restocking " + potionType.getName() + " from barrel. Amount needed: " + requiredAmount);
         RSObject barrel = getObjectManager().getRSObject(rsObject -> {
             String name = rsObject.getName();
@@ -1537,7 +1536,7 @@ public class NightmareZone extends Script {
         }, 8000);
     }
 
-    private void handleBarrelDialogue(int dosesToWithdraw, BarrelPotion potionType, Set<ItemSearchResult> potions) {
+    private void handleBarrelDialogue(int dosesToWithdraw, BarrelPotion potionType, List<ItemSearchResult> potions) {
         if (getWidgetManager().getDialogue().getDialogueType() != DialogueType.ENTER_AMOUNT) {
             throw new RuntimeException("Incorrect dialogue type");
         }
@@ -1570,7 +1569,7 @@ public class NightmareZone extends Script {
                 log(NightmareZone.class, "Inventory snapshot is null.");
                 return false;
             }
-            Set<ItemSearchResult> potions_ = inventorySnapshot.getAllOfItems(potionType.getItemIDs());
+            List<ItemSearchResult> potions_ = inventorySnapshot.getAllOfItems(potionType.getItemIDs());
             return prevDoses < getDoses(potions_, potionType);
         }, 3000);
 
@@ -1603,7 +1602,7 @@ public class NightmareZone extends Script {
         return new BarrelPotionInfo(potionType, doses);
     }
 
-    private void usePotionOnBarrel(Set<ItemSearchResult> potions, BarrelPotion potionType, RSObject barrel) {
+    private void usePotionOnBarrel(List<ItemSearchResult> potions, BarrelPotion potionType, RSObject barrel) {
         log(NightmareZone.class, "Depositing potions into barrel: " + barrel.getName());
         if (!barrel.isInteractableOnScreen()) {
             // walk closer to the barrel

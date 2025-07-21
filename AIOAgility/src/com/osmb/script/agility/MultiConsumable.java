@@ -47,7 +47,7 @@ public enum MultiConsumable {
         return null;
     }
 
-    public static ItemSearchResult getSmallestConsumable(MultiConsumable multiConsumable, Set<ItemSearchResult> itemSearchResults) {
+    public static ItemSearchResult getSmallestConsumable(MultiConsumable multiConsumable, List<ItemSearchResult> itemSearchResults) {
         List<ItemSearchResult> results = new ArrayList<>();
         int biggestIndex = 0;
         for (ItemSearchResult result : itemSearchResults) {

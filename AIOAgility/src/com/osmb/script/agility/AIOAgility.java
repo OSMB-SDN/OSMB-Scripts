@@ -382,7 +382,8 @@ public class AIOAgility extends Script {
                     log(getClass().getSimpleName(), "Ran out of food, stopping script...");
                     return 0;
                 }
-            } else if(hpOpt.get() <= hitpointsToEat && eatBlockTimer.hasFinished()) {
+            }
+            if(hpOpt.get() <= hitpointsToEat && eatBlockTimer.hasFinished()) {
                 eatFood();
                 return 0;
             }

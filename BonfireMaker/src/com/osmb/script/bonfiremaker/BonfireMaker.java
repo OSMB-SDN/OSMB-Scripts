@@ -23,7 +23,6 @@ import javafx.scene.Scene;
 import java.awt.*;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
@@ -34,7 +33,6 @@ public class BonfireMaker extends Script {
     public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth", "Bank counter", "Bank table"};
     public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
     public static final int[] LOGS = new int[]{ItemID.LOGS, ItemID.OAK_LOGS, ItemID.WILLOW_LOGS, ItemID.MAPLE_LOGS, ItemID.TEAK_LOGS, ItemID.ARCTIC_PINE_LOGS, ItemID.MAPLE_LOGS, ItemID.MAHOGANY_LOGS, ItemID.YEW_LOGS, ItemID.BLISTERWOOD_LOGS, ItemID.MAGIC_LOGS, ItemID.REDWOOD_LOGS};
-    private int amountChangeTimeout;
     private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.TINDERBOX));
     private static final List<String> PREVIOUS_CHATBOX_LINES = new ArrayList<>();
     private final Predicate<RSObject> bankQuery = gameObject -> {
@@ -58,9 +56,9 @@ public class BonfireMaker extends Script {
         // final check is if the object is reachable
         return gameObject.canReach();
     };
+    private int amountChangeTimeout;
     private int selectedLogsID = ItemID.LOGS;
     private WorldPosition bonfirePosition;
-    private WorldPosition bonfireTargetCreationPos;
     private int logsBurnt;
     private int logsBurntOnFire;
     private boolean forceNewPosition = false;
@@ -103,7 +101,7 @@ public class BonfireMaker extends Script {
 
         // if no logs, open the bank
         if (!inventorySnapshot.contains(selectedLogsID)) {
-            if (inventorySnapshot.getSelectedSlot().isPresent()) {
+            if (inventorySnapshot.getSelectedSlot() != null) {
                 if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
                     return 0;
                 }
@@ -127,7 +125,7 @@ public class BonfireMaker extends Script {
         }
 
         if (bonfirePosition == null) {
-            if (inventorySnapshot.getSelectedSlot().isPresent()) {
+            if (inventorySnapshot.getSelectedSlot() != null) {
                 // unselect item if selected
                 if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
                     return 0;
@@ -317,8 +315,6 @@ public class BonfireMaker extends Script {
             List<LocalPosition> nearbyPositions = getWalker().getCollisionManager().findReachableTiles(myPos, 15);
             // remove tiles < 7 away, leaving tiles only 7-10 tiles away
             nearbyPositions.removeIf(localPosition -> myPos.distanceTo(localPosition) < 13);
-            LocalPosition posToWalk = nearbyPositions.get(random(nearbyPositions.size()));
-            bonfireTargetCreationPos = posToWalk.toWorldPosition(this);
             bonfirePosition = null;
         }
     }
@@ -332,7 +328,7 @@ public class BonfireMaker extends Script {
     }
 
     private void listenChatbox() {
-        if (getWidgetManager().getChatbox().getActiveFilterTab() != ChatboxFilterTab.GAME) {
+        if (getWidgetManager().getDialogue().getDialogueType() == null && getWidgetManager().getChatbox().getActiveFilterTab() != ChatboxFilterTab.GAME) {
             getWidgetManager().getChatbox().openFilterTab(ChatboxFilterTab.GAME);
             return;
         }
@@ -393,7 +389,7 @@ public class BonfireMaker extends Script {
     public boolean interactAndWaitForDialogue(ItemGroupResult inventorySnapshot) {
         ItemSearchResult log = null;
 
-        if (inventorySnapshot.getSelectedSlot().isPresent()) {
+        if (inventorySnapshot.getSelectedSlot() != null) {
             log = getSelectedLog();
 
             // if item is selected & it isn't a log + if we fail to unselect it, re-poll
@@ -457,7 +453,7 @@ public class BonfireMaker extends Script {
         return submitHumanTask(() -> {
             listenChatbox();
             return getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION;
-        }, random(5000,8000));
+        }, random(5000, 8000));
     }
 
     private boolean failed() {
@@ -546,6 +542,12 @@ public class BonfireMaker extends Script {
 
     @Override
     public boolean canHopWorlds() {
-        return false;
+        return true;
+    }
+
+    @Override
+    public boolean canBreak() {
+        DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
+        return dialogueType != null;
     }
 }

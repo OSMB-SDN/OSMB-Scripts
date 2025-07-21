@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 )
 public class AIOFurnace extends Script {
     public static final String[] BANK_NAMES = {"Bank chest", "Bank booth"};
-    public static final String[] BANK_ACTIONS = {"bank", "open"};
+    public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
     public static final Predicate<RSObject> BANK_QUERY = gameObject -> {
         // if object has no name
         if (gameObject.getName() == null) {
@@ -118,7 +118,7 @@ public class AIOFurnace extends Script {
         }
 
         // if no dialogue interact
-        RSObject furnace = getObjectManager().getClosestObject("Furnace");
+        RSObject furnace = getObjectManager().getClosestObject("Furnace", "clay forge");
         if (furnace == null) {
             log(AIOFurnace.class, "No furnace found nearby.");
             return;

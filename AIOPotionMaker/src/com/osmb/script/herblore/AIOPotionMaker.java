@@ -5,6 +5,7 @@ import com.osmb.api.scene.RSObject;
 import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
+import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.herblore.data.Potion;
 import com.osmb.script.herblore.javafx.ScriptOptions;
@@ -99,26 +100,18 @@ public class AIOPotionMaker extends Script {
             // failed to interact with the bank
             return;
         }
-        waitForBankToOpen();
+        waitForBankToOpen(object);
     }
 
-    private void waitForBankToOpen() {
-        AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
-        AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
-        // wait for bank interface
+    private void waitForBankToOpen(RSObject object) {
+        long positionChangeTimeout = random(1000, 2500);
         submitHumanTask(() -> {
-            WorldPosition position = getWorldPosition();
-            if (position == null) {
-                return false;
+            int tileDistance = object.getTileDistance();
+            if (tileDistance > 1 && getLastPositionChangeMillis() >= positionChangeTimeout) {
+                return true;
             }
-            // check position change, in case of a dud action
-            if (pos.get() == null || !position.equals(pos.get())) {
-                positionChangeTimer.get().reset();
-                pos.set(position);
-            }
-
-            return getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
-        }, 15000);
+            return getWidgetManager().getBank().isVisible();
+        }, Utils.random(8000, 13000), false, true);
     }
 
     public boolean isBank() {

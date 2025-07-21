@@ -101,7 +101,7 @@ public class AIOAnvil extends Script {
             if (dialogueType != null) {
                 // look out for level up dialogue etc.
                 if (dialogueType == DialogueType.TAP_HERE_TO_CONTINUE) {
-                    // sleep for a random time so we're not instantly reacting to the dialogue
+                    // sleep for a random time extra as the player might not always be expecting to level up
                     // we do this in the task to continue updating the screen
                     submitTask(() -> false, random(1000, 4000));
                     return true;
@@ -141,9 +141,11 @@ public class AIOAnvil extends Script {
     }
 
     private void handleBankInterface() {
+        log(AIOAnvil.class, "Depositing items...");
         if (!getWidgetManager().getBank().depositAll(ITEM_IDS_TO_RECOGNISE)) {
             return;
         }
+        log(AIOAnvil.class, "Items deposited");
         inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
         ItemGroupResult bankSnapshot = getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
         if (inventorySnapshot == null || bankSnapshot == null) {
@@ -152,6 +154,7 @@ public class AIOAnvil extends Script {
         }
         // we have bars in inventory and no free slots, close bank
         if (inventorySnapshot.isFull() && inventorySnapshot.contains(selectedBarID)) {
+            log(AIOAnvil.class, "Closing bank...");
             getWidgetManager().getBank().close();
             return;
         }
@@ -161,6 +164,7 @@ public class AIOAnvil extends Script {
             return;
         }
         // withdraw bars
+        log(AIOAnvil.class, "Withdrawing bars...");
         getWidgetManager().getBank().withdraw(selectedBarID, Integer.MAX_VALUE);
     }
 

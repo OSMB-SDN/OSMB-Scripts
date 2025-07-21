@@ -5,9 +5,6 @@ import com.osmb.api.input.MenuHook;
 import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.location.area.Area;
-import com.osmb.api.location.area.impl.PolyArea;
-import com.osmb.api.location.area.impl.RectangleArea;
-import com.osmb.api.location.position.types.LocalPosition;
 import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.scene.RSObject;
 import com.osmb.api.script.Script;
@@ -47,7 +44,7 @@ public class MotherloadMine extends Script {
             ItemID.STEEL_PICKAXE, ItemID.BLACK_PICKAXE, ItemID.MITHRIL_PICKAXE,
             ItemID.ADAMANT_PICKAXE, ItemID.RUNE_PICKAXE, ItemID.DRAGON_PICKAXE,
             ItemID.DRAGON_PICKAXE_12797, ItemID.DRAGON_PICKAXE_OR_25376, ItemID.DRAGON_PICKAXE_OR_30351,
-            ItemID.DRAGON_PICKAXE_OR, ItemID.CRYSTAL_PICKAXE,ItemID.CRYSTAL_PICKAXE_INACTIVE, ItemID.INFERNAL_PICKAXE,
+            ItemID.DRAGON_PICKAXE_OR, ItemID.CRYSTAL_PICKAXE, ItemID.CRYSTAL_PICKAXE_INACTIVE, ItemID.INFERNAL_PICKAXE,
             ItemID.INFERNAL_PICKAXE_OR, ItemID.ANTIQUE_LAMP
     ));
     public static final Predicate<RSObject> LADDER_QUERY = (rsObject) -> {
@@ -60,118 +57,11 @@ public class MotherloadMine extends Script {
         }
         return rsObject.canReach();
     };
-    private static final RectangleArea SOUTH_AREA = new RectangleArea(3733, 5645, 27, 10, 0);
-    private static final RectangleArea WEST_AREA = new RectangleArea(3728, 5655, 10, 17, 0);
-    private static final java.awt.Font ARIEL = java.awt.Font.getFont("Ariel");
+    private static final Font ARIEL = new Font("Arial", Font.PLAIN, 14);
+
     private static final int[] ORES = new int[]{ItemID.COAL, ItemID.GOLD_ORE, ItemID.MITHRIL_ORE, ItemID.ADAMANTITE_ORE, ItemID.RUNITE_ORE};
     private static final SearchablePixel FLOWING_WATER_PIXEL = new SearchablePixel(-6707525, new SingleThresholdComparator(3), ColorModel.HSL);
-    private static final PolyArea TOP_FLOOR_AREA = new PolyArea(List.of(
-            new WorldPosition(3751, 5678, 0),
-            new WorldPosition(3751, 5677, 0),
-            new WorldPosition(3754, 5675, 0),
-            new WorldPosition(3756, 5675, 0),
-            new WorldPosition(3756, 5674, 0),
-            new WorldPosition(3757, 5673, 0),
-            new WorldPosition(3759, 5672, 0),
-            new WorldPosition(3760, 5671, 0),
-            new WorldPosition(3760, 5669, 0),
-            new WorldPosition(3761, 5668, 0),
-            new WorldPosition(3762, 5667, 0),
-            new WorldPosition(3763, 5667, 0),
-            new WorldPosition(3763, 5666, 0),
-            new WorldPosition(3762, 5665, 0),
-            new WorldPosition(3761, 5664, 0),
-            new WorldPosition(3761, 5663, 0),
-            new WorldPosition(3761, 5660, 0),
-            new WorldPosition(3761, 5655, 0),
-            new WorldPosition(3765, 5655, 0),
-            new WorldPosition(3766, 5655, 0),
-            new WorldPosition(3766, 5657, 0),
-            new WorldPosition(3763, 5660, 0),
-            new WorldPosition(3763, 5662, 0),
-            new WorldPosition(3763, 5664, 0),
-            new WorldPosition(3765, 5666, 0),
-            new WorldPosition(3764, 5669, 0),
-            new WorldPosition(3764, 5670, 0),
-            new WorldPosition(3763, 5671, 0),
-            new WorldPosition(3763, 5674, 0),
-            new WorldPosition(3765, 5676, 0),
-            new WorldPosition(3766, 5677, 0),
-            new WorldPosition(3766, 5678, 0),
-            new WorldPosition(3765, 5679, 0),
-            new WorldPosition(3764, 5680, 0),
-            new WorldPosition(3764, 5683, 0),
-            new WorldPosition(3763, 5684, 0),
-            new WorldPosition(3761, 5685, 0),
-            new WorldPosition(3757, 5685, 0),
-            new WorldPosition(3751, 5685, 0),
-            new WorldPosition(3748, 5685, 0),
-            new WorldPosition(3747, 5686, 0),
-            new WorldPosition(3744, 5686, 0),
-            new WorldPosition(3744, 5687, 0),
-            new WorldPosition(3743, 5687, 0),
-            new WorldPosition(3742, 5686, 0),
-            new WorldPosition(3740, 5686, 0),
-            new WorldPosition(3739, 5685, 0),
-            new WorldPosition(3737, 5685, 0),
-            new WorldPosition(3736, 5686, 0),
-            new WorldPosition(3735, 5686, 0),
-            new WorldPosition(3733, 5686, 0),
-            new WorldPosition(3733, 5683, 0),
-            new WorldPosition(3734, 5682, 0),
-            new WorldPosition(3735, 5681, 0),
-            new WorldPosition(3739, 5681, 0),
-            new WorldPosition(3740, 5682, 0),
-            new WorldPosition(3744, 5682, 0),
-            new WorldPosition(3745, 5681, 0),
-            new WorldPosition(3746, 5681, 0),
-            new WorldPosition(3747, 5680, 0),
-            new WorldPosition(3750, 5680, 0),
-            new WorldPosition(3750, 5679, 0)
-    ));
-    private static final Area[] MINING_MINE_AREAS = new Area[]{SOUTH_AREA, WEST_AREA, TOP_FLOOR_AREA};
-    private static final RectangleArea LADDER_AREA = new RectangleArea(3753, 5670, 2, 3, 0);
-    private static final RectangleArea WATER_INNER_AREA = new RectangleArea(3744, 5661, 3, 10, 0);
     private static final WorldPosition CRATE_POSITION = new WorldPosition(3752, 5674, 0);
-    private static final PolyArea TOP_FLOOR_ACCESSIBLE_AREA = new PolyArea(List.of(
-            new WorldPosition(3758, 5675, 0),
-            new WorldPosition(3758, 5674, 0),
-            new WorldPosition(3762, 5674, 0),
-            new WorldPosition(3762, 5669, 0),
-            new WorldPosition(3761, 5668, 0),
-            new WorldPosition(3761, 5670, 0),
-            new WorldPosition(3760, 5671, 0),
-            new WorldPosition(3759, 5672, 0),
-            new WorldPosition(3758, 5673, 0),
-            new WorldPosition(3757, 5673, 0),
-            new WorldPosition(3756, 5674, 0),
-            new WorldPosition(3755, 5674, 0),
-            new WorldPosition(3754, 5675, 0),
-            new WorldPosition(3753, 5676, 0),
-            new WorldPosition(3752, 5676, 0),
-            new WorldPosition(3752, 5677, 0),
-            new WorldPosition(3751, 5678, 0),
-            new WorldPosition(3750, 5679, 0),
-            new WorldPosition(3750, 5681, 0),
-            new WorldPosition(3747, 5681, 0),
-            new WorldPosition(3746, 5683, 0),
-            new WorldPosition(3747, 5683, 0),
-            new WorldPosition(3748, 5683, 0),
-            new WorldPosition(3749, 5683, 0),
-            new WorldPosition(3749, 5684, 0),
-            new WorldPosition(3750, 5685, 0),
-            new WorldPosition(3751, 5684, 0),
-            new WorldPosition(3753, 5684, 0),
-            new WorldPosition(3754, 5684, 0),
-            new WorldPosition(3754, 5681, 0),
-            new WorldPosition(3753, 5680, 0),
-            new WorldPosition(3754, 5679, 0),
-            new WorldPosition(3755, 5679, 0),
-            new WorldPosition(3756, 5679, 0),
-            new WorldPosition(3756, 5676, 0),
-            new WorldPosition(3757, 5676, 0),
-            new WorldPosition(3758, 5676, 0)));
-
     private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.PAYDIRT, ItemID.HAMMER));
     private static final MenuHook SACK_MENU_HOOK = menuEntries -> {
         for (MenuEntry entry : menuEntries) {
@@ -181,7 +71,7 @@ public class MotherloadMine extends Script {
         }
         return null;
     };
-    private static final PolyArea BOTTOM_FLOOR_ACCESSIBLE_AREA = new PolyArea(List.of(new WorldPosition(3732, 5678, 0), new WorldPosition(3734, 5680, 0), new WorldPosition(3735, 5680, 0), new WorldPosition(3738, 5680, 0), new WorldPosition(3740, 5681, 0), new WorldPosition(3744, 5681, 0), new WorldPosition(3746, 5680, 0), new WorldPosition(3747, 5679, 0), new WorldPosition(3749, 5679, 0), new WorldPosition(3750, 5678, 0), new WorldPosition(3751, 5677, 0), new WorldPosition(3751, 5676, 0), new WorldPosition(3752, 5675, 0), new WorldPosition(3753, 5675, 0), new WorldPosition(3754, 5674, 0), new WorldPosition(3755, 5673, 0), new WorldPosition(3756, 5673, 0), new WorldPosition(3757, 5672, 0), new WorldPosition(3758, 5672, 0), new WorldPosition(3759, 5671, 0), new WorldPosition(3760, 5670, 0), new WorldPosition(3760, 5668, 0), new WorldPosition(3761, 5667, 0), new WorldPosition(3761, 5665, 0), new WorldPosition(3760, 5664, 0), new WorldPosition(3760, 5661, 0), new WorldPosition(3760, 5658, 0), new WorldPosition(3759, 5657, 0), new WorldPosition(3759, 5656, 0), new WorldPosition(3759, 5655, 0), new WorldPosition(3760, 5654, 0), new WorldPosition(3762, 5654, 0), new WorldPosition(3762, 5653, 0), new WorldPosition(3761, 5652, 0), new WorldPosition(3761, 5651, 0), new WorldPosition(3758, 5651, 0), new WorldPosition(3755, 5648, 0), new WorldPosition(3748, 5645, 0), new WorldPosition(3740, 5645, 0), new WorldPosition(3731, 5651, 0), new WorldPosition(3729, 5650, 0), new WorldPosition(3729, 5651, 0), new WorldPosition(3728, 5652, 0), new WorldPosition(3728, 5655, 0), new WorldPosition(3728, 5667, 0), new WorldPosition(3728, 5674, 0)));
+    public static final Color PAINT_OUTLINE = new Color(255, 104, 6);
     /**
      * This is used as a failsafe to temporarily block interacting with a vein if the respawn circle isn't visible but the object is.
      * For example. The object is half on the game screen, but the respawn circle isn't (covered by a UI component etc.)
@@ -200,6 +90,7 @@ public class MotherloadMine extends Script {
     private Integer deposited;
     private int payDirtMined = 0;
     private Stopwatch dropDelayTimer;
+    private int failCount = 0;
 
     public MotherloadMine(Object scriptCore) {
         super(scriptCore);
@@ -224,14 +115,14 @@ public class MotherloadMine extends Script {
         if (myPosition == null) {
             return false;
         }
-        if (TOP_FLOOR_AREA.contains(myPosition)) {
-            if (!TOP_FLOOR_ACCESSIBLE_AREA.contains(myPosition)) {
+        if (AreaProvider.TOP_FLOOR_AREA.contains(myPosition)) {
+            if (!AreaProvider.TOP_FLOOR_ACCESSIBLE_AREA.contains(myPosition)) {
                 log(MotherloadMine.class, "Outside accessible area, stopping script as rocks are not handled atm.");
                 stop();
                 return true;
             }
         } else {
-            if (!BOTTOM_FLOOR_ACCESSIBLE_AREA.contains(myPosition)) {
+            if (!AreaProvider.BOTTOM_FLOOR_ACCESSIBLE_AREA.contains(myPosition)) {
                 log(MotherloadMine.class, "Outside accessible area, stopping script as rocks are not handled atm.");
                 stop();
                 return true;
@@ -362,7 +253,7 @@ public class MotherloadMine extends Script {
         if (myPosition == null) {
             return;
         }
-        if (TOP_FLOOR_AREA.contains(myPosition)) {
+        if (AreaProvider.TOP_FLOOR_AREA.contains(myPosition)) {
             // climb down ladder if we are on the top floor
             climbDownLadder();
             return;
@@ -488,10 +379,10 @@ public class MotherloadMine extends Script {
         }
 
         if (depositBoxSnapshot.containsAny(ITEM_IDS_TO_NOT_DEPOSIT)) {
-        if (!getWidgetManager().getDepositBox().depositAll(ITEM_IDS_TO_NOT_DEPOSIT)) {
-            log(MotherloadMine.class, "Failed depositing items...");
-            return;
-        }
+            if (!getWidgetManager().getDepositBox().depositAll(ITEM_IDS_TO_NOT_DEPOSIT)) {
+                log(MotherloadMine.class, "Failed depositing items...");
+                return;
+            }
         } else {
             // deposit all button
             if (!getWidgetManager().getDepositBox().depositAll(Collections.emptySet())) {
@@ -531,13 +422,13 @@ public class MotherloadMine extends Script {
                     if (worldPosition == null) {
                         return false;
                     }
-                    return TOP_FLOOR_AREA.contains(worldPosition);
+                    return AreaProvider.TOP_FLOOR_AREA.contains(worldPosition);
                 }, random(7000, 12000));
                 return true;
             }
         } else {
             // walk to ladder
-            getWalker().walkTo(LADDER_AREA.getRandomPosition());
+            getWalker().walkTo(AreaProvider.LADDER_AREA.getRandomPosition());
             return true;
         }
         return false;
@@ -552,7 +443,7 @@ public class MotherloadMine extends Script {
         if (outsideAccessibleAreaCheck()) {
             return;
         }
-        if (TOP_FLOOR_AREA.contains(myPosition)) {
+        if (AreaProvider.TOP_FLOOR_AREA.contains(myPosition)) {
             climbDownLadder();
             return;
         }
@@ -589,7 +480,7 @@ public class MotherloadMine extends Script {
                     if (worldPosition == null) {
                         return false;
                     }
-                    return !TOP_FLOOR_AREA.contains(worldPosition);
+                    return !AreaProvider.TOP_FLOOR_AREA.contains(worldPosition);
                 }, random(6000, 12000));
                 return true;
             }
@@ -612,7 +503,7 @@ public class MotherloadMine extends Script {
             log(MotherloadMine.class, "Position is null...");
             return;
         }
-        if (TOP_FLOOR_AREA.contains(myPosition) && !TOP_FLOOR_ACCESSIBLE_AREA.contains(myPosition)) {
+        if (AreaProvider.TOP_FLOOR_AREA.contains(myPosition) && !AreaProvider.TOP_FLOOR_ACCESSIBLE_AREA.contains(myPosition)) {
             log(MotherloadMine.class, "Outside accessible area, stopping script as rocks are not handled atm.");
             stop();
             return;
@@ -681,7 +572,7 @@ public class MotherloadMine extends Script {
     }
 
     private void scanWater() {
-        List<WorldPosition> waterTiles = WATER_INNER_AREA.getSurroundingPositions(1);
+        List<WorldPosition> waterTiles = AreaProvider.WATER_INNER_AREA.getSurroundingPositions(1);
         boolean found = false;
         for (WorldPosition worldPosition : waterTiles) {
             // create a polygon for the tile
@@ -747,8 +638,14 @@ public class MotherloadMine extends Script {
         MenuHook veinMenuHook = getVeinMenuHook(closestVein);
         if (!getFinger().tapGameScreen(veinPolygon, veinMenuHook)) {
             // if we fail to interact with the object
+            failCount++;
+            if (failCount > 1) {
+                log(MotherloadMine.class, "Failed to interact with the closest vein multiple times, ignoring it.");
+                objectPositionBlacklist.put(closestVein.getWorldPosition(), System.currentTimeMillis());
+            }
             return;
         }
+        failCount = 0;
 
         if (firstTimeBack) {
             firstTimeBack = false;
@@ -922,7 +819,7 @@ public class MotherloadMine extends Script {
                 }
             }
             if (selectedMineArea == MineArea.TOP) {
-                if (!TOP_FLOOR_ACCESSIBLE_AREA.contains(rsObject.getWorldPosition())) {
+                if (!AreaProvider.TOP_FLOOR_ACCESSIBLE_AREA.contains(rsObject.getWorldPosition())) {
                     return false;
                 }
             }
@@ -955,13 +852,40 @@ public class MotherloadMine extends Script {
 
     @Override
     public void onPaint(Canvas c) {
-        c.fillRect(5, 40, 200, 150, Color.BLACK.getRGB(), 0.7);
-        c.drawRect(5, 40, 200, 150, Color.BLACK.getRGB());
-        int y = 40;
-        c.drawText("Paydirt mined: " + payDirtMined, 10, y += 20, Color.WHITE.getRGB(), ARIEL);
-        c.drawText("Task: " + (task == null ? "None" : task), 10, y += 20, Color.WHITE.getRGB(), ARIEL);
-        c.drawText("Space left: " + (spaceLeft == null ? 0 : spaceLeft), 10, y += 20, Color.WHITE.getRGB(), ARIEL);
-        c.drawText("Amount deposited: " + (deposited == null ? 0 : deposited), 10, y += 20, Color.WHITE.getRGB(), ARIEL);
+        Rectangle usernameBounds = getWidgetManager().getChatbox().getUsernameBounds();
+        if (usernameBounds != null) {
+            c.fillRect(usernameBounds, Color.BLACK.getRGB());
+        }
+        FontMetrics metrics = c.getFontMetrics(ARIEL);
+        int padding = 5;
+
+        List<String> lines = new ArrayList<>();
+        lines.add("Task: " + (task == null ? "None" : task));
+        lines.add("");
+        lines.add("Paydirt mined: " + payDirtMined);
+        lines.add("Space left: " + (spaceLeft == null ? 0 : spaceLeft));
+        lines.add("Amount deposited: " + (deposited == null ? 0 : deposited));
+
+        // Calculate max width and total height
+        int maxWidth = 0;
+        for (String line : lines) {
+            int w = metrics.stringWidth(line);
+            if (w > maxWidth) maxWidth = w;
+        }
+        int totalHeight = metrics.getHeight() * lines.size();
+        int drawX = 10;
+        // Draw background rectangle
+        c.fillRect(drawX - padding, 40, maxWidth + padding * 2, totalHeight + padding * 2, Color.BLACK.getRGB(), 0.8);
+        c.drawRect(drawX - padding, 40, maxWidth + padding * 2, totalHeight + padding * 2, PAINT_OUTLINE.getRGB());
+        // Draw text lines
+        int drawY = 40;
+        for (int i = 0; i < lines.size(); i++) {
+            int color = Color.WHITE.getRGB();
+            String line = lines.get(i);
+            c.drawText(line, drawX, drawY += metrics.getHeight(), color, ARIEL);
+        }
+
+        // highlight blacklisted positions
         for (Map.Entry<WorldPosition, Long> blackListedPosition : objectPositionBlacklist.entrySet()) {
             Polygon polygon = getSceneProjector().getTileCube(blackListedPosition.getKey(), 150);
             if (polygon == null) {
@@ -976,7 +900,7 @@ public class MotherloadMine extends Script {
     }
 
     private boolean needsToWalkToMineArea(WorldPosition worldPosition) {
-        for (Area area : MINING_MINE_AREAS) {
+        for (Area area : AreaProvider.MINING_MINE_AREAS) {
             if (area == null) {
                 continue;
             }
@@ -1000,9 +924,9 @@ public class MotherloadMine extends Script {
     }
 
     public enum MineArea {
-        TOP("Top floor", TOP_FLOOR_AREA),
-        BOTTOM_SOUTH("Bottom floor - prefer south", SOUTH_AREA),
-        BOTTOM_WEST("Bottom floor - prefer west", WEST_AREA);
+        TOP("Top floor", AreaProvider.TOP_FLOOR_AREA),
+        BOTTOM_SOUTH("Bottom floor - prefer south", AreaProvider.SOUTH_AREA),
+        BOTTOM_WEST("Bottom floor - prefer west", AreaProvider.WEST_AREA);
 
         private final Area area;
         private final String name;

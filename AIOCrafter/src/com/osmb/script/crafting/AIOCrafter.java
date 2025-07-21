@@ -6,6 +6,7 @@ import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.ui.GameState;
+import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.crafting.javafx.ScriptOptions;
 import com.osmb.script.crafting.method.Method;
@@ -125,24 +126,18 @@ public class AIOCrafter extends Script {
         }
         RSObject object = (RSObject) getUtils().getClosest(banksFound);
         if (!object.interact(BANK_ACTIONS)) return;
-        waitForBankToOpen();
+        waitForBankToOpen(object);
     }
 
-    private void waitForBankToOpen() {
-        AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
-        AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
+    private void waitForBankToOpen(RSObject object) {
+        long positionChangeTimeout = random(1000, 2500);
         submitHumanTask(() -> {
-            WorldPosition position = getWorldPosition();
-            if (position == null) {
-                return false;
+            int tileDistance = object.getTileDistance();
+            if (tileDistance > 1 && getLastPositionChangeMillis() >= positionChangeTimeout) {
+                return true;
             }
-            if (pos.get() == null || !position.equals(pos.get())) {
-                positionChangeTimer.get().reset();
-                pos.set(position);
-            }
-
-            return getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
-        }, 15000);
+            return getWidgetManager().getBank().isVisible();
+        }, Utils.random(8000, 13000), false, true);
     }
 
     public void setBank(boolean bank) {
