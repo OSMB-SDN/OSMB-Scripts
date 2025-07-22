@@ -5,7 +5,7 @@ import com.osmb.api.item.ItemID;
 
 public enum UnfinishedPotion implements Potion{
     AVANTOE(ItemID.AVANTOE_POTION_UNF, new Ingredient[]{new Ingredient(ItemID.AVANTOE), new Ingredient(ItemID.VIAL_OF_WATER)}),
-    CADANTINE_BLOOD(ItemID.CADANTINE_BLOOD_POTION_UNF, new Ingredient[]{new Ingredient(ItemID.CADANTINE), new Ingredient(ItemID.VIAL_OF_BLOOD)}),
+    CADANTINE_BLOOD(ItemID.CADANTINE_BLOOD_POTION_UNF, new Ingredient[]{new Ingredient(ItemID.CADANTINE), new Ingredient(ItemID.VIAL_OF_BLOOD_22446)}),
     CADANTINE(ItemID.CADANTINE_POTION_UNF, new Ingredient[]{new Ingredient(ItemID.CADANTINE), new Ingredient(ItemID.VIAL_OF_WATER)}),
     DWARF_WEED(ItemID.DWARF_WEED_POTION_UNF, new Ingredient[]{new Ingredient(ItemID.DWARF_WEED), new Ingredient(ItemID.VIAL_OF_WATER)}),
     GUAM(ItemID.GUAM_POTION_UNF, new Ingredient[]{new Ingredient(ItemID.GUAM_LEAF), new Ingredient(ItemID.VIAL_OF_WATER)}),
