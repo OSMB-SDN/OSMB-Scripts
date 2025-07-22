@@ -497,7 +497,7 @@ public class Wintertodt extends Script {
 
     //TODO break out when fletching and we have enough to reach goal
     private void chopRoots() {
-        Optional<RSObject> roots = getObjectManager().getObject(object -> {
+        RSObject roots = getObjectManager().getRSObject(object -> {
             String name = object.getName();
             if (name == null || !name.equalsIgnoreCase("bruma roots")) {
                 return false;
@@ -505,11 +505,11 @@ public class Wintertodt extends Script {
             return object.getWorldPosition().equals(focusedBrazier.getRootsPosition());
         });
 
-        if ((roots.isEmpty())) {
+        if (roots == null) {
             log(Wintertodt.class, "Can't find Bruma roots in scene...");
             return;
         }
-        if (roots.get().interact("Chop")) {
+        if (roots.interact("Chop")) {
             // wait until inventory is full
             AtomicInteger previousFreeSlots = new AtomicInteger(-1);
             Timer slotChangeTimer = new Timer();
@@ -754,14 +754,13 @@ public class Wintertodt extends Script {
     }
 
     private RSObject getBrazier() {
-        Optional<RSObject> brazier = getObjectManager().getObject(object -> {
+        return getObjectManager().getRSObject(object -> {
             String name = object.getName();
             if (name == null || !name.equalsIgnoreCase("brazier")) {
                 return false;
             }
             return object.getWorldPosition().equals(focusedBrazier.getBrazierPosition());
         });
-        return brazier.orElse(null);
     }
 
     private void repairLightBrazier() {
