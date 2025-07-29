@@ -35,7 +35,4 @@ public class PixelProvider {
             new SearchablePixel(-8893696, new SingleThresholdComparator(2), ColorModel.HSL),
     };
 
-    static final SearchablePixel[] AXE_PIXELS = new SearchablePixel[]{
-            new SearchablePixel(-8758767, new SingleThresholdComparator(1), ColorModel.HSL)
-    };
 }

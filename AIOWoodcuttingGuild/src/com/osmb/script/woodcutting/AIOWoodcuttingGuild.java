@@ -46,7 +46,7 @@ public class AIOWoodcuttingGuild extends Script {
     private boolean powerChop = false;
     private XPTracker xpTracker;
     private int logsChopped = 0;
-    private SearchableImage woodcuttingSprite;
+    private final SearchableImage woodcuttingSprite;
     /**
      * Flag to indicate if this is the first time back from the bank. This is used to prevent the script being as repetitive by choosing one of the closest tree's instead of just the closest tree every time.
      */
