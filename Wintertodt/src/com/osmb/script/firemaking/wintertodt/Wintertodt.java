@@ -1,4 +1,4 @@
-package com.osmb.script.wintertodt;
+package com.osmb.script.firemaking.wintertodt;
 
 import com.osmb.api.definition.ItemDefinition;
 import com.osmb.api.input.MenuHook;
@@ -21,7 +21,7 @@ import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.api.walker.WalkConfig;
 import com.osmb.api.world.World;
-import com.osmb.script.wintertodt.ui.ScriptOptions;
+import com.osmb.script.firemaking.wintertodt.ui.ScriptOptions;
 import javafx.scene.Scene;
 
 import java.awt.*;
@@ -38,12 +38,11 @@ public class Wintertodt extends Script {
     public static final int FIRST_MILESTONE_POINTS = 500;
     private static final List<Integer> REJUVENATION_POTION_IDS = List.of(ItemID.REJUVENATION_POTION_1, ItemID.REJUVENATION_POTION_2, ItemID.REJUVENATION_POTION_3, ItemID.REJUVENATION_POTION_4);
     private static final RectangleArea BOSS_AREA = new RectangleArea(1600, 3968, 63, 63, 0);
-    private static final Font FONT = new Font("Serif", Font.BOLD, 24);
     private static final RectangleArea SAFE_AREA = new RectangleArea(1625, 3968, 10, 19, 0);
     private static final RectangleArea SOCIAL_SAFE_AREA = new RectangleArea(1626, 3980, 8, 7, 0);
     private static final WorldPosition[] REJUVENATION_CRATE_POSITIONS = new WorldPosition[]{new WorldPosition(1634, 3982, 0), new WorldPosition(1626, 3982, 0)};
     private static final WorldPosition BREWMA_POSITION = new WorldPosition(1635, 3986, 0);
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.BRUMA_HERB, ItemID.BRUMA_ROOT, ItemID.BRUMA_KINDLING, ItemID.REJUVENATION_POTION_UNF));
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.BRUMA_HERB, ItemID.BRUMA_ROOT, ItemID.BRUMA_KINDLING, ItemID.REJUVENATION_POTION_UNF, ItemID.KNIFE));
     private static final Font ARIEL = new Font("Arial", Font.PLAIN, 14);
     private final Stopwatch potionDrinkCooldown = new Stopwatch();
     private WintertodtOverlay overlay;
@@ -65,8 +64,8 @@ public class Wintertodt extends Script {
     private int potionsToPrep;
     private int idleTimeout;
     private int foodItemID;
-    private HealType healType;
-    private FletchType fletchType;
+    private ScriptOptions.HealType healType;
+    private ScriptOptions.FletchType fletchType;
     private ItemGroupResult inventorySnapshot;
     private WintertodtOverlay.BrazierStatus brazierStatus;
     private int nextMilestone;
@@ -317,7 +316,7 @@ public class Wintertodt extends Script {
         }
 
         boolean reachedFirstMilestone = points >= FIRST_MILESTONE_POINTS;
-        boolean fletch = fletchType == FletchType.YES || !reachedFirstMilestone && fletchType == FletchType.UNTIL_MILESTONE;
+        boolean fletch = fletchType == ScriptOptions.FletchType.YES || !reachedFirstMilestone && fletchType == ScriptOptions.FletchType.UNTIL_MILESTONE;
 
         if (brazier != null && brazier.getTileDistance() <= 3) {
             // if close to brazier and have fuel
@@ -365,7 +364,7 @@ public class Wintertodt extends Script {
         int kindlingPoints = 25 * inventorySnapshot.getAmount(ItemID.BRUMA_KINDLING);
         boolean reachedFirstMilestone = currentPoints >= 500;
 
-        boolean fletch = fletchType == FletchType.YES || !reachedFirstMilestone && fletchType == FletchType.UNTIL_MILESTONE;
+        boolean fletch = fletchType == ScriptOptions.FletchType.YES || !reachedFirstMilestone && fletchType == ScriptOptions.FletchType.UNTIL_MILESTONE;
 
         int rootXp = fletch ? 25 : 10;
         int rootsPoints = inventorySnapshot.getAmount(ItemID.BRUMA_ROOT) * rootXp;
@@ -636,8 +635,9 @@ public class Wintertodt extends Script {
         return getSceneManager().getTiles()[brazier.getPlane()][localX][localY];
     }
 
+    public static final int FLETCHING_KNIFE_ID = 31043;
     private void fletchRoots() {
-        ItemSearchResult knife = inventorySnapshot.getItem(ItemID.KNIFE);
+        ItemSearchResult knife = inventorySnapshot.getItem(ItemID.KNIFE, FLETCHING_KNIFE_ID);
         if (knife == null) {
             log(Wintertodt.class, "Missing knife...");
             missingEquipment.add(Equipment.KNIFE);

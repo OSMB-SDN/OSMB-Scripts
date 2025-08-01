@@ -1,10 +1,10 @@
-package com.osmb.script.wintertodt;
+package com.osmb.script.firemaking.wintertodt;
 
 import com.osmb.api.item.ItemID;
 
 public enum Equipment {
     TINDERBOX("Tinderbox", new int[]{ItemID.TINDERBOX, ItemID.BRUMA_TORCH, ItemID.BRUMA_TORCH_OFFHAND}),
-    KNIFE("Knife", new int[]{ItemID.KNIFE}),
+    KNIFE("Knife", new int[]{ItemID.KNIFE, Wintertodt.FLETCHING_KNIFE_ID}),
     HAMMER("Hammer", new int[]{ItemID.HAMMER}),
     AXE("Axe", new int[]{
             // normal axes

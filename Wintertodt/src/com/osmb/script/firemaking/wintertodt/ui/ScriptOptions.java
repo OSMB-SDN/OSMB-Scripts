@@ -1,10 +1,7 @@
-package com.osmb.script.wintertodt.ui;
+package com.osmb.script.firemaking.wintertodt.ui;
 
 import com.osmb.api.ScriptCore;
-import com.osmb.api.javafx.ItemSearchDialogue;
-import com.osmb.script.wintertodt.Brazier;
-import com.osmb.script.wintertodt.FletchType;
-import com.osmb.script.wintertodt.HealType;
+import com.osmb.script.firemaking.wintertodt.Brazier;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
@@ -15,18 +12,17 @@ import java.util.prefs.Preferences;
 
 public class ScriptOptions extends VBox {
 
-    private final ComboBox<Brazier> focusedBrazierComboBox;
-    private final RadioButton makePotionsRadio;
-    private final RadioButton potionsBrewmaRadio;
-    private final RadioButton fletchRootsNoRadio;
-    private final RadioButton fletchRootsYesRadio;
-    private final RadioButton fletchUntilMilestone;
-    // private final CheckBox prioritiseSafeSpots;
-
     private static final Preferences prefs = Preferences.userNodeForPackage(ScriptOptions.class);
     private static final String PREF_BRAZIER = "wintertodt_brazier";
     private static final String PREF_HEAL_TYPE = "wintertodt_heal";
     private static final String PREF_FLETCH_TYPE = "wintertodt_fletch";
+    private final ComboBox<Brazier> focusedBrazierComboBox;
+    private final RadioButton makePotionsRadio;
+    // private final CheckBox prioritiseSafeSpots;
+    private final RadioButton potionsBrewmaRadio;
+    private final RadioButton fletchRootsNoRadio;
+    private final RadioButton fletchRootsYesRadio;
+    private final RadioButton fletchUntilMilestone;
 
     public ScriptOptions(ScriptCore core) {
         Label brazierLabel = new Label("Brazier to focus");
@@ -129,4 +125,15 @@ public class ScriptOptions extends VBox {
         }
         return null;
     }
+
+    public enum FletchType {
+        NO,
+        YES,
+        UNTIL_MILESTONE
+    }
+    public enum HealType {
+        REJUVENATION,
+        REJUVENATION_BREWMA
+    }
 }
+

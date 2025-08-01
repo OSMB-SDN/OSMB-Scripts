@@ -1,4 +1,4 @@
-package com.osmb.script.wintertodt;
+package com.osmb.script.firemaking.wintertodt;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.definition.SpriteDefinition;
