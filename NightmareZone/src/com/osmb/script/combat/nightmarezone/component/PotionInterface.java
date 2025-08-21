@@ -1,4 +1,4 @@
-package com.osmb.script.component;
+package com.osmb.script.combat.nightmarezone.component;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.shape.Rectangle;
@@ -10,7 +10,7 @@ import com.osmb.api.visual.color.tolerance.ToleranceComparator;
 import com.osmb.api.visual.drawing.BorderPalette;
 import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.api.visual.ocr.fonts.Font;
-import com.osmb.script.NightmareZone;
+import com.osmb.script.combat.nightmarezone.NightmareZone;
 
 import static com.osmb.api.visual.color.ColorUtils.ORANGE_UI_TEXT;
 

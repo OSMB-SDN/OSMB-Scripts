@@ -1,4 +1,4 @@
-package com.osmb.script.potion;
+package com.osmb.script.combat.nightmarezone.potion;
 
 import com.osmb.api.item.ItemID;
 

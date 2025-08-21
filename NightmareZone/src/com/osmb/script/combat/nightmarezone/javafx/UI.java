@@ -1,16 +1,16 @@
-package com.osmb.script.javafx;
+package com.osmb.script.combat.nightmarezone.javafx;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.javafx.ItemSearchDialogue;
 import com.osmb.api.javafx.JavaFXUtils;
-import com.osmb.script.AFKPosition;
-import com.osmb.script.Ammo;
-import com.osmb.script.LowerHealthMethod;
-import com.osmb.script.SpecialAttackWeapon;
-import com.osmb.script.potion.BarrelPotion;
-import com.osmb.script.potion.Potion;
-import com.osmb.script.potion.StandardPotion;
+import com.osmb.script.combat.nightmarezone.AFKPosition;
+import com.osmb.script.combat.nightmarezone.Ammo;
+import com.osmb.script.combat.nightmarezone.LowerHealthMethod;
+import com.osmb.script.combat.nightmarezone.SpecialAttackWeapon;
+import com.osmb.script.combat.nightmarezone.potion.BarrelPotion;
+import com.osmb.script.combat.nightmarezone.potion.Potion;
+import com.osmb.script.combat.nightmarezone.potion.StandardPotion;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;

@@ -1,4 +1,4 @@
-package com.osmb.script;
+package com.osmb.script.combat.nightmarezone;
 
 import com.osmb.api.definition.ItemDefinition;
 import com.osmb.api.input.MenuEntry;
@@ -30,13 +30,14 @@ import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.api.visual.ocr.fonts.Font;
 import com.osmb.api.walker.WalkConfig;
-import com.osmb.script.component.ChestInterface;
-import com.osmb.script.component.PotionInterface;
-import com.osmb.script.javafx.UI;
-import com.osmb.script.overlay.AbsorptionPointsOverlay;
-import com.osmb.script.potion.BarrelPotion;
-import com.osmb.script.potion.Potion;
-import com.osmb.script.potion.StandardPotion;
+import com.osmb.api.walker.pathing.CollisionManager;
+import com.osmb.script.combat.nightmarezone.component.ChestInterface;
+import com.osmb.script.combat.nightmarezone.component.PotionInterface;
+import com.osmb.script.combat.nightmarezone.javafx.UI;
+import com.osmb.script.combat.nightmarezone.overlay.AbsorptionPointsOverlay;
+import com.osmb.script.combat.nightmarezone.potion.BarrelPotion;
+import com.osmb.script.combat.nightmarezone.potion.Potion;
+import com.osmb.script.combat.nightmarezone.potion.StandardPotion;
 import javafx.scene.Scene;
 
 import java.awt.*;
@@ -46,8 +47,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
-import static com.osmb.script.Options.*;
-import static com.osmb.script.Status.*;
+import static com.osmb.script.combat.nightmarezone.Options.*;
+import static com.osmb.script.combat.nightmarezone.Status.*;
 
 @ScriptDefinition(name = "Nightmare zone", description = "", author = "Joe", skillCategory = SkillCategory.COMBAT, version = 1.0)
 public class NightmareZone extends Script {
@@ -97,6 +98,7 @@ public class NightmareZone extends Script {
     private ItemGroupResult bankSnapshot;
     private BuffOverlay ammoOverlay;
     private Integer ammoCount = null;
+    private AtomicReference<Timer> ammoTimer;
 
     public NightmareZone(Object scriptCore) {
         super(scriptCore);
@@ -112,7 +114,7 @@ public class NightmareZone extends Script {
 
     public static void main(String[] args) {
         for (int i = 0; i < 200; i++) {
-            System.out.println(RandomUtils.gaussianRandom(300, 2500, 200, 700));
+            System.out.println(RandomUtils.gaussianRandom(250, 1200, 200, 300));
         }
     }
 
@@ -219,7 +221,7 @@ public class NightmareZone extends Script {
         }
 
         idleTimeout = random(2000, 4000);
-        nextSecondaryDrink = secondaryPotion == StandardPotion.PRAYER_POTION ? random(10, 60) : random(50, 200);
+        nextSecondaryDrink = secondaryPotion == StandardPotion.PRAYER_POTION ? random(10, 60) : random(50, 300);
 
         // add items to recognise
 
@@ -292,13 +294,19 @@ public class NightmareZone extends Script {
 
         if (ammoOverlay != null) {
             if (ammoOverlay.isVisible()) {
+                ammoTimer = null;
                 String buffText = ammoOverlay.getBuffText();
                 buffText = buffText.replaceAll("\\D", "");
                 this.ammoCount = Integer.parseInt(buffText);
             } else {
-                log(NightmareZone.class, "Cannot find ammo buff overlay, stopping script.");
-                stop();
-                return null;
+                if (ammoTimer == null) {
+                    ammoTimer = new AtomicReference<>(new Timer());
+                }
+                if (ammoTimer.get().timeElapsed() > 10000) {
+                    log(NightmareZone.class, "Cannot find ammo buff overlay for 10 seconds, stopping script.");
+                    stop();
+                    return null;
+                }
             }
         }
 
@@ -348,7 +356,7 @@ public class NightmareZone extends Script {
         }
 
         // if we have free slots remaining, or if the absorptions aren't all (4) dose
-        int secondariesNeeded = getSecondaryPotionsNeeded();
+        int secondariesNeeded = getSecondaryPotionsNeeded(inventorySnapshot);
         if (secondariesNeeded > 0 || !allFullDoses(secondaryPotions, secondaryPotion.getFullID())) {
             if (secondaryPotion instanceof BarrelPotion) {
                 // check ignore flags (used for when we don't have enough points to fully stock etc.)
@@ -588,7 +596,7 @@ public class NightmareZone extends Script {
             case WALK_TO_AFK_POS -> walkToAFKPos();
             case LOWER_HP -> lowerHealth(random(2000, 8000));
             case EQUIP_ITEMS -> equipItems();
-            case DRINK_ABSORPTION -> drinkAbsorption(random(2000, 8000));
+            case DRINK_ABSORPTION -> drinkAbsorption(random(3000, 8000));
             case ACTIVATE_PRAY -> activatePrayer();
             case DRINK_PRAYER_POTION -> drinkPrayerPotion();
             case SUICIDE -> suicide();
@@ -676,12 +684,12 @@ public class NightmareZone extends Script {
 
     private void flickPrayer() {
         UIResult<Boolean> prayersActivated = getWidgetManager().getMinimapOrbs().isQuickPrayersActivated();
-        if (prayersActivated.isNotVisible()) {
+        if (!prayersActivated.isFound()) {
             log(NightmareZone.class, "Prayer orb not visible, make sure regeneration indicators are disabled...");
             return;
         }
 
-        if (prayersActivated.isFound() && prayersActivated.get()) {
+        if (prayersActivated.get()) {
             log(NightmareZone.class, "Prayers activated already");
             if (getWidgetManager().getMinimapOrbs().setQuickPrayers(false)) {
                 log(NightmareZone.class, "Disabled prayers, resetting");
@@ -751,12 +759,16 @@ public class NightmareZone extends Script {
                 return true;
             }
             ItemSearchResult absorption = inventorySnapshot.getRandomItem(secondaryPotion.getItemIDs());
+            if (absorption == null) {
+                return true;
+            }
             getFinger().tap(false, absorption);
-            submitTask(() -> false, RandomUtils.gaussianRandom(350, 1200, 500, 500));
+            submitTask(() -> false, RandomUtils.gaussianRandom(250, 1200, 200, 300));
             return false;
         }, timeout);
-        nextSecondaryDrink = random(50, 200);
+        nextSecondaryDrink = random(50, 300);
     }
+
 
     private void equipItems() {
         ItemSearchResult item = itemsToEquip.get(random(itemsToEquip.size()));
@@ -970,8 +982,8 @@ public class NightmareZone extends Script {
                     log(NightmareZone.class, "Dialogue title not found...");
                     return false;
                 }
-                UIResult<String[]> options = getWidgetManager().getDialogue().getOptions();
-                if (options.isNotFound()) {
+                List<String> options = getWidgetManager().getDialogue().getOptions();
+                if (options == null) {
                     log(NightmareZone.class, "No dialogue options found...");
                     return false;
                 }
@@ -979,7 +991,7 @@ public class NightmareZone extends Script {
                     log(NightmareZone.class, "Title: " + title.get() + " Dom Title: " + domOption.title);
                     if (!title.get().toLowerCase().startsWith(domOption.title.toLowerCase())) continue;
                     log(NightmareZone.class, "Checking options...");
-                    for (String option : options.get()) {
+                    for (String option : options) {
                         log(NightmareZone.class, "Option: " + option + " Our option: " + domOption.option);
                         if (option.toLowerCase().startsWith(domOption.option.toLowerCase())) {
                             log(NightmareZone.class, "Option matches, selecting");
@@ -1089,6 +1101,10 @@ public class NightmareZone extends Script {
 
             return potionInterface.isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
         }, 15000);
+
+        if(getWidgetManager().getDialogue().selectItem(ItemID.RAW_FISHCAKE)) {
+            // sleep until finished doing whatever
+        }
     }
 
     private void walkToPotion() {
@@ -1096,14 +1112,17 @@ public class NightmareZone extends Script {
         // walk to tile
         WalkConfig.Builder builder = new WalkConfig.Builder();
         builder.breakCondition(() -> {
-            if (getWorldPosition() == null) {
+            WorldPosition position = getPosition();
+            if (position == null) {
                 return false;
             }
             RSTile potionTile = getSceneManager().getTile(POTION_TILE);
             if (potionTile == null) {
                 return false;
             }
-            if (potionTile.distance() >= 13) {
+            double distance = potionTile.distance(position);
+            log("Distance to potion tile: " + distance);
+            if (distance >= 13) {
                 return false;
             }
             Polygon tilePoly2 = potionTile.getTilePoly();
@@ -1113,6 +1132,10 @@ public class NightmareZone extends Script {
             return getWidgetManager().insideGameScreen(tilePoly2, List.of(ChatboxComponent.class));
         });
         getWalker().walkTo(POTION_TILE, builder.build());
+    }
+
+    private WorldPosition getPosition() {
+        return getWorldPosition();
     }
 
     private void handleChest() {
@@ -1352,7 +1375,7 @@ public class NightmareZone extends Script {
         }
         if (handleSecondaryPotion) {
             if (bankSnapshot.contains(secondaryPotion.getFullID())) {
-                int amountNeeded = getSecondaryPotionsNeeded();
+                int amountNeeded = getSecondaryPotionsNeeded(inventorySnapshot);
                 log(NightmareZone.class, "Amount needed: " + amountNeeded);
                 if (amountNeeded != 0)
                     itemsToWithdraw.put(secondaryPotion.getFullID(), amountNeeded);
@@ -1390,15 +1413,14 @@ public class NightmareZone extends Script {
     }
 
 
-    private int getSecondaryPotionsNeeded() {
-        int boostPots = statBoostPotion != null ? statBoostPotionAmount : 0;
+    private int getSecondaryPotionsNeeded(ItemGroupResult inventorySnapshot) {
+        int amountOfSecondaryPotions = inventorySnapshot.getAmount(secondaryPotion.getFullID());
         List<Integer> potionsToIgnore = new ArrayList<>(secondaryPotion.getItemIDs());
         if (statBoostPotion != null) {
-            potionsToIgnore.addAll(secondaryPotion.getItemIDs());
+            potionsToIgnore.addAll(statBoostPotion.getItemIDs());
         }
-
         int freeSlotsExcludingPotions = inventorySnapshot.getFreeSlots(potionsToIgnore);
-        return freeSlotsExcludingPotions - boostPots - secondaryPotions.size();
+        return freeSlotsExcludingPotions - statBoostPotionAmount - amountOfSecondaryPotions;
     }
 
     private void restockSecondaryPotions() {
@@ -1512,21 +1534,33 @@ public class NightmareZone extends Script {
     }
 
     private void interactTakeBarrel(BarrelPotion potionType, RSObject barrel) {
+        WorldPosition myPos = getExpectedWorldPosition();
+        if (myPos == null) {
+            log(NightmareZone.class, "My position is null");
+            return;
+        }
         if (!barrel.interact("Take")) {
             log(NightmareZone.class, "Failed to interact with barrel: " + barrel.getName());
             return;
         }
         log(NightmareZone.class, "Interacted with barrel successfully...");
-
+        if (CollisionManager.isCardinallyAdjacent(myPos, barrel.getWorldPosition())) {
+            log(NightmareZone.class, "Waiting until we've started moving...");
+            boolean moving = submitTask(() -> getLastPositionChangeMillis() < 500, Utils.random(1000, 3000));
+            if(!moving) {
+                log(NightmareZone.class, "Not moving...");
+                return;
+            }
+        }
         submitTask(() -> {
-            WorldPosition myPos = getWorldPosition();
-            if (myPos == null) {
+            WorldPosition myPos_ = getExpectedWorldPosition();
+            if (myPos_ == null) {
                 return false;
             }
             if (getLastPositionChangeMillis() > idleTimeout) {
                 idleTimeout = random(2000, 4000);
                 // if no interface pops up & we're next to the barrel, then assume no doses.
-                if (barrel.getTileDistance() <= 1) {
+                if (CollisionManager.isCardinallyAdjacent(myPos_, barrel.getWorldPosition())) {
                     log(NightmareZone.class, "No dialogue, assuming there is no doses stored.");
                     barrelDoseCache.put(potionType, 0);
                 }

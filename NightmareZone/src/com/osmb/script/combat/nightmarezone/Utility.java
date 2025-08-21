@@ -1,4 +1,4 @@
-package com.osmb.script;
+package com.osmb.script.combat.nightmarezone;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

@@ -1,4 +1,4 @@
-package com.osmb.script;
+package com.osmb.script.combat.nightmarezone;
 
 public class PotionBuyEntry {
     private final int itemId;

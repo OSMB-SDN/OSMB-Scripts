@@ -1,6 +1,6 @@
-package com.osmb.script;
+package com.osmb.script.combat.nightmarezone;
 
-import com.osmb.script.potion.Potion;
+import com.osmb.script.combat.nightmarezone.potion.Potion;
 
 public class Options {
     static boolean flickRapidHeal = false;

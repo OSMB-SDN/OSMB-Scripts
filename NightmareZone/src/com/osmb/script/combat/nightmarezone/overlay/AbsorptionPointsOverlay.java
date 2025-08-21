@@ -1,4 +1,4 @@
-package com.osmb.script.overlay;
+package com.osmb.script.combat.nightmarezone.overlay;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.shape.Rectangle;

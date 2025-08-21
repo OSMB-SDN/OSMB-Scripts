@@ -1,4 +1,4 @@
-package com.osmb.script;
+package com.osmb.script.combat.nightmarezone;
 
 import java.util.Arrays;
 import java.util.List;

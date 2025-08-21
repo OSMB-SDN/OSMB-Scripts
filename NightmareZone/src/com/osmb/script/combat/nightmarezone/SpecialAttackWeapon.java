@@ -1,4 +1,4 @@
-package com.osmb.script;
+package com.osmb.script.combat.nightmarezone;
 
 import com.osmb.api.item.ItemID;
 

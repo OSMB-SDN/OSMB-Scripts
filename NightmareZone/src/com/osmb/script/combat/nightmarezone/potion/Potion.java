@@ -1,4 +1,4 @@
-package com.osmb.script.potion;
+package com.osmb.script.combat.nightmarezone.potion;
 
 import java.util.ArrayList;
 import java.util.Collections;

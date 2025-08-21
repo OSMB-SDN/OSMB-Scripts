@@ -1,4 +1,4 @@
-package com.osmb.script.component;
+package com.osmb.script.combat.nightmarezone.component;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.item.ItemGroup;
@@ -13,7 +13,6 @@ import com.osmb.api.visual.color.ColorUtils;
 import com.osmb.api.visual.color.tolerance.ToleranceComparator;
 import com.osmb.api.visual.drawing.BorderPalette;
 import com.osmb.api.visual.drawing.Canvas;
-import com.osmb.api.visual.image.Image;
 import com.osmb.api.visual.image.ImageSearchResult;
 import com.osmb.api.visual.image.SearchableImage;
 import com.osmb.api.visual.ocr.fonts.Font;
