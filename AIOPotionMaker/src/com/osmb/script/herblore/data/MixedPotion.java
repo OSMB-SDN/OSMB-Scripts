@@ -30,6 +30,7 @@ public enum MixedPotion implements Potion {
     BASTION_POTION(22464, 155, new Ingredient(ItemID.CADANTINE_BLOOD_POTION_UNF), new Ingredient(ItemID.WINE_OF_ZAMORAK)),
     BATTLEMAGE_POTION(22452, 155, new Ingredient(ItemID.CADANTINE_BLOOD_POTION_UNF), new Ingredient(ItemID.POTATO_CACTUS)),
     SARADOMIN_BREW(6687, 180, new Ingredient(ItemID.TOADFLAX_POTION_UNF), new Ingredient(ItemID.CRUSHED_NEST)),
+    SURGE_POTION(30878, 185, new Ingredient(ItemID.TORSTOL_POTION_UNF), new Ingredient(30800)),
     EXTENDED_ANTIFIRE(11951, 110, new Ingredient(ItemID.ANTIFIRE_POTION4), new Ingredient(ItemID.LAVA_SCALE_SHARD, 1, true)),
     ANTI_VENOM(12905, 120, new Ingredient(ItemID.ANTIDOTE4_5952), new Ingredient(ItemID.ZULRAHS_SCALES, 1, true)),
     ANTI_VENOM_PLUS(ItemID.ANTIVENOM4_12913, 125, new Ingredient(ItemID.ANTIVENOM4), new Ingredient(ItemID.TORSTOL, 1, true)),
