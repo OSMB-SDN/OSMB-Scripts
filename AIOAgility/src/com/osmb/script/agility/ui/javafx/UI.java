@@ -8,7 +8,7 @@ import com.osmb.script.agility.Course;
 import com.osmb.script.agility.courses.alkharid.AlKharid;
 import com.osmb.script.agility.courses.ardougne.Ardougne;
 import com.osmb.script.agility.courses.barbarianoutpost.BarbarianOutpost;
-import com.osmb.script.agility.courses.canafis.Canafis;
+import com.osmb.script.agility.courses.canifis.Canifis;
 import com.osmb.script.agility.courses.draynor.Draynor;
 import com.osmb.script.agility.courses.falador.Falador;
 import com.osmb.script.agility.courses.gnome.GnomeStronghold;
@@ -61,7 +61,7 @@ public class UI {
 
         Label selectCourseLabel = new Label("Select Course");
         selectCourseComboBox = new ComboBox<>();
-        selectCourseComboBox.getItems().addAll(new GnomeStronghold(), new Draynor(), new AlKharid(), new Varrock(), new BarbarianOutpost(), new Canafis(), new Falador(), new Seers(), new Pollnivneach(), new Relleka(), new Ardougne());
+        selectCourseComboBox.getItems().addAll(new GnomeStronghold(), new Draynor(), new AlKharid(), new Varrock(), new BarbarianOutpost(), new Canifis(), new Falador(), new Seers(), new Pollnivneach(), new Relleka(), new Ardougne());
 
         selectCourseComboBox.setConverter(new StringConverter<>() {
             @Override

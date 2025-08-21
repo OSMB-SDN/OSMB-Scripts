@@ -1,6 +1,5 @@
 package com.osmb.script.agility.courses.relleka;
 
-import com.osmb.api.ScriptCore;
 import com.osmb.api.location.area.Area;
 import com.osmb.api.location.area.impl.RectangleArea;
 import com.osmb.api.location.position.types.WorldPosition;
@@ -8,6 +7,7 @@ import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.script.agility.AIOAgility;
 import com.osmb.script.agility.Course;
 import com.osmb.script.agility.ObstacleHandleResponse;
+import com.osmb.script.agility.courses.ardougne.Ardougne;
 
 public class Relleka implements Course {
 
@@ -28,7 +28,10 @@ public class Relleka implements Course {
     @Override
     public int poll(AIOAgility core) {
         WorldPosition pos = core.getWorldPosition();
-
+        if(pos == null) {
+            core.log(Ardougne.class, "Position is null...");
+            return 0;
+        }
         if(HOUSE_AREA.contains(pos)) {
             // Handle the house area, if needed
             core.log(Relleka.class, "Seems like we are trapped inside the house, stopping script.");

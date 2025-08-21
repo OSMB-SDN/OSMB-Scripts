@@ -27,6 +27,10 @@ public class Ardougne implements Course {
     @Override
     public int poll(AIOAgility core) {
         WorldPosition pos = core.getWorldPosition();
+        if(pos == null) {
+            core.log(Ardougne.class, "Position is null...");
+            return 0;
+        }
         if (AREA_1.contains(pos)) {
             AIOAgility.handleObstacle(core, "Gap", "Jump", AREA_2, 1, false, 15000, FIRST_GAP_POSITION);
             return 0;

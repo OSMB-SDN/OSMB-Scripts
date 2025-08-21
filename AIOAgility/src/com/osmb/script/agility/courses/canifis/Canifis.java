@@ -1,4 +1,4 @@
-package com.osmb.script.agility.courses.canafis;
+package com.osmb.script.agility.courses.canifis;
 
 import com.osmb.api.location.area.Area;
 import com.osmb.api.location.area.impl.RectangleArea;
@@ -7,8 +7,9 @@ import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.script.agility.AIOAgility;
 import com.osmb.script.agility.Course;
 import com.osmb.script.agility.ObstacleHandleResponse;
+import com.osmb.script.agility.courses.ardougne.Ardougne;
 
-public class Canafis implements Course {
+public class Canifis implements Course {
     private static final Area START_AREA = new RectangleArea(3504, 3486, 4, 2, 0);
     private static final Area AREA_1 = new RectangleArea(3505, 3492, 5, 5, 2);
     private static final Area AREA_2 = new RectangleArea(3497, 3504, 5, 2, 2);
@@ -23,6 +24,10 @@ public class Canafis implements Course {
     @Override
     public int poll(AIOAgility core) {
         WorldPosition pos = core.getWorldPosition();
+        if(pos == null) {
+            core.log(Ardougne.class, "Position is null...");
+            return 0;
+        }
         if (AREA_1.contains(pos)) {
             AIOAgility.handleObstacle(core, "gap", "jump", AREA_2, 15000);
             return 0;
@@ -66,7 +71,7 @@ public class Canafis implements Course {
 
     @Override
     public String name() {
-        return "Canafis";
+        return "Canifis";
     }
 
     @Override

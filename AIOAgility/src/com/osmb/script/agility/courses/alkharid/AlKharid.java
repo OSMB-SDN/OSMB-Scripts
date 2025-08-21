@@ -1,15 +1,12 @@
 package com.osmb.script.agility.courses.alkharid;
 
-import com.osmb.api.ScriptCore;
 import com.osmb.api.location.area.Area;
 import com.osmb.api.location.area.impl.RectangleArea;
 import com.osmb.api.location.position.types.WorldPosition;
-import com.osmb.api.scene.RSObject;
 import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.script.agility.AIOAgility;
 import com.osmb.script.agility.Course;
 import com.osmb.script.agility.ObstacleHandleResponse;
-import javafx.scene.canvas.GraphicsContext;
 
 public class AlKharid implements Course {
 

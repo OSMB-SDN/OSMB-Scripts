@@ -1,6 +1,5 @@
 package com.osmb.script.agility.courses.varrock;
 
-import com.osmb.api.ScriptCore;
 import com.osmb.api.location.area.Area;
 import com.osmb.api.location.area.impl.PolyArea;
 import com.osmb.api.location.area.impl.RectangleArea;
@@ -9,8 +8,7 @@ import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.script.agility.AIOAgility;
 import com.osmb.script.agility.Course;
 import com.osmb.script.agility.ObstacleHandleResponse;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
+import com.osmb.script.agility.courses.ardougne.Ardougne;
 
 import java.util.List;
 
@@ -33,7 +31,10 @@ public class Varrock implements Course {
     @Override
     public int poll(AIOAgility core) {
         WorldPosition pos = core.getWorldPosition();
-
+        if(pos == null) {
+            core.log(Ardougne.class, "Position is null...");
+            return 0;
+        }
         if (AREA_1.contains(pos)) {
             area = "AREA_1";
             AIOAgility.handleObstacle(core, "clothes line", "cross", AREA_2, 15000);

@@ -7,6 +7,7 @@ import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.script.agility.AIOAgility;
 import com.osmb.script.agility.Course;
 import com.osmb.script.agility.ObstacleHandleResponse;
+import com.osmb.script.agility.courses.ardougne.Ardougne;
 
 public class Falador implements Course {
 
@@ -31,6 +32,10 @@ public class Falador implements Course {
     public int poll(AIOAgility core) {
 
         WorldPosition pos = core.getWorldPosition();
+        if(pos == null) {
+            core.log(Ardougne.class, "Position is null...");
+            return 0;
+        }
         if (AREA_1.contains(pos)) {
             AIOAgility.handleObstacle(core,"Tightrope", "Cross", AREA_2, 25000);
         } else if (AREA_2.contains(pos)) {

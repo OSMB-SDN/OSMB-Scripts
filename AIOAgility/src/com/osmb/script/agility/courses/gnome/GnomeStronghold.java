@@ -1,6 +1,5 @@
 package com.osmb.script.agility.courses.gnome;
 
-import com.osmb.api.ScriptCore;
 import com.osmb.api.location.area.Area;
 import com.osmb.api.location.area.impl.RectangleArea;
 import com.osmb.api.location.position.types.WorldPosition;
@@ -9,7 +8,7 @@ import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.script.agility.AIOAgility;
 import com.osmb.script.agility.Course;
 import com.osmb.script.agility.ObstacleHandleResponse;
-import javafx.scene.canvas.GraphicsContext;
+import com.osmb.script.agility.courses.ardougne.Ardougne;
 
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +37,10 @@ public class GnomeStronghold implements Course {
     @Override
     public int poll(AIOAgility core) {
         WorldPosition position = core.getWorldPosition();
+        if(position == null) {
+            core.log(Ardougne.class, "Position is null...");
+            return 0;
+        }
         if (OBSTACLE_NET_1_AREA.contains(position)) {
             // Get a random net out of the 3
             List<RSObject> obstacleNets = core.getObjectManager().getObjects(gameObject -> gameObject.getName() != null && gameObject.getName().equalsIgnoreCase("obstacle net"));

@@ -1,12 +1,12 @@
 package com.osmb.script.agility.courses.barbarianoutpost;
 
-import com.osmb.api.ScriptCore;
 import com.osmb.api.location.area.Area;
 import com.osmb.api.location.area.impl.RectangleArea;
 import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.script.agility.AIOAgility;
 import com.osmb.script.agility.Course;
+import com.osmb.script.agility.courses.ardougne.Ardougne;
 
 public class BarbarianOutpost implements Course {
     private static final RectangleArea AREA_1 = new RectangleArea(2543, 3550, 10, 6, 0);
@@ -24,6 +24,10 @@ public class BarbarianOutpost implements Course {
     @Override
     public int poll(AIOAgility core) {
         WorldPosition pos = core.getWorldPosition();
+        if(pos == null) {
+            core.log(Ardougne.class, "Position is null...");
+            return 0;
+        }
         if(UNDERGROUND_AREA.contains(pos)) {
             AIOAgility.handleObstacle(core, "Ladder", "Climb-up", AREA_1, 15000);
             return 0;

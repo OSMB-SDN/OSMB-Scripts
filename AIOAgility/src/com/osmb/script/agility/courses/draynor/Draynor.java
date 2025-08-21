@@ -1,6 +1,5 @@
 package com.osmb.script.agility.courses.draynor;
 
-import com.osmb.api.ScriptCore;
 import com.osmb.api.location.area.Area;
 import com.osmb.api.location.area.impl.RectangleArea;
 import com.osmb.api.location.position.types.WorldPosition;
@@ -8,7 +7,7 @@ import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.script.agility.AIOAgility;
 import com.osmb.script.agility.Course;
 import com.osmb.script.agility.ObstacleHandleResponse;
-import javafx.scene.canvas.GraphicsContext;
+import com.osmb.script.agility.courses.ardougne.Ardougne;
 
 
 public class Draynor implements Course {
@@ -32,7 +31,10 @@ public class Draynor implements Course {
     @Override
     public int poll(AIOAgility core) {
         WorldPosition position = core.getWorldPosition();
-
+        if(position == null) {
+            core.log(Ardougne.class, "Position is null...");
+            return 0;
+        }
         if (AREA_1.contains(position)) {
             AIOAgility.handleObstacle(core, "tightrope", "cross", TIGHTROPE_END_POS, 15000);
         } else if (AREA_2.contains(position)) {

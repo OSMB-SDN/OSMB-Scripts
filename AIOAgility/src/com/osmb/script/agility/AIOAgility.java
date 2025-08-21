@@ -304,16 +304,6 @@ public class AIOAgility extends Script {
 
     @Override
     public void onStart() {
-        // fxml loading
-//            FXMLLoader loader = new FXMLLoader(AIOAgility.class.getResource("/ui.fxml"));
-//            // initializing the controller
-//            popupController = new Controller();
-//            loader.setController(popupController);
-//            Parent layout = loader.load();
-//
-//            // initialise our fxml's components actions
-//            popupController.init();
-
         UI ui = new UI();
         Scene scene = ui.buildScene(this);
         getStageController().show(scene, "Settings", false);
@@ -383,7 +373,7 @@ public class AIOAgility extends Script {
                     return 0;
                 }
             }
-            if(hpOpt.get() <= hitpointsToEat && eatBlockTimer.hasFinished()) {
+            if (hpOpt.get() <= hitpointsToEat && eatBlockTimer.hasFinished()) {
                 eatFood();
                 return 0;
             }
@@ -409,16 +399,16 @@ public class AIOAgility extends Script {
     }
 
     private void eatFood() {
-            // eat food
-            ItemSearchResult foodToEat;
-            if (multiConsumable != null) {
-                foodToEat = MultiConsumable.getSmallestConsumable(multiConsumable, inventorySnapshot.getAllOfItems(foodItemID));
-            } else {
-                foodToEat = inventorySnapshot.getRandomItem(foodItemID);
-            }
-            foodToEat.interact();
-            eatBlockTimer.reset(3000);
-            hitpointsToEat = random(eatLow, eatHigh);
+        // eat food
+        ItemSearchResult foodToEat;
+        if (multiConsumable != null) {
+            foodToEat = MultiConsumable.getSmallestConsumable(multiConsumable, inventorySnapshot.getAllOfItems(foodItemID));
+        } else {
+            foodToEat = inventorySnapshot.getRandomItem(foodItemID);
+        }
+        foodToEat.interact();
+        eatBlockTimer.reset(random(1500, 2500));
+        hitpointsToEat = random(eatLow, eatHigh);
     }
 
     private int navigateToBank() {
@@ -497,6 +487,11 @@ public class AIOAgility extends Script {
             }
         }
 
+    }
+
+    @Override
+    public boolean promptBankTabDialogue() {
+        return foodItemID != null;
     }
 
     @Override

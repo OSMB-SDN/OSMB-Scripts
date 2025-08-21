@@ -2,13 +2,10 @@ package com.osmb.script.agility;
 
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
-import com.osmb.api.utils.UIResult;
-import com.osmb.api.utils.UIResultList;
 import com.osmb.api.utils.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 public enum MultiConsumable {
     CAKE(ItemID.CAKE, ItemID._23_CAKE, ItemID.SLICE_OF_CAKE),

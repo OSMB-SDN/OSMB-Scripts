@@ -3,13 +3,11 @@ package com.osmb.script.agility.courses.pollnivneach;
 import com.osmb.api.location.area.Area;
 import com.osmb.api.location.area.impl.RectangleArea;
 import com.osmb.api.location.position.types.WorldPosition;
-import com.osmb.api.scene.RSObject;
 import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.script.agility.AIOAgility;
 import com.osmb.script.agility.Course;
 import com.osmb.script.agility.ObstacleHandleResponse;
-
-import java.util.Optional;
+import com.osmb.script.agility.courses.ardougne.Ardougne;
 
 public class Pollnivneach implements Course {
     private static final Area START_AREA = new RectangleArea(3350, 2961, 2, 1, 0);
@@ -26,7 +24,10 @@ public class Pollnivneach implements Course {
     @Override
     public int poll(AIOAgility core) {
         WorldPosition pos = core.getWorldPosition();
-
+        if(pos == null) {
+            core.log(Ardougne.class, "Position is null...");
+            return 0;
+        }
         if (AREA_1.contains(pos)) {
             AIOAgility.handleObstacle(core, "Market stall", "Jump-on", AREA_2, 2,false,15000);
             return 0;
