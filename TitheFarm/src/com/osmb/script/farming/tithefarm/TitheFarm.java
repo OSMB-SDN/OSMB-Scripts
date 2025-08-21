@@ -183,6 +183,11 @@ public class TitheFarm extends Script {
 
         if (!TITHE_FARM_AREA.contains(worldPosition)) {
             if (!inventorySnapshot.contains(selectedPlant.getSeedID())) {
+                if (inventorySnapshot.isFull()) {
+                    log(TitheFarm.class, "Inventory is full, no free space to take seeds, stopping script...");
+                    stop();
+                    return null;
+                }
                 return Task.TAKE_SEEDS;
             }
             return Task.ENTER_FARM;
@@ -301,7 +306,7 @@ public class TitheFarm extends Script {
         }
         UIResultList<String> textLines = getWidgetManager().getChatbox().getText();
         if (textLines.isNotVisible()) {
-            log("Chatbox not visible");
+            log(TitheFarm.class, "Chatbox not visible");
             return null;
         }
         List<String> currentLines = textLines.asList();
@@ -418,7 +423,7 @@ public class TitheFarm extends Script {
     }
 
     private void depositFruit() {
-        if(!getWidgetManager().getInventory().unSelectItemIfSelected()) {
+        if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
             return;
         }
         int initialFruitAmount = inventorySnapshot.getAmount(selectedPlant.getFruitID());
@@ -464,16 +469,28 @@ public class TitheFarm extends Script {
             }
             return;
         }
+        WorldPosition worldPosition = getWorldPosition();
+        if (worldPosition == null) {
+            log(TitheFarm.class, "World position is null, cannot fill watering can.");
+            return;
+        }
         RSObject waterBarrel = getObjectManager().getClosestObject("water barrel");
         if (waterBarrel == null) {
             log(TitheFarm.class, "No water barrel found, stopping script...");
             return;
         }
-        boolean walk = random(3) == 1 && waterBarrel.distance() > 3;
+        boolean walk = random(3) == 1 && waterBarrel.distance(worldPosition) > 3;
         if (!waterBarrel.isInteractableOnScreen() || walk) {
             int breakDistance = random(2, 5);
             WalkConfig.Builder builder = new WalkConfig.Builder();
-            builder.breakCondition(() -> waterBarrel.isInteractableOnScreen() && waterBarrel.distance() <= breakDistance);
+            builder.breakCondition(() -> {
+                WorldPosition worldPosition1 = getWorldPosition();
+                if (worldPosition1 == null) {
+                    log(TitheFarm.class, "World position is null.");
+                    return false;
+                }
+                return waterBarrel.isInteractableOnScreen() && waterBarrel.distance(worldPosition1) <= breakDistance;
+            });
             getWalker().walkTo(waterBarrel, builder.build());
             return;
         }
@@ -675,7 +692,7 @@ public class TitheFarm extends Script {
         // now check if the resized version of the hull is on screen & also not covered by widgets
         Polygon patchHull = patchHullFull.getResized(0.7);
         boolean needsToWalk = patchHull == null;
-        if(!needsToWalk) {
+        if (!needsToWalk) {
             // check if the patch hull is inside the game screen
             double insideGameScreenFactor = getWidgetManager().insideGameScreenFactor(patchHull, Collections.emptyList());
             log(TitheFarm.class, "Patch poly inside game screen factor: " + insideGameScreenFactor);
@@ -743,7 +760,7 @@ public class TitheFarm extends Script {
                 log(TitheFarm.class, "Player position is null...");
                 return false;
             }
-            if (patchObject.distance() > 1) {
+            if (patchObject.distance(worldPosition) > 1) {
                 log(TitheFarm.class, "Walking to patch while waiting for it to be ready...");
                 tapWalkToPatch(worldPosition, patchObject, nextPatch, minGameScreenFactor);
                 return false;
@@ -971,7 +988,7 @@ public class TitheFarm extends Script {
     }
 
     private void tapWalkToPatch(WorldPosition worldPosition, RSObject patchObject, Patch nextPatch, double minGameScreenFactor) {
-        log(TitheFarm.class, "Distance from patch: " + patchObject.distance() + ", walking to patch...");
+        log(TitheFarm.class, "Distance from patch: " + patchObject.distance(worldPosition) + ", walking to patch...");
         RectangleArea walkArea;
         if (patchObject.getWorldX() == nextPatch.getRow().getLeftXPosition()) {
             // patch is on the left side
@@ -1011,11 +1028,16 @@ public class TitheFarm extends Script {
                 longTapDelay.reset(random(700, 1100));
             }
             submitTask(() -> {
+                WorldPosition worldPosition1 = getWorldPosition();
+                if (worldPosition1 == null) {
+                    log(TitheFarm.class, "Player position is null...");
+                    return false;
+                }
                 Polygon patchHull = patchObject.getConvexHull();
                 if (patchHull != null && (patchHull = patchHull.getResized(0.7)) != null && getWidgetManager().insideGameScreenFactor(patchHull, Collections.emptyList()) >= minGameScreenFactor) {
                     return true;
                 }
-                return patchObject.distance() <= 1;
+                return patchObject.distance(worldPosition1) <= 1;
             }, Utils.random(4000, 6000));
         }
     }
@@ -1057,6 +1079,38 @@ public class TitheFarm extends Script {
     }
 
     private void enterFarm() {
+        // handle dialogue if it exists
+        DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
+        if (dialogueType == DialogueType.CHAT_DIALOGUE) {
+            UIResult<String> dialogueText = getWidgetManager().getDialogue().getText();
+            if (dialogueText.isFound()) {
+                String text = dialogueText.get();
+                if (text.toLowerCase().contains("do you know what you")) {
+                    getWidgetManager().getDialogue().continueChatDialogue();
+                    return;
+                } else if (text.toLowerCase().contains("don't ask me this again")) {
+                    getWidgetManager().getDialogue().continueChatDialogue();
+                    submitHumanTask(() -> {
+                        WorldPosition worldPosition = getWorldPosition();
+                        if (worldPosition == null) {
+                            log(TitheFarm.class, "Player position is null...");
+                            return false;
+                        }
+                        return TITHE_FARM_AREA.contains(worldPosition);
+                    }, Utils.random(7000, 9000));
+                    return;
+                }
+            }
+        } else if (dialogueType == DialogueType.TEXT_OPTION) {
+            if (getWidgetManager().getDialogue().selectOption("I'm an expert - don't ask me this again")) {
+                // wait for chat dialogue
+                submitHumanTask(() -> {
+                    DialogueType dialogueType1 = getWidgetManager().getDialogue().getDialogueType();
+                    return dialogueType1 == DialogueType.CHAT_DIALOGUE;
+                }, Utils.random(7000, 9000));
+                return;
+            }
+        }
         handleDoor(true);
     }
 
