@@ -1,10 +1,10 @@
-package com.osmb.script.chartercrafting.javafx;
+package com.osmb.script.crafting.chartercrafting.javafx;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.javafx.JavaFXUtils;
-import com.osmb.script.chartercrafting.Dock;
-import com.osmb.script.chartercrafting.GlassBlowingItem;
-import com.osmb.script.chartercrafting.Method;
+import com.osmb.script.crafting.chartercrafting.Dock;
+import com.osmb.script.crafting.chartercrafting.GlassBlowingItem;
+import com.osmb.script.crafting.chartercrafting.Method;
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;

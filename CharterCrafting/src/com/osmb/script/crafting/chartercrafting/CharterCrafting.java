@@ -1,4 +1,4 @@
-package com.osmb.script.chartercrafting;
+package com.osmb.script.crafting.chartercrafting;
 
 import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
@@ -24,8 +24,8 @@ import com.osmb.api.visual.color.ColorModel;
 import com.osmb.api.visual.color.tolerance.ToleranceComparator;
 import com.osmb.api.visual.color.tolerance.impl.SingleThresholdComparator;
 import com.osmb.api.walker.WalkConfig;
-import com.osmb.script.chartercrafting.component.ShopInterface;
-import com.osmb.script.chartercrafting.javafx.UI;
+import com.osmb.script.crafting.chartercrafting.component.ShopInterface;
+import com.osmb.script.crafting.chartercrafting.javafx.UI;
 import javafx.scene.Scene;
 
 import java.awt.*;
@@ -43,7 +43,6 @@ public class CharterCrafting extends Script {
 
 
     private static final ToleranceComparator TOLERANCE_COMPARATOR_2 = new SingleThresholdComparator(5);
-    private static final SearchablePixel SELECTED_HIGHLIGHT_COLOR = new SearchablePixel(-2171877, TOLERANCE_COMPARATOR_2, ColorModel.RGB);
     private static final ToleranceComparator TOLERANCE_COMPARATOR = new SingleThresholdComparator(3);
     private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.GLASSBLOWING_PIPE, ItemID.MOLTEN_GLASS, ItemID.BUCKET_OF_SAND, ItemID.SODA_ASH, ItemID.SEAWEED, ItemID.BUCKET));
     private static Dock selectedDock;
@@ -94,6 +93,7 @@ public class CharterCrafting extends Script {
     private List<NPC> npcs;
     private ItemGroupResult inventorySnapshot;
     private int combinationItemID;
+    private int craftAmount = -1;
 
     public CharterCrafting(Object scriptCore) {
         super(scriptCore);
@@ -159,7 +159,11 @@ public class CharterCrafting extends Script {
             // inventory not visible - re-poll
             return 0;
         }
+
         if (selectedMethod != Method.BUY_AND_BANK) {
+            if (craftAmount == -1) {
+                craftAmount = nextCraftAmount(inventorySnapshot);
+            }
             if (!inventorySnapshot.contains(ItemID.GLASSBLOWING_PIPE)) {
                 log(CharterCrafting.class, "No glassblowing pipe found.");
                 stop();
@@ -470,6 +474,10 @@ public class CharterCrafting extends Script {
     }
 
     private void superGlassMake() {
+        if (inventorySnapshot.getAmount(ItemID.BUCKET_OF_SAND) < craftAmount && inventorySnapshot.getAmount(ItemID.SEAWEED, ItemID.SODA_ASH) < craftAmount) {
+            // not enough yet
+            return;
+        }
         try {
             if (getWidgetManager().getSpellbook().selectSpell(LunarSpellbook.SUPERGLASS_MAKE, null)) {
                 // generate human response after selecting spell
@@ -483,11 +491,26 @@ public class CharterCrafting extends Script {
                     int combinationItem = selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH;
                     return !inventorySnapshot.contains(combinationItem) || !inventorySnapshot.contains(ItemID.BUCKET_OF_SAND);
                 }, 5000);
+                // randomise next amount
+                craftAmount = nextCraftAmount(inventorySnapshot);
             }
         } catch (SpellNotFoundException e) {
             log(CharterCrafting.class, "Spell sprite not found, stopping script...");
             stop();
         }
+    }
+
+    /**
+     * Add check to ensure we can work with UIM
+     *
+     * @param inventorySnapshot
+     * @return the next amount to craft
+     */
+    private int nextCraftAmount(ItemGroupResult inventorySnapshot) {
+        int freeSlotsExclItems = inventorySnapshot.getFreeSlots(Set.of(ItemID.BUCKET_OF_SAND, ItemID.SEAWEED, ItemID.SODA_ASH));
+        int maxAmount = freeSlotsExclItems / 2;
+        // randomise next amount
+        return Math.min(maxAmount, Utils.random(4, 8));
     }
 
     private void smeltSupplies() {
@@ -637,13 +660,13 @@ public class CharterCrafting extends Script {
 
         if (bucketOfSandToBuy > 0) {
             bucketOfSandToBuy += excessSlots;
-            if (bucketOfSandToBuy >= bucketOfSandStock || bucketOfSandToBuy == inventorySnapshot.getFreeSlots()) {
+            if (bucketOfSandToBuy >= bucketOfSandStock || bucketOfSandToBuy >= inventorySnapshot.getFreeSlots()) {
                 bucketOfSandToBuy = 999;
             }
         }
         if (combinationToBuy > 0) {
             combinationToBuy += excessSlots;
-            if (combinationToBuy >= combinationItemStock || combinationToBuy == inventorySnapshot.getFreeSlots()) {
+            if (combinationToBuy >= combinationItemStock || combinationToBuy >= inventorySnapshot.getFreeSlots()) {
                 combinationToBuy = 999;
             }
         }
@@ -683,7 +706,7 @@ public class CharterCrafting extends Script {
     }
 
     private boolean buyItem(BuyEntry buyEntry, int initialFreeSlots) {
-        log(CharterCrafting.class, "Buying item. Entry: " + buyEntry);
+        log(CharterCrafting.class, "Buying item - Entry: " + buyEntry);
         int amount = buyEntry.amount;
         boolean all = amount == 999;
         if (all) {
@@ -698,7 +721,6 @@ public class CharterCrafting extends Script {
         Integer amountSelected = selectedAmount.get();
         if (amountSelected == null || amountSelected != amount) {
             if (!all || amountSelected == null || amountSelected < amount) {
-
                 if (!shopInterface.setSelectedAmount(amount)) {
                     return false;
                 }

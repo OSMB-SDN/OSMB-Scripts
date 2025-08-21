@@ -1,4 +1,4 @@
-package com.osmb.script.chartercrafting;
+package com.osmb.script.crafting.chartercrafting;
 
 public enum Method {
     SUPER_GLASS_MAKE("Super glass make"),

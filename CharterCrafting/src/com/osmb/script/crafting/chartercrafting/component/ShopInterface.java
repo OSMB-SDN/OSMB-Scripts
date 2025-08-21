@@ -1,4 +1,4 @@
-package com.osmb.script.chartercrafting.component;
+package com.osmb.script.crafting.chartercrafting.component;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.item.ItemGroup;

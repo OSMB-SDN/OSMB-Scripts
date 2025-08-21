@@ -1,4 +1,4 @@
-package com.osmb.script.chartercrafting;
+package com.osmb.script.crafting.chartercrafting;
 
 import com.osmb.api.visual.SearchablePixel;
 import com.osmb.api.visual.color.ColorModel;

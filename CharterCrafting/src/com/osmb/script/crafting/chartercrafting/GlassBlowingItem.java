@@ -1,9 +1,8 @@
-package com.osmb.script.chartercrafting;
+package com.osmb.script.crafting.chartercrafting;
 
 import com.osmb.api.item.ItemID;
 
 import java.util.Arrays;
-import java.util.Map;
 
 public enum GlassBlowingItem {
     BEER_GLASS("Beer glass", ItemID.BEER_GLASS, 17.5),
