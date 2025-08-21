@@ -1,4 +1,4 @@
-package com.osmb.script;
+package com.osmb.mining;
 
 import com.osmb.api.location.area.Area;
 import com.osmb.api.location.area.impl.RectangleArea;
@@ -170,8 +170,13 @@ public class DaeyaltMiner extends Script {
     }
 
     private void waitUntilFinishedMining(RSObject targetRock) {
+        WorldPosition worldPosition = getWorldPosition();
+        if (worldPosition == null) {
+            log(DaeyaltMiner.class, "World position is null, cannot wait for mining to finish.");
+            return;
+        }
         // wait until we start moving
-        if (targetRock.getTileDistance() > 1) {
+        if (targetRock.getTileDistance(worldPosition) > 1) {
             boolean moving = submitTask(() -> getLastPositionChangeMillis() < 500, random(1000, 2500));
             if (!moving) {
                 log(DaeyaltMiner.class, "We aren't moving after clicking the rock, polling again.");
