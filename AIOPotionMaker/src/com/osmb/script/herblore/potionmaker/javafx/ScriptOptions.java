@@ -1,10 +1,10 @@
-package com.osmb.script.herblore.javafx;
+package com.osmb.script.herblore.potionmaker.javafx;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.javafx.JavaFXUtils;
-import com.osmb.script.herblore.data.MixedPotion;
-import com.osmb.script.herblore.data.Potion;
-import com.osmb.script.herblore.data.UnfinishedPotion;
+import com.osmb.script.herblore.potionmaker.data.MixedPotion;
+import com.osmb.script.herblore.potionmaker.data.Potion;
+import com.osmb.script.herblore.potionmaker.data.UnfinishedPotion;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;

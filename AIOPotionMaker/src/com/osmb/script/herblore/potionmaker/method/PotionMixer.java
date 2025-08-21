@@ -1,19 +1,13 @@
-package com.osmb.script.herblore.method;
+package com.osmb.script.herblore.potionmaker.method;
 
 import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemSearchResult;
-import com.osmb.api.ui.GameState;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Timer;
-import com.osmb.script.herblore.AIOPotionMaker;
-import com.osmb.script.herblore.data.Ingredient;
-import com.osmb.script.herblore.data.ItemIdentifier;
-import com.osmb.script.herblore.data.Potion;
-import com.osmb.script.herblore.javafx.ScriptOptions;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
-import javafx.scene.layout.VBox;
+import com.osmb.script.herblore.potionmaker.AIOPotionMaker;
+import com.osmb.script.herblore.potionmaker.data.Ingredient;
+import com.osmb.script.herblore.potionmaker.data.Potion;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;

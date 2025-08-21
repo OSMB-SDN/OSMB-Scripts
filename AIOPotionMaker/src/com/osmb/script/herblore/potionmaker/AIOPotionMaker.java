@@ -1,4 +1,4 @@
-package com.osmb.script.herblore;
+package com.osmb.script.herblore.potionmaker;
 
 import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.scene.RSObject;
@@ -6,15 +6,13 @@ import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.utils.Utils;
-import com.osmb.api.utils.timing.Timer;
-import com.osmb.script.herblore.data.Potion;
-import com.osmb.script.herblore.javafx.ScriptOptions;
-import com.osmb.script.herblore.method.PotionMixer;
+import com.osmb.script.herblore.potionmaker.data.Potion;
+import com.osmb.script.herblore.potionmaker.javafx.ScriptOptions;
+import com.osmb.script.herblore.potionmaker.method.PotionMixer;
 import javafx.scene.Scene;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
 @ScriptDefinition(name = "AIO Potion maker", author = "Joe", version = 1.0, description = "Makes potions and unfinished potions", skillCategory = SkillCategory.HERBLORE)
@@ -106,7 +104,12 @@ public class AIOPotionMaker extends Script {
     private void waitForBankToOpen(RSObject object) {
         long positionChangeTimeout = random(1000, 2500);
         submitHumanTask(() -> {
-            int tileDistance = object.getTileDistance();
+            WorldPosition worldPosition = getWorldPosition();
+            if (worldPosition == null) {
+                log(AIOPotionMaker.class, "World position is null, cannot check if bank is open.");
+                return false;
+            }
+            int tileDistance = object.getTileDistance(worldPosition);
             if (tileDistance > 1 && getLastPositionChangeMillis() >= positionChangeTimeout) {
                 return true;
             }

@@ -1,4 +1,4 @@
-package com.osmb.script.herblore.data;
+package com.osmb.script.herblore.potionmaker.data;
 
 import java.util.HashSet;
 import java.util.Set;
