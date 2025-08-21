@@ -40,17 +40,18 @@ public class ScriptOptions extends VBox {
 
         RadioButton bankButton = new RadioButton("Bank logs");
         bankButton.setSelected(true);
-
         dropButton = new RadioButton("Drop logs");
         dropButton.setMinWidth(200); // Adjust width as needed
-        buttonBar.getButtons().addAll(bankButton, dropButton);
         getChildren().add(buttonBar);
+        VBox fullOption = new VBox(10, bankButton, dropButton);
+        buttonBar.getButtons().addAll(fullOption);
 
         ToggleGroup toggleGroup = new ToggleGroup();
         bankButton.setToggleGroup(toggleGroup);
         dropButton.setToggleGroup(toggleGroup);
 
         Button confirmButton = new Button("Confirm");
+        confirmButton.setMaxWidth(80);
         ButtonBar.setButtonData(confirmButton, ButtonBar.ButtonData.RIGHT);
         confirmButton.setOnAction(event -> {
             Tree selectedTree = treeListView.getSelectionModel().getSelectedItem();

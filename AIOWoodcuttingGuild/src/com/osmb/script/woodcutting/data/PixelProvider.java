@@ -13,12 +13,15 @@ public class PixelProvider {
             new SearchablePixel(-14012413, new SingleThresholdComparator(2), ColorModel.HSL),
             new SearchablePixel(-12958706, new SingleThresholdComparator(2), ColorModel.HSL),
             new SearchablePixel(-11316685, new SingleThresholdComparator(2), ColorModel.HSL),
-            new SearchablePixel(-13222121, new SingleThresholdComparator(2), ColorModel.HSL),
             new SearchablePixel(-11312366, new SingleThresholdComparator(2), ColorModel.HSL),
             new SearchablePixel(-13089777, new SingleThresholdComparator(2), ColorModel.HSL),
             new SearchablePixel(-12103646, new SingleThresholdComparator(2), ColorModel.HSL),
             new SearchablePixel(-15329787, new SingleThresholdComparator(2), ColorModel.HSL),
             new SearchablePixel(-15131126, new SingleThresholdComparator(2), ColorModel.HSL),
+            new SearchablePixel(-10917354, new SingleThresholdComparator(2), ColorModel.HSL),
+            new SearchablePixel(-9274047, new SingleThresholdComparator(2), ColorModel.HSL),
+            new SearchablePixel(-11839205, new SingleThresholdComparator(2), ColorModel.HSL),
+            new SearchablePixel(-13422044, new SingleThresholdComparator(2), ColorModel.HSL),
     };
     /**
      * Pixels representing a cluster of tree colors in HSL format. Will cover maple trees.

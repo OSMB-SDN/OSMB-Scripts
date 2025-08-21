@@ -42,11 +42,11 @@ public class AIOWoodcuttingGuild extends Script {
             ItemID.RUNE_AXE, ItemID.DRAGON_AXE, ItemID.DRAGON_AXE_OR, ItemID.DRAGON_AXE_OR_30352, ItemID.CRYSTAL_AXE, ItemID.CRYSTAL_AXE_23862, ItemID.INFERNAL_AXE, ItemID.INFERNAL_AXE_OR, ItemID.INFERNAL_AXE_OR_30347,
             ItemID.BRONZE_FELLING_AXE, ItemID.IRON_FELLING_AXE, ItemID.STEEL_FELLING_AXE, ItemID.BLACK_FELLING_AXE, ItemID.MITHRIL_FELLING_AXE, ItemID.ADAMANT_FELLING_AXE, ItemID.RUNE_FELLING_AXE, ItemID.DRAGON_FELLING_AXE, ItemID.CRYSTAL_FELLING_AXE);
     private static final Font ARIAL = new Font("Arial", Font.PLAIN, 14);
+    private final SearchableImage woodcuttingSprite;
     private Tree selectedTree = Tree.OAK;
     private boolean powerChop = false;
     private XPTracker xpTracker;
     private int logsChopped = 0;
-    private final SearchableImage woodcuttingSprite;
     /**
      * Flag to indicate if this is the first time back from the bank. This is used to prevent the script being as repetitive by choosing one of the closest tree's instead of just the closest tree every time.
      */
@@ -194,10 +194,15 @@ public class AIOWoodcuttingGuild extends Script {
             // sleep until bank is open
             long positionChangeTimeout = random(1000, 2500);
             submitHumanTask(() -> {
+                WorldPosition myPosition_ = getWorldPosition();
+                if (myPosition_ == null) {
+                    log(AIOWoodcuttingGuild.class, "Position is null");
+                    return false;
+                }
                 // add movement check as sometimes on rare occasions, actions seem to be consumed.
                 // this could be seen as some form of bot detection to try and exploit static timeouts in scripts to measure the time it takes to re-interact
                 // to avoid this, we just need to ensure the time to re-interact is random & not abnormally long every time.
-                if (bank.distance() > 1 && getLastPositionChangeMillis() > positionChangeTimeout) {
+                if (bank.distance(myPosition_) > 1 && getLastPositionChangeMillis() > positionChangeTimeout) {
                     log(AIOWoodcuttingGuild.class, "Not moving...");
                     return true;
                 }
@@ -230,7 +235,7 @@ public class AIOWoodcuttingGuild extends Script {
 
         if (trees.isEmpty()) {
             // walk to tree area, this shouldn't really happen as the script should only run in the Woodcutting Guild
-            log(AIOWoodcuttingGuild.class, "Walking to tree area...");
+            log(AIOWoodcuttingGuild.class, "No tree's found in the area, walking to tree area...");
             getWalker().walkTo(selectedTree.getTreeArea().getRandomPosition());
             return;
         }
@@ -243,11 +248,11 @@ public class AIOWoodcuttingGuild extends Script {
             // remove all active visible trees from the main tree list
             trees.removeAll(visibleTrees);
             // sort remaining trees by distance to player
-            trees.sort(Comparator.comparingDouble(RSObject::distance));
+            trees.sort(Comparator.comparingDouble(value -> value.distance(myPosition)));
             if (!trees.isEmpty()) {
                 int index = 0;
                 if (firstBack) {
-                    index = Math.min(2, activeTrees.size());
+                    index = Math.min(2, trees.size() - 1);
                 }
                 // if the tree list is not empty, walk to the closest tree off-screen, which will be the first element in the list
                 RSObject closestOffScreenTree = trees.get(index);
@@ -265,7 +270,7 @@ public class AIOWoodcuttingGuild extends Script {
         }
         int index = 0;
         if (firstBack) {
-            index = Math.min(3, activeTrees.size());
+            index = Math.min(2, activeTrees.size() - 1);
             firstBack = false;
         }
         // if we have a tree on screen, lets chop it down
@@ -285,6 +290,7 @@ public class AIOWoodcuttingGuild extends Script {
         }
     }
 
+
     public List<RSObject> getActiveTrees(Tree treeType, List<RSObject> trees) {
         if (treeType.getCluster() == null) {
             // use respawn circle logic
@@ -302,7 +308,7 @@ public class AIOWoodcuttingGuild extends Script {
                 if (getWidgetManager().insideGameScreenFactor(treePolygon, List.of(ChatboxComponent.class)) < 0.5) {
                     continue;
                 }
-                if (getPixelAnalyzer().findPixels(treePolygon, treeType.getCluster()).size() < 20) {
+                if (getPixelAnalyzer().findPixels(treePolygon, treeType.getCluster()).size() < 10) {
                     continue;
                 }
                 activeTrees.add(tree);
@@ -350,7 +356,7 @@ public class AIOWoodcuttingGuild extends Script {
                     if (getWidgetManager().insideGameScreenFactor(treePolygon, List.of(ChatboxComponent.class)) < 0.5) {
                         return false;
                     }
-                    return rsObject.canReach() && rsObject.getTileDistance() <= 15;
+                    return rsObject.canReach() && rsObject.getTileDistance(position) <= 15;
                 })
                 // sort by distance to player
                 .sorted((a, b) -> {
@@ -362,17 +368,27 @@ public class AIOWoodcuttingGuild extends Script {
     }
 
     private void waitUntilFinishedChopping(Tree treeType, RSObject tree) {
+        WorldPosition worldPosition = getWorldPosition();
+        if (worldPosition == null) {
+            log(AIOWoodcuttingGuild.class, "Position is null");
+            return;
+        }
         // wait until stopped moving
-        if (tree.getTileDistance() > 1) {
+        if (tree.getTileDistance(worldPosition) > 1) {
             log(AIOWoodcuttingGuild.class, "Waiting until we've started moving...");
             submitTask(() -> getLastPositionChangeMillis() < 600, Utils.random(1000, 3000));
             log(AIOWoodcuttingGuild.class, "Waiting until we've stopped moving...");
             submitTask(() -> {
+                WorldPosition worldPosition_ = getWorldPosition();
+                if (worldPosition_ == null) {
+                    log(AIOWoodcuttingGuild.class, "Position is null");
+                    return false;
+                }
                 long lastPositionChange = getLastPositionChangeMillis();
-                return lastPositionChange > 800 && tree.getTileDistance() == 1;
+                return lastPositionChange > 800 && tree.getTileDistance(worldPosition_) == 1;
             }, Utils.random(5000, 12000));
         }
-        if (tree.getTileDistance() > 1) {
+        if (tree.getTileDistance(worldPosition) > 1) {
             log(AIOWoodcuttingGuild.class, "We didn't reach the tree, returning...");
             return;
         }
@@ -396,7 +412,8 @@ public class AIOWoodcuttingGuild extends Script {
                             return true;
                         }
                     } else {
-                        if (getPixelAnalyzer().findPixels(treePolygon, treeType.getCluster()).size() < 20) {
+                        List<Point> pixels = getPixelAnalyzer().findPixels(treePolygon, treeType.getCluster());
+                        if (pixels.size() < 10) {
                             log(AIOWoodcuttingGuild.class, "No pixels found for treeType " + treeType.getObjectName() + ", returning...");
                             return true;
                         }
@@ -411,7 +428,7 @@ public class AIOWoodcuttingGuild extends Script {
                         return true; // Stop the script if inventory is full
                     }
                     return false;
-                }, selectedTree == Tree.REDWOOD ? Utils.random(220000, 380000) : Utils.random(55000, 95000)
+                }, selectedTree == Tree.REDWOOD ? Utils.random(220000, 380000) : Utils.random(55000, 95000), false, true
         );
         if (RandomUtils.uniformRandom(0, 3) == 0) {
             // Randomly wait before chopping again
@@ -449,7 +466,6 @@ public class AIOWoodcuttingGuild extends Script {
         getScreen().getDrawableCanvas().drawRect(bounds, Color.RED.getRGB(), 1);
         String xpText = getOCR().getText(com.osmb.api.visual.ocr.fonts.Font.SMALL_FONT, bounds, -1).replaceAll("[^0-9]", "");
         if (xpText.isEmpty()) {
-            log(AIOWoodcuttingGuild.class, "Failed to get XP text from XP drops component. Make sure it is permanently visible.");
             return null;
         }
         return Integer.parseInt(xpText);
@@ -489,11 +505,16 @@ public class AIOWoodcuttingGuild extends Script {
         int padding = 5;
 
         List<String> lines = new ArrayList<>();
+        if (selectedTree != null) {
+            lines.add("Selected tree: " + selectedTree.getObjectName());
+        }
         if (xpTracker != null) {
             lines.add("Current XP: " + String.format("%,d", (long) xpTracker.getXp()));
             lines.add("XP Gained: " + String.format("%,d", (long) xpTracker.getXpGained()));
             lines.add("Xp per hour: " + String.format("%,d", (long) xpTracker.getXpPerHour(getStartTime())));
             lines.add("Logs Chopped: " + String.format("%,d", logsChopped));
+        } else {
+            lines.add("No XP tracker available.");
         }
         // Calculate max width and total height
         int maxWidth = 0;

@@ -8,10 +8,10 @@ import com.osmb.api.visual.SearchablePixel;
 public enum Tree {
     NORMAL("Tree", ItemID.LOGS, PixelProvider.TREE_CLUSTER_1, AreaManager.TREE_AREA, 1),
     OAK("Oak tree", ItemID.OAK_LOGS, PixelProvider.TREE_CLUSTER_1, AreaManager.OAK_TREE_AREA, 15),
-    WILLOW("Willow tree", ItemID.WILLOW_LOGS, PixelProvider.TREE_CLUSTER_1, AreaManager.OAK_TREE_AREA, 30),
-    MAPLE("Maple tree", ItemID.MAPLE_LOGS, PixelProvider.TREE_CLUSTER_2, AreaManager.WILLOW_TREE_AREA, 45),
+    WILLOW("Willow tree", ItemID.WILLOW_LOGS, PixelProvider.TREE_CLUSTER_1, AreaManager.WILLOW_TREE_AREA, 30),
+    MAPLE("Maple tree", ItemID.MAPLE_LOGS, PixelProvider.TREE_CLUSTER_2, AreaManager.MAPLE_TREE_AREA, 45),
     YEW("Yew tree", ItemID.YEW_LOGS, PixelProvider.TREE_CLUSTER_1, AreaManager.YEW_TREE_AREA, 60),
-    //MAGIC("Magic tree", ItemID.MAGIC_LOGS, PixelProvider.TREE_CLUSTER_1,AreaManager.MAPLE_TREE_AREA, 75),
+    MAGIC("Magic tree", ItemID.MAGIC_LOGS, PixelProvider.TREE_CLUSTER_1,AreaManager.MAGIC_TREE_AREA, 75),
     REDWOOD("Redwood tree", ItemID.REDWOOD_LOGS, null, AreaManager.REDWOOD_TREE_AREA, 90);
 
     private final int logID;
