@@ -302,7 +302,7 @@ public class Wintertodt extends Script {
         log(Wintertodt.class, "Brazier status: " + brazierStatus);
         if (brazierStatus != null) {
             // prioritise lighting brazier if close by
-            if (brazier != null && brazier.getTileDistance() < 3) {
+            if (brazier != null && brazier.getTileDistance(myPosition) < 3) {
                 if (brazierStatus != WintertodtOverlay.BrazierStatus.LIT) {
                     return Task.REPAIR_AND_LIGHT_BRAZIER;
                 }
@@ -318,7 +318,7 @@ public class Wintertodt extends Script {
         boolean reachedFirstMilestone = points >= FIRST_MILESTONE_POINTS;
         boolean fletch = fletchType == ScriptOptions.FletchType.YES || !reachedFirstMilestone && fletchType == ScriptOptions.FletchType.UNTIL_MILESTONE;
 
-        if (brazier != null && brazier.getTileDistance() <= 3) {
+        if (brazier != null && brazier.getTileDistance(myPosition) <= 3) {
             // if close to brazier and have fuel
             log(Wintertodt.class, "Kindling found: " + inventorySnapshot.getAmount(ItemID.BRUMA_KINDLING) + ", Roots found: " + inventorySnapshot.getAmount(ItemID.BRUMA_ROOT));
             if (fletch && inventorySnapshot.contains(ItemID.BRUMA_KINDLING) && !inventorySnapshot.contains(ItemID.BRUMA_ROOT)
@@ -661,7 +661,7 @@ public class Wintertodt extends Script {
             RSTile brazierTile = getBrazierTile(focusedBrazier, brazier);
             getWalker().walkTo(brazierTile.getWorldPosition());
             return;
-        } else if (brazier.getTileDistance() > 2) {
+        } else if (brazier.getTileDistance(myPosition) > 2) {
             // if not near brazier, tap the object or nearby tile to run towards before starting to fletch roots
             tapBrazierOrTileNearby(brazier, focusedBrazier);
         }
@@ -680,6 +680,11 @@ public class Wintertodt extends Script {
         AtomicInteger previousAmountOfRoots = new AtomicInteger(inventorySnapshot.getAmount(ItemID.BRUMA_ROOT));
         Timer itemAmountChangeTimer = new Timer();
         submitTask(() -> {
+            WorldPosition myPosition_ = getWorldPosition();
+            if (myPosition_ == null) {
+                log(Wintertodt.class, "Position is null");
+                return false;
+            }
             Integer warmthCurrent = overlay.getWarmthPercent();
             if (warmthCurrent != null) {
                 if (warmthCurrent < warmth || warmthCurrent <= nextDrinkPercent) {
@@ -689,7 +694,7 @@ public class Wintertodt extends Script {
                 }
             }
             //TODO interrupt if a few tiles away
-            if (brazier.getTileDistance() > 2) {
+            if (brazier.getTileDistance(myPosition_) > 2) {
                 // if the brazier breaks, break out of the task to decide what to do
                 WintertodtOverlay.BrazierStatus brazierStatus = overlay.getBrazierStatus(focusedBrazier);
                 if (brazierStatus != null && brazierStatus != WintertodtOverlay.BrazierStatus.LIT) {
@@ -1267,10 +1272,15 @@ public class Wintertodt extends Script {
         }
         WorldPosition myPos = getWorldPosition();
         // get closest
-        return Collections.min(crate, Comparator.comparingInt(obj -> myPos.distanceTo(obj.getWorldPosition())));
+        return Collections.min(crate, Comparator.comparingDouble(obj -> myPos.distanceTo(obj.getWorldPosition())));
     }
 
     private void waitForBoss() {
+        WorldPosition position = getWorldPosition();
+        if (position == null) {
+            log(Wintertodt.class, "World position is null");
+            return;
+        }
         RSObject brazier = getBrazier();
         if (brazier == null) {
             log(Wintertodt.class, "Can't find Brazier object in the loaded scene, lets try walk towards it.");
@@ -1279,7 +1289,7 @@ public class Wintertodt extends Script {
             getWalker().walkTo(focusedBrazier.getBrazierPosition(), builder.build());
             return;
         }
-        if (brazier.getTileDistance() > 2) {
+        if (brazier.getTileDistance(position) > 2) {
             RSTile tile = getBrazierTile(focusedBrazier, brazier);
             getWalker().walkTo(tile.getWorldPosition());
         }
