@@ -7,7 +7,6 @@ import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.ui.GameState;
 import com.osmb.api.utils.Utils;
-import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.crafting.javafx.ScriptOptions;
 import com.osmb.script.crafting.method.Method;
 import com.osmb.script.crafting.method.impl.CraftHide;
@@ -18,7 +17,6 @@ import javafx.scene.Scene;
 import java.awt.*;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
 @ScriptDefinition(name = "AIO Crafter", author = "Joe", version = 1.0, description = "Covers a variety of crafting methods!", skillCategory = SkillCategory.CRAFTING)
@@ -132,7 +130,12 @@ public class AIOCrafter extends Script {
     private void waitForBankToOpen(RSObject object) {
         long positionChangeTimeout = random(1000, 2500);
         submitHumanTask(() -> {
-            int tileDistance = object.getTileDistance();
+            WorldPosition worldPosition = getWorldPosition();
+            if (worldPosition == null) {
+                log(AIOCrafter.class, "World position is null, cannot check if bank is open.");
+                return false;
+            }
+            int tileDistance = object.getTileDistance(worldPosition);
             if (tileDistance > 1 && getLastPositionChangeMillis() >= positionChangeTimeout) {
                 return true;
             }

@@ -2,9 +2,7 @@ package com.osmb.script.crafting.method.impl;
 
 import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
-import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
-import com.osmb.api.utils.UIResultList;
 import com.osmb.script.crafting.AIOCrafter;
 import com.osmb.script.crafting.data.GlassBlowingItem;
 import com.osmb.script.crafting.data.ItemIdentifier;
@@ -15,7 +13,6 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 
 public class GlassBlowing extends Method {
@@ -32,7 +29,7 @@ public class GlassBlowing extends Method {
     @Override
     public void poll() {
         inventorySnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-        if(inventorySnapshot == null) {
+        if (inventorySnapshot == null) {
             // inventory is not visible - re-poll
             return;
         }
@@ -41,33 +38,38 @@ public class GlassBlowing extends Method {
             script.stop();
             return;
         }
-        if(!inventorySnapshot.contains(ItemID.MOLTEN_GLASS)) {
+        if (!inventorySnapshot.contains(ItemID.MOLTEN_GLASS)) {
             script.setBank(true);
             return;
         }
 
+        // get dialogue type
         DialogueType dialogueType = script.getWidgetManager().getDialogue().getDialogueType();
-        if (dialogueType != null) {
-            if (dialogueType == DialogueType.ITEM_OPTION) {
-                boolean selectedOption = script.getWidgetManager().getDialogue().selectItem(itemToMake.getItemID());
-                if (!selectedOption) {
-                    script.log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
-                    return;
-                }
-                waitUntilFinishedProducing(ItemID.MOLTEN_GLASS);
+        // check if dialogue type is item option
+        if (dialogueType == DialogueType.ITEM_OPTION) {
+            // if item option, select the item to make
+            boolean selectedOption = script.getWidgetManager().getDialogue().selectItem(itemToMake.getItemID());
+            // if returned false, it means the item was not found in the dialogue options
+            if (!selectedOption) {
+                script.log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
                 return;
             }
+            // wait until the item is finished producing
+            waitUntilFinishedProducing(ItemID.MOLTEN_GLASS);
+        } else {
+            // if not item option, use items on each other & wait for dialogue, then re-poll
+            interactAndWaitForDialogue(inventorySnapshot.getItem(ItemID.GLASSBLOWING_PIPE), inventorySnapshot.getRandomItem(ItemID.MOLTEN_GLASS));
         }
-        interactAndWaitForDialogue(inventorySnapshot.getItem(ItemID.GLASSBLOWING_PIPE), inventorySnapshot.getRandomItem(ItemID.MOLTEN_GLASS));
     }
-
     @Override
     public void handleBankInterface() {
         // bank everything, ignoring molten glass and pipe
         if (!script.getWidgetManager().getBank().depositAll(ITEM_IDS_TO_RECOGNISE)) {
             return;
         }
+        // re-snapshot the inventory and bank after depositing
         inventorySnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+
         ItemGroupResult bankSnapshot = script.getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
         if (bankSnapshot == null || inventorySnapshot == null) {
             // either not visible - shouldn't happen but good practice to have this check
@@ -77,7 +79,7 @@ public class GlassBlowing extends Method {
         if (inventorySnapshot.isFull()) {
             script.getWidgetManager().getBank().close();
         } else {
-            if(bankSnapshot.contains(ItemID.MOLTEN_GLASS)) {
+            if (bankSnapshot.contains(ItemID.MOLTEN_GLASS)) {
                 script.getWidgetManager().getBank().withdraw(ItemID.MOLTEN_GLASS, Integer.MAX_VALUE);
             } else {
                 script.log(getClass().getSimpleName(), "No molten glass found in bank, stopping script.");
