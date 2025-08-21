@@ -2,8 +2,6 @@ package com.osmb.script.smithing;
 
 import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
-import com.osmb.api.location.area.impl.RectangleArea;
-import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.scene.RSObject;
 import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
@@ -23,8 +21,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @ScriptDefinition(name = "AIO Anvil", skillCategory = SkillCategory.SMITHING, version = 1, author = "Joe", description = "Uses bars at anvils to create weapons and armour.")
 public class AIOAnvil extends Script {
 
-    private static final RectangleArea VARROCK_AREA = new RectangleArea(3131, 3391, 109, 75, 0);
-    private static final WorldPosition VARROCK_BANK_BOOTH_POSITION = new WorldPosition(3186, 3436, 0);
     private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.HAMMER));
     private int selectedBarID;
     private int selectedProductID;
@@ -128,7 +124,7 @@ public class AIOAnvil extends Script {
             }
 
             return false;
-        }, 60000, false, true);
+        }, Utils.random(90000, 140000), false, true);
     }
 
     @Override
