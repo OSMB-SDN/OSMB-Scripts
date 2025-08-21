@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
         skillCategory = SkillCategory.SMITHING
 )
 public class AIOFurnace extends Script {
-    public static final String[] BANK_NAMES = {"Bank chest", "Bank booth"};
+    public static final String[] BANK_NAMES = {"Bank chest", "Bank booth","Bank table"};
     public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
     public static final Predicate<RSObject> BANK_QUERY = gameObject -> {
         // if object has no name

@@ -14,7 +14,6 @@ import com.osmb.api.visual.color.tolerance.ToleranceComparator;
 import com.osmb.api.visual.color.tolerance.impl.SingleThresholdComparator;
 import com.osmb.api.visual.drawing.BorderPalette;
 import com.osmb.api.visual.drawing.Canvas;
-import com.osmb.api.visual.image.Image;
 import com.osmb.api.visual.image.ImageSearchResult;
 import com.osmb.api.visual.image.SearchableImage;
 import com.osmb.api.visual.ocr.fonts.Font;
@@ -41,18 +40,13 @@ public class CraftingInterface extends ComponentCentered {
         canvas.createBackground(core, BorderPalette.STEEL_BORDER, null);
         // set middle to transparent
         canvas.fillRect(5, 5, canvas.canvasWidth - 10, canvas.canvasHeight - 10, ColorUtils.TRANSPARENT_PIXEL);
-        // display the canvas for debuggin
-        Image image = canvas.toImage();
-        ImagePanel imagePanel = new ImagePanel(image.toBufferedImage());
-        imagePanel.showInFrame("background debug");
-
         return new ComponentImage<>(canvas.toSearchableImage(new SingleThresholdComparator(10), ColorModel.RGB), -1, 1);
     }
 
     @Override
     public Rectangle getBounds() {
         Rectangle bounds = super.getBounds();
-        if(bounds == null) {
+        if (bounds == null) {
             return null;
         }
         this.productionQuantityButtons = findQuantityButtons(bounds);
@@ -88,6 +82,14 @@ public class CraftingInterface extends ComponentCentered {
         if (bounds == null) {
             return null;
         }
+        // instantiate a new canvas with the sprite pixels
+        Canvas canvas = new Canvas(111, core);
+        // make part of the sprite transparent (do this in the area of the sprite where text would be)
+        canvas.drawRect(0, 0, 10, 10, ColorUtils.TRANSPARENT_PIXEL);
+        // convert the canvas to a searchable image
+        SearchableImage searchableImageSprite = canvas.toSearchableImage(ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
+        // show the sprite in a frame for visual debugging
+        new ImagePanel(searchableImageSprite.toBufferedImage()).showInFrame("Sprite debug");
         for (Map.Entry<ProductionQuantity, Rectangle> entry : productionQuantityButtons.entrySet()) {
             Rectangle buttonScreenBounds = bounds.getSubRectangle(entry.getValue());
             SearchableImage buttonCornerImage = new SearchableImage(NW_QUANTITY_SPRITE_ID, core, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
@@ -162,7 +164,7 @@ public class CraftingInterface extends ComponentCentered {
             }
         }
         List<ItemSearchResult> imageSearchResults = core.getItemManager().findLocations(false, bounds, searchableItems);
-        if(imageSearchResults.isEmpty()) {
+        if (imageSearchResults.isEmpty()) {
             core.log(CraftingInterface.class, "No items found in the interface for item ID: " + itemID);
             return null;
         }
