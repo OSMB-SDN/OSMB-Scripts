@@ -2,6 +2,7 @@ package com.osmb.script.fletching;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.item.ItemID;
+import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.scene.RSObject;
 import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
@@ -119,7 +120,12 @@ public class AIOFletcher extends Script {
     private void waitForBankToOpen(RSObject object) {
         long positionChangeTimeout = random(1000, 2500);
         submitHumanTask(() -> {
-            int tileDistance = object.getTileDistance();
+            WorldPosition worldPosition = getWorldPosition();
+            if (worldPosition == null) {
+                log(AIOFletcher.class, "World position is null, cannot check if bank is open.");
+                return false;
+            }
+            int tileDistance = object.getTileDistance(worldPosition);
             if (tileDistance > 1 && getLastPositionChangeMillis() >= positionChangeTimeout) {
                 return true;
             }
