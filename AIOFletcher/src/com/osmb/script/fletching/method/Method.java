@@ -1,24 +1,21 @@
 package com.osmb.script.fletching.method;
 
 import com.osmb.api.definition.ItemDefinition;
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemSearchResult;
-import com.osmb.api.shape.Rectangle;
 import com.osmb.api.ui.GameState;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.utils.Result;
-import com.osmb.api.utils.UIResult;
-import com.osmb.api.utils.UIResultList;
 import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.fletching.AIOFletcher;
 import javafx.scene.layout.VBox;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static com.osmb.script.fletching.AIOFletcher.AMOUNT_CHANGE_TIMEOUT_SECONDS;
 
 public abstract class Method {
 
@@ -29,9 +26,9 @@ public abstract class Method {
     }
 
 
-    public abstract int poll();
+    public abstract void poll();
 
-    public abstract int handleBankInterface();
+    public abstract void handleBankInterface();
 
     public abstract String getMethodName();
 
@@ -54,7 +51,7 @@ public abstract class Method {
     }
 
     public boolean interactAndWaitForDialogue(ItemSearchResult item1, ItemSearchResult item2) {
-        int random = script.random(1);
+        int random = script.random(2);
         ItemSearchResult interact1 = random == 0 ? item1 : item2;
         ItemSearchResult interact2 = random == 0 ? item2 : item1;
 
@@ -69,8 +66,9 @@ public abstract class Method {
         return false;
     }
 
+    private int amountChangeTimeout = Utils.random(3500,6000);
 
-    public void waitUntilFinishedProducing(int... resources) {
+    public void waitUntilFinishedProducing(int amountPer, int... resources) {
         AtomicReference<Map<Integer, Integer>> previousAmounts = new AtomicReference<>(new HashMap<>());
         for (int resource : resources) {
             previousAmounts.get().put(resource, -1);
@@ -88,11 +86,19 @@ public abstract class Method {
                 }
             }
 
-            // If the amount of gems in the inventory hasn't changed in the timeout amount, then return true to break out of the sleep method
-            if (amountChangeTimer.timeElapsed() > TimeUnit.SECONDS.toMillis(AMOUNT_CHANGE_TIMEOUT_SECONDS)) {
+            // If the amount of items in the inventory hasn't changed in the timeout amount, then return true to break out of the sleep method
+            if (amountChangeTimer.timeElapsed() > amountChangeTimeout) {
+                amountChangeTimeout = Utils.random(3500,6000);
                 return true;
             }
-            if (!script.getWidgetManager().getInventory().open()) {
+            Set<Integer> itemIdsToRecognise = new HashSet<>();
+            for(int resourceID : resources) {
+                itemIdsToRecognise.add(resourceID);
+            }
+
+            ItemGroupResult inventorySnapshot = script.getWidgetManager().getInventory().search(itemIdsToRecognise);
+            if(inventorySnapshot == null) {
+                // inv not visible
                 return false;
             }
 
@@ -101,21 +107,8 @@ public abstract class Method {
                 if (def == null) {
                     throw new RuntimeException("Definition is null for ID: " + resource);
                 }
-                int amount;
-                if (def.stackable == 0) {
-                    UIResultList<ItemSearchResult> resourceResult = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), resource);
-                    if (resourceResult.isNotVisible()) {
-                        return false;
-                    }
-                    amount = resourceResult.size();
-                } else {
-                    UIResult<ItemSearchResult> resourceResult = script.getItemManager().findItem(script.getWidgetManager().getInventory(), resource);
-                    if (resourceResult.isNotVisible()) {
-                        return false;
-                    }
-                    amount = resourceResult.get().getStackAmount();
-                }
-                if (amount == 0) {
+                int amount = inventorySnapshot.getAmount(resource);
+                if (amount < amountPer) {
                     return true;
                 }
                 int previousAmount = previousAmounts.get().get(resource);
@@ -125,7 +118,7 @@ public abstract class Method {
                 }
             }
             return false;
-        }, 60000, true, false, true);
+        }, 60000, false, true);
     }
 }
 

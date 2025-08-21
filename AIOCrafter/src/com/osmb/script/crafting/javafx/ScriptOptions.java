@@ -1,6 +1,7 @@
 package com.osmb.script.crafting.javafx;
 
 import com.osmb.api.ScriptCore;
+import com.osmb.api.javafx.JavaFXUtils;
 import com.osmb.script.crafting.AIOCrafter;
 import com.osmb.script.crafting.data.ItemIdentifier;
 import com.osmb.script.crafting.method.Method;
@@ -17,43 +18,9 @@ import java.util.prefs.Preferences;
 
 public class ScriptOptions extends VBox {
 
+    private static final String PREF_SELECTED_METHOD = "aiocrafter_selected_method";
     private final VBox scriptContentBox;
     private final Preferences prefs = Preferences.userNodeForPackage(ScriptOptions.class);
-    private static final String PREF_SELECTED_METHOD = "aiocrafter_selected_method";
-
-    public static ComboBox<ItemIdentifier> createItemCombobox(ScriptCore core, ItemIdentifier[] values) {
-        ComboBox<ItemIdentifier> productComboBox = new ComboBox<>();
-        productComboBox.setConverter(new StringConverter<>() {
-            @Override
-            public String toString(ItemIdentifier item) {
-                return item != null ? AIOCrafter.getItemName(core, item.getItemID()) : null; // Use the getName method
-            }
-
-            @Override
-            public ItemIdentifier fromString(String string) {
-                // Not needed in this context
-                return null;
-            }
-        });
-        productComboBox.setCellFactory(param -> new ListCell<>() {
-            @Override
-            protected void updateItem(ItemIdentifier item, boolean empty) {
-                super.updateItem(item, empty);
-                if (item != null && !empty) {
-                    int itemID = item.getItemID();
-                    String name = AIOCrafter.getItemName(core, itemID);
-                    ImageView itemImage = AIOCrafter.getUIImage(core, itemID);
-                    setGraphic(itemImage);
-                    setText(name);
-                } else {
-                    setText(null);
-                    setGraphic(null);
-                }
-            }
-        });
-        productComboBox.getItems().addAll(values);
-        return productComboBox;
-    }
 
     public ScriptOptions(AIOCrafter script, Method[] methods) {
         setAlignment(Pos.TOP_CENTER);
@@ -111,9 +78,43 @@ public class ScriptOptions extends VBox {
         getChildren().addAll(label, comboBox, scriptContentBox, button);
     }
 
+    public static ComboBox<ItemIdentifier> createItemCombobox(ScriptCore core, ItemIdentifier[] values) {
+        ComboBox<ItemIdentifier> productComboBox = new ComboBox<>();
+        productComboBox.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(ItemIdentifier item) {
+                return item != null ? core.getItemManager().getItemName(item.getItemID()) : null; // Use the getName method
+            }
+
+            @Override
+            public ItemIdentifier fromString(String string) {
+                // Not needed in this context
+                return null;
+            }
+        });
+        productComboBox.setCellFactory(param -> new ListCell<>() {
+            @Override
+            protected void updateItem(ItemIdentifier item, boolean empty) {
+                super.updateItem(item, empty);
+                if (item != null && !empty) {
+                    int itemID = item.getItemID();
+                    String name = core.getItemManager().getItemName(itemID);
+                    ImageView itemImage = JavaFXUtils.getItemImageView(core, itemID);
+                    setGraphic(itemImage);
+                    setText(name);
+                } else {
+                    setText(null);
+                    setGraphic(null);
+                }
+            }
+        });
+        productComboBox.getItems().addAll(values);
+        return productComboBox;
+    }
+
     private void saveSelectedMethod(Method method) {
         if (method != null) {
-            prefs.put(PREF_SELECTED_METHOD, method.name());
+            prefs.put(PREF_SELECTED_METHOD, method.getMethodName());
         }
     }
 
@@ -121,7 +122,7 @@ public class ScriptOptions extends VBox {
         String savedMethodName = prefs.get(PREF_SELECTED_METHOD, null);
         if (savedMethodName != null) {
             for (Method method : availableMethods) {
-                if (method.name().equals(savedMethodName)) {
+                if (method.getMethodName().equals(savedMethodName)) {
                     comboBox.getSelectionModel().select(method);
                     Platform.runLater(() -> {
                         scriptContentBox.getChildren().clear();

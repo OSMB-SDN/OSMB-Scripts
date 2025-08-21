@@ -8,13 +8,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public enum NPC {
-    // Define enum constants without calling any methods that might need the enum to be fully initialized
     BLUE_MAN(Dock.PORT_PISCARILIUS, Dock.PORT_SARIM, Dock.CATHERBY, Dock.MUSA_POINT, Dock.CORSAIR_COVE, Dock.LANDS_END),
     BLUE_WOMAN(Dock.PORT_PISCARILIUS, Dock.PORT_SARIM, Dock.CATHERBY, Dock.BRIMHAVEN, Dock.CORSAIR_COVE, Dock.LANDS_END),
-    WHITE_MAN(Dock.PORT_PHASMATYS, Dock.SHIPYARD, Dock.PORT_KHAZARD),
-    BLACK_MAN(Dock.BRIMHAVEN /*,Dock.PORT_TYRAS*/),
-    DARK_PINK_YELLOW_WOMAN(Dock.SHIPYARD, Dock.PORT_KHAZARD/*, Dock.PORT_TYRAS*/),
-    BURGUNDY_WHITE_WOMAN(Dock.PORT_PHASMATYS, Dock.MUSA_POINT);
+    WHITE_MAN(Dock.PORT_PHASMATYS, Dock.SHIPYARD, Dock.PORT_KHAZARD, Dock.MOS_LE_HARMLESS, Dock.CIVITAS_ILLA_FORTIS),
+    BLACK_MAN(Dock.BRIMHAVEN ,Dock.PORT_TYRAS),
+    DARK_PINK_YELLOW_WOMAN(Dock.SHIPYARD, Dock.PORT_KHAZARD, Dock.PORT_TYRAS),
+    BURGUNDY_WHITE_WOMAN(Dock.PORT_PHASMATYS, Dock.MUSA_POINT, Dock.MOS_LE_HARMLESS, Dock.CIVITAS_ILLA_FORTIS);
 
     private final Dock[] docks;
     private SearchablePixel[] searchablePixels;

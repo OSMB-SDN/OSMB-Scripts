@@ -1,9 +1,8 @@
 package com.osmb.script.fletching.method.impl;
 
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
-import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
-import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.fletching.AIOFletcher;
 import com.osmb.script.fletching.data.Arrow;
@@ -14,43 +13,42 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 
 public class Arrows extends Method {
 
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of());
     private int amountChangeTimeoutSeconds;
     private Arrow selectedArrow;
     private ComboBox<ItemIdentifier> itemComboBox;
+    private int combinationID;
+    private ItemGroupResult inventorySnapshot;
 
     public Arrows(AIOFletcher script) {
         super(script);
     }
 
     @Override
-    public int poll() {
+    public void poll() {
         DialogueType dialogueType = script.getWidgetManager().getDialogue().getDialogueType();
-
         if (dialogueType == DialogueType.ITEM_OPTION) {
             handleDialogue();
-            return 0;
+            return;
         }
-
-        UIResult<ItemSearchResult> arrowUnf = script.getItemManager().findItem(script.getWidgetManager().getInventory(), selectedArrow.getUnfinishedID());
-        int combinationID = selectedArrow == Arrow.HEADLESS_ARROW ? ItemID.FEATHER : ItemID.HEADLESS_ARROW;
-        UIResult<ItemSearchResult> combination = script.getItemManager().findItem(script.getWidgetManager().getInventory(), false, combinationID);
-        if (arrowUnf.isNotVisible() || combination.isNotVisible()) {
-            return 0;
+        inventorySnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        if (inventorySnapshot == null) {
+            return;
         }
-        if (combination.get() == null || arrowUnf.get() == null) {
+        if (!inventorySnapshot.contains(combinationID) || !inventorySnapshot.contains(selectedArrow.getUnfinishedID())) {
             script.log(getClass().getSimpleName(), "Ran out of supplies, stopping script...");
             script.stop();
-            return 0;
+            return;
         }
-
-        interactAndWaitForDialogue(combination.get(), arrowUnf.get());
-        return 0;
+        interactAndWaitForDialogue(inventorySnapshot.getItem(combinationID), inventorySnapshot.getItem(selectedArrow.getUnfinishedID()));
     }
 
     private void handleDialogue() {
@@ -60,45 +58,38 @@ public class Arrows extends Method {
             return;
         }
         Timer amountChangeTimer = new Timer();
-        UIResult<ItemSearchResult> arrowsUnf = script.getItemManager().findItem(script.getWidgetManager().getInventory(), selectedArrow.getUnfinishedID());
-        if (!arrowsUnf.isFound()) {
-            return;
-        }
-        AtomicReference<Integer> arrowsUnfAmount = new AtomicReference<>(arrowsUnf.get().getStackAmount());
+        AtomicReference<Integer> arrowsUnfAmount = new AtomicReference<>(null);
         amountChangeTimeoutSeconds = script.random(3, 7);
         script.submitTask(() -> {
-            DialogueType dialogueType_ = script.getWidgetManager().getDialogue().getDialogueType();
-            if (dialogueType_ != null) {
-                if (dialogueType_ == DialogueType.TAP_HERE_TO_CONTINUE) {
-                    // sleep for a random time so we're not instantly reacting to the dialogue
-                    // we do this as a task to continue updating the screen
-                    script.submitTask(() -> false, script.random(1000, 4000));
-                    return true;
-                }
+            if (script.getWidgetManager().getDialogue().getDialogueType() == DialogueType.TAP_HERE_TO_CONTINUE) {
+                // sleep for a random time so we're not instantly reacting to the dialogue
+                // we do this as a task to continue updating the screen
+                script.submitTask(() -> false, script.random(1000, 4000));
+                return true;
             }
-            if (!script.getWidgetManager().getInventory().open()) {
-                return false;
-            }
+
             if (amountChangeTimer.timeElapsed() > TimeUnit.SECONDS.toMillis(amountChangeTimeoutSeconds)) {
                 // If the amount of logs in the inventory hasn't changed in the timeout amount, then return true to break out of the sleep method
                 return true;
             }
-            UIResult<ItemSearchResult> arrowsUnf_ = script.getItemManager().findItem(script.getWidgetManager().getInventory(), selectedArrow.getUnfinishedID());
-            int combinationID = selectedArrow == Arrow.HEADLESS_ARROW ? ItemID.FEATHER : ItemID.HEADLESS_ARROW;
-            UIResult<ItemSearchResult> feathers = script.getItemManager().findItem(script.getWidgetManager().getInventory(), false, combinationID);
-            if (arrowsUnf_.isNotVisible() || feathers.isNotVisible()) {
+            inventorySnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+            if (inventorySnapshot == null) {
+                // inventory not visible
                 return false;
             }
-            if (arrowsUnf_.get() == null || feathers.get() == null) {
-                script.log(getClass().getSimpleName(), "Insufficient supplies, stopping script...");
+            if (!inventorySnapshot.contains(combinationID) || !inventorySnapshot.contains(selectedArrow.getUnfinishedID())) {
+                script.log(getClass().getSimpleName(), "Ran out of supplies, stopping script...");
                 script.stop();
-                return true;
-            }
-            // if there are less logs, reset the timer & update the amount of logs
-            int amount = arrowsUnf_.get().getStackAmount();
-            if (amount < arrowsUnfAmount.get()) {
-                arrowsUnfAmount.set(amount);
-                amountChangeTimer.reset();
+            } else {
+                // if there are less logs, reset the timer & update the amount of logs
+                int amount = inventorySnapshot.getAmount(selectedArrow.getUnfinishedID());
+                if (arrowsUnfAmount.get() == null) {
+                    arrowsUnfAmount.set(amount);
+                    amountChangeTimer.reset();
+                } else if (amount < arrowsUnfAmount.get()) {
+                    arrowsUnfAmount.set(amount);
+                    amountChangeTimer.reset();
+                }
             }
             // if no logs left then return true, false otherwise...
             return false;
@@ -106,8 +97,8 @@ public class Arrows extends Method {
     }
 
     @Override
-    public int handleBankInterface() {
-        return 0;
+    public void handleBankInterface() {
+        return;
     }
 
     @Override
@@ -123,6 +114,10 @@ public class Arrows extends Method {
     public boolean uiOptionsSufficient() {
         if (itemComboBox.getValue() != null) {
             selectedArrow = (Arrow) itemComboBox.getValue();
+            combinationID = selectedArrow == Arrow.HEADLESS_ARROW ? ItemID.FEATHER : ItemID.HEADLESS_ARROW;
+            ITEM_IDS_TO_RECOGNISE.add(selectedArrow.getItemID());
+            ITEM_IDS_TO_RECOGNISE.add(selectedArrow.getUnfinishedID());
+            ITEM_IDS_TO_RECOGNISE.add(combinationID);
             return true;
         }
         return false;

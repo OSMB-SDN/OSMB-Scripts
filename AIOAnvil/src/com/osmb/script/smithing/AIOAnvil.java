@@ -1,37 +1,37 @@
 package com.osmb.script.smithing;
 
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
-import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.location.area.impl.RectangleArea;
 import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.scene.RSObject;
-import com.osmb.api.scene.RSTile;
 import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
-import com.osmb.api.utils.UIResult;
-import com.osmb.api.utils.UIResultList;
+import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.smithing.component.AnvilInterface;
 import com.osmb.script.smithing.data.Product;
 import com.osmb.script.smithing.javafx.ScriptOptions;
 import javafx.scene.Scene;
 
-import java.util.Optional;
-import java.util.concurrent.TimeUnit;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 @ScriptDefinition(name = "AIO Anvil", skillCategory = SkillCategory.SMITHING, version = 1, author = "Joe", description = "Uses bars at anvils to create weapons and armour.")
 public class AIOAnvil extends Script {
 
-    private static final int AMOUNT_CHANGE_TIMEOUT_SECONDS = 7;
     private static final RectangleArea VARROCK_AREA = new RectangleArea(3131, 3391, 109, 75, 0);
     private static final WorldPosition VARROCK_BANK_BOOTH_POSITION = new WorldPosition(3186, 3436, 0);
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.HAMMER));
     private int selectedBarID;
-    private int selecteProductID;
+    private int selectedProductID;
     private Product selectedProduct;
     private AnvilInterface anvilInterface;
+    private int amountChangeTimeout = Utils.random(4000, 6500);
+    private ItemGroupResult inventorySnapshot;
 
     public AIOAnvil(Object scriptCore) {
         super(scriptCore);
@@ -45,9 +45,9 @@ public class AIOAnvil extends Script {
         scene.getStylesheets().add("style.css");
         getStageController().show(scene, "Settings", false);
         selectedProduct = scriptOptions.getSelectedProduct();
-        selecteProductID = scriptOptions.getSelectedProductID();
+        selectedProductID = scriptOptions.getSelectedProductID();
         selectedBarID = scriptOptions.getSelectedBar();
-
+        ITEM_IDS_TO_RECOGNISE.add(selectedBarID);
         getWidgetManager().addComponent(anvilInterface);
     }
 
@@ -58,19 +58,24 @@ public class AIOAnvil extends Script {
             return 0;
         }
 
+        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        if (inventorySnapshot == null) {
+            return 0;
+        }
+        if (!inventorySnapshot.contains(ItemID.HAMMER)) {
+            log(AIOAnvil.class, "Hammer not found in inventory, stopping script...");
+            stop();
+            return 0;
+        }
         if (anvilInterface.isVisible()) {
+            log(AIOAnvil.class, "Anvil interface is visible");
             if (handleAnvilInterface()) {
                 waitUntilFinishedSmithing();
             }
             return 0;
         }
-
-        UIResultList<ItemSearchResult> bars = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedBarID);
-        if (bars.isNotVisible()) {
-            return 0;
-        }
         // bank
-        if (bars.isNotFound() || bars.size() < selectedProduct.getBarsNeeded()) {
+        if (inventorySnapshot.getAmount(selectedBarID) < selectedProduct.getBarsNeeded()) {
             openBank();
             return 0;
         }
@@ -96,35 +101,34 @@ public class AIOAnvil extends Script {
             if (dialogueType != null) {
                 // look out for level up dialogue etc.
                 if (dialogueType == DialogueType.TAP_HERE_TO_CONTINUE) {
-                    // sleep for a random time so we're not instantly reacting to the dialogue
+                    // sleep for a random time extra as the player might not always be expecting to level up
                     // we do this in the task to continue updating the screen
                     submitTask(() -> false, random(1000, 4000));
                     return true;
                 }
             }
-
-            // If the amount of gems in the inventory hasn't changed and the timeout is exceeded, then return true to break out of the sleep method
-            if (amountChangeTimer.timeElapsed() > TimeUnit.SECONDS.toMillis(AMOUNT_CHANGE_TIMEOUT_SECONDS)) {
-                return true;
-            }
-            UIResultList<ItemSearchResult> bars = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedBarID);
-            if (bars.isNotVisible()) {
+            inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.HAMMER, selectedBarID));
+            if (inventorySnapshot == null) {
                 return false;
             }
-            int amount = bars.size();
+            // If the amount of gems in the inventory hasn't changed and the timeout is exceeded, then return true to break out of the sleep method
+            if (amountChangeTimer.timeElapsed() > amountChangeTimeout) {
+                return true;
+            }
 
             // if no bars left break out
-            if (amount < selectedProduct.getBarsNeeded()) {
+            int amountOfBars = inventorySnapshot.getAmount(selectedBarID);
+            if (amountOfBars < selectedProduct.getBarsNeeded()) {
                 return true;
             }
             // check if bars have decremented
-            if (amount < previousAmount.get() || previousAmount.get() == -1) {
-                previousAmount.set(amount);
+            if (amountOfBars < previousAmount.get() || previousAmount.get() == -1) {
+                previousAmount.set(amountOfBars);
                 amountChangeTimer.reset();
             }
 
             return false;
-        }, 60000, true, false, true);
+        }, 60000, false, true);
     }
 
     @Override
@@ -133,47 +137,34 @@ public class AIOAnvil extends Script {
     }
 
     private boolean handleAnvilInterface() {
-        UIResult<ItemSearchResult> interfaceItem = getItemManager().findItem(anvilInterface, selecteProductID);
-        if (interfaceItem.isNotVisible()) {
-            return false;
-        }
-        if (interfaceItem.isNotFound()) {
-            log(getClass().getSimpleName(), "Can't find item inside interface.");
-            return false;
-        }
-        // if we purposely missclick or fail in general
-        if (!interfaceItem.get().interact()) {
-            return false;
-        }
-        return submitHumanTask(() -> !anvilInterface.isVisible(), 4000);
+        return anvilInterface.selectItem(selectedProductID);
     }
 
     private void handleBankInterface() {
-        if (!getWidgetManager().getBank().depositAll(new int[]{ItemID.HAMMER, selectedBarID})) {
+        log(AIOAnvil.class, "Depositing items...");
+        if (!getWidgetManager().getBank().depositAll(ITEM_IDS_TO_RECOGNISE)) {
             return;
         }
-        UIResultList<ItemSearchResult> barsInventory = getItemManager().findAllOfItem(getWidgetManager().getInventory(), selectedBarID);
-        // free slots
-        Optional<Integer> freeSlots = getItemManager().getFreeSlotsInteger(getWidgetManager().getInventory());
-        if (freeSlots.isEmpty() || barsInventory.isNotVisible()) {
+        log(AIOAnvil.class, "Items deposited");
+        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        ItemGroupResult bankSnapshot = getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
+        if (inventorySnapshot == null || bankSnapshot == null) {
+            log(AIOAnvil.class, "Inventory or bank snapshot is null");
             return;
         }
         // we have bars in inventory and no free slots, close bank
-        if (freeSlots.get() == 0 && barsInventory.size() > 0) {
+        if (inventorySnapshot.isFull() && inventorySnapshot.contains(selectedBarID)) {
+            log(AIOAnvil.class, "Closing bank...");
             getWidgetManager().getBank().close();
             return;
         }
-
-        UIResult<ItemSearchResult> barsBank = getItemManager().findItem(getWidgetManager().getBank(), selectedBarID);
-        if (barsBank.isNotVisible()) {
-            return;
-        }
-        if (barsBank.isNotFound()) {
+        if (!bankSnapshot.contains(selectedBarID)) {
             log(getClass().getSimpleName(), "Can't find bars in bank, stopping script...");
             stop();
             return;
         }
-
+        // withdraw bars
+        log(AIOAnvil.class, "Withdrawing bars...");
         getWidgetManager().getBank().withdraw(selectedBarID, Integer.MAX_VALUE);
     }
 
@@ -185,36 +176,14 @@ public class AIOAnvil extends Script {
 
     private void openBank() {
         log(AIOAnvil.class, "Opening bank...");
-        WorldPosition position = getWorldPosition();
-        // the bank booth closest to the anvil has no name in object def (will be some anti-botting thing where its info is loaded on login)
-        // to combat this we just get the object from the tile
-        if (VARROCK_AREA.contains(position)) {
-            RSTile bankTile = getSceneManager().getTile(VARROCK_BANK_BOOTH_POSITION);
-            if (bankTile == null) {
-                log(getClass().getSimpleName(), "Bank tile is null.");
-                return;
-            }
-            RSObject bank = bankTile.getObjects().get(0);
-            if (bank != null) {
-                if (bank.interact("Bank booth", new String[] {"Bank"})) {
-                    log(AIOAnvil.class, "Interacted successfully, waiting for bank to be visible.");
-                    if (submitTask(() -> getWidgetManager().getBank().isVisible(), 12000)) {
-                        log(AIOAnvil.class, "Bank is visible.");
-                    } else {
-                        log(AIOAnvil.class, "Timed out waiting for bank to open");
-                    }
-                }
-            }
-        } else {
-            RSObject bank = getObjectManager().getClosestObject("Bank booth");
-            if (bank == null) {
-                log(getClass().getSimpleName(), "Can't find Bank booth...");
-                return;
-            }
-            if (bank.interact("Bank")) {
-                // wait for bank to be visible
-                submitTask(() -> getWidgetManager().getBank().isVisible(), 10000);
-            }
+        RSObject bank = getObjectManager().getClosestObject("Bank booth", "Bank chest");
+        if (bank == null) {
+            log(getClass().getSimpleName(), "Can't find Bank booth...");
+            return;
+        }
+        if (bank.interact("Bank")) {
+            // wait for bank to be visible
+            submitTask(() -> getWidgetManager().getBank().isVisible(), 10000);
         }
     }
 }

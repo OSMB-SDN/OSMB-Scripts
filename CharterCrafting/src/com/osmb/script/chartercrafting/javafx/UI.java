@@ -111,6 +111,7 @@ public class UI extends VBox {
         return methodComboBox.getSelectionModel().getSelectedItem();
     }
 
+
     public GlassBlowingItem getSelectedGlassBlowingItem() {
         Integer itemToMake = itemToMakeComboBox.getSelectionModel().getSelectedItem();
         if (itemToMake == null) {

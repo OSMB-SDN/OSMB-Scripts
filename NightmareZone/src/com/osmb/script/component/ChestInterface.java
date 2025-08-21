@@ -2,6 +2,7 @@ package com.osmb.script.component;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.item.ItemGroup;
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.shape.Rectangle;
 import com.osmb.api.ui.component.ComponentCentered;
@@ -12,12 +13,14 @@ import com.osmb.api.visual.color.ColorUtils;
 import com.osmb.api.visual.color.tolerance.ToleranceComparator;
 import com.osmb.api.visual.drawing.BorderPalette;
 import com.osmb.api.visual.drawing.Canvas;
+import com.osmb.api.visual.image.Image;
 import com.osmb.api.visual.image.ImageSearchResult;
 import com.osmb.api.visual.image.SearchableImage;
 import com.osmb.api.visual.ocr.fonts.Font;
 
 import java.awt.*;
 import java.util.List;
+import java.util.Set;
 
 import static com.osmb.api.visual.color.ColorUtils.ORANGE_UI_TEXT;
 
@@ -78,16 +81,17 @@ public class ChestInterface extends ComponentCentered implements ItemGroup {
     }
 
     public UIResult<Integer> getStoredDoses(int itemID) {
-        Rectangle bounds = getBounds();
-        if (bounds == null) {
+        ItemGroupResult chestSnapshot = core.getItemManager().scanItemGroup(this, Set.of(itemID));
+        if(chestSnapshot == null) {
+            core.log(ChestInterface.class, "Failed to scan chest for item: " + itemID);
             return UIResult.notVisible();
         }
-        UIResult<ItemSearchResult> result = core.getItemManager().findItem(this, itemID);
-        if (result.isNotFound()) {
+        ItemSearchResult result = chestSnapshot.getItem(itemID);
+        if (result == null) {
             return UIResult.of(null);
         }
-        Rectangle resultBounds = result.get().getBounds();
-        Rectangle doseBounds = new Rectangle(resultBounds.x, resultBounds.y + 40, resultBounds.width, 12);
+        Rectangle resultBounds = result.getBounds();
+        Rectangle doseBounds = new Rectangle(resultBounds.x, resultBounds.y + 49, resultBounds.width, 12);
         core.getScreen().getDrawableCanvas().drawRect(doseBounds, Color.RED.getRGB());
         String text = core.getOCR().getText(Font.STANDARD_FONT, doseBounds, WHITE_PIXEL).replaceAll("[^0-9]", "");
         if (text.isEmpty()) {
@@ -101,6 +105,7 @@ public class ChestInterface extends ComponentCentered implements ItemGroup {
         if (bounds == null) {
             return UIResult.notVisible();
         }
+
 
         // check if the button is already selected
         UIResult<String> selectedButton = getSelectedTab();
@@ -188,7 +193,7 @@ public class ChestInterface extends ComponentCentered implements ItemGroup {
             return null;
         }
 
-        return new Point(bounds.x + 25, bounds.y + 155);
+        return new Point(bounds.x + 25, bounds.y + 146);
     }
 
     @Override
@@ -214,5 +219,10 @@ public class ChestInterface extends ComponentCentered implements ItemGroup {
     @Override
     public Rectangle getGroupBounds() {
         return getBounds();
+    }
+
+    @Override
+    public ScriptCore getCore() {
+        return core;
     }
 }

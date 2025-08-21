@@ -2,147 +2,127 @@ package com.osmb.script.herblore.javafx;
 
 import com.osmb.api.ScriptCore;
 import com.osmb.api.javafx.JavaFXUtils;
-import com.osmb.script.herblore.AIOHerblore;
-import com.osmb.script.herblore.data.ItemIdentifier;
 import com.osmb.script.herblore.data.MixedPotion;
-import com.osmb.script.herblore.method.PotionMixer;
-import javafx.application.Platform;
-import javafx.event.ActionEvent;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.control.*;
+import com.osmb.script.herblore.data.Potion;
+import com.osmb.script.herblore.data.UnfinishedPotion;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import javafx.util.StringConverter;
-
-import java.util.prefs.Preferences;
 
 public class ScriptOptions extends VBox {
 
-    private final VBox scriptContentBox;
-    private final Preferences prefs = Preferences.userNodeForPackage(ScriptOptions.class);
-    private static final String PREF_SELECTED_MIXER = "aiopotionmaker_selected_mixer";
+    private final ListView<Potion> productList;
+    private final HBox ingredientBox;
+    private final Label ingredientsLabel;
 
-    public ScriptOptions(AIOHerblore script, PotionMixer[] potionMixers) {
-        setAlignment(Pos.CENTER_LEFT);
-        setStyle("-fx-background-color: #636E72; -fx-padding: 10; -fx-spacing: 10");
+    public ScriptOptions(ScriptCore core) {
+        setStyle("-fx-padding: 10; -fx-background-color: #636E72;");
 
-        scriptContentBox = new VBox();
-        scriptContentBox.setStyle("-fx-spacing: 10;-fx-alignment: center-left");
+        ListView<Class<?>> typeList = new ListView<>();
+        typeList.getItems().addAll(MixedPotion.class, UnfinishedPotion.class);
+        typeList.setPrefWidth(170);
+        typeList.setPrefHeight(250);
 
-        Label label = new Label("Choose the type of potion to make");
-        ComboBox<PotionMixer> comboBox = new ComboBox<>();
-        comboBox.setPrefWidth(200);
-        comboBox.getItems().addAll(potionMixers);
+        productList = new ListView<>();
+        productList.setPrefHeight(250);
 
-        loadSavedMixer(comboBox, potionMixers);
+        typeList.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            productList.getItems().clear();
+            if (newVal == MixedPotion.class) {
+                productList.getItems().addAll(MixedPotion.values());
+            } else if (newVal == UnfinishedPotion.class) {
+                productList.getItems().addAll(UnfinishedPotion.values());
+            }
+        });
+        ingredientBox = new HBox(5);
+        ingredientBox.setPrefWidth(170);
 
-        comboBox.setOnAction(actionEvent -> {
-            PotionMixer selectedPotionMixer = comboBox.getSelectionModel().getSelectedItem();
-            if (selectedPotionMixer == null) return;
-            //clear the current child nodes
-            Platform.runLater(() -> {
-                scriptContentBox.getChildren().clear();
-                selectedPotionMixer.provideUIOptions(scriptContentBox);
-                scriptContentBox.setAlignment(Pos.CENTER_LEFT);
-                Stage stage = null;
-                if (getScene() != null && getScene().getWindow() instanceof Stage) {
-                    stage = (Stage) getScene().getWindow();
+        ingredientsLabel = new Label("Ingredients");
+        ingredientsLabel.setManaged(false);
+        ingredientsLabel.setVisible(false);
+        VBox productsBox = new VBox(5, productList, ingredientsLabel, ingredientBox);
+
+
+        // Confirm button
+        Button confirmButton = new Button("Confirm");
+        confirmButton.setMaxWidth(Double.MAX_VALUE);
+        confirmButton.setOnAction(actionEvent -> {
+            if (getSelectedProduct() == null) {
+                return;
+            }
+            ((Stage) confirmButton.getScene().getWindow()).close();
+        });
+
+        HBox listsBox = new HBox(10, typeList, productsBox);
+        this.setSpacing(10);
+        this.getChildren().addAll(listsBox, confirmButton);
+        productList.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) {
+                ingredientsLabel.setVisible(false);
+                ingredientsLabel.setManaged(false);
+                ingredientBox.getChildren().clear();
+            } else {
+                ingredientsLabel.setVisible(true);
+                ingredientsLabel.setManaged(true);
+                ingredientBox.getChildren().clear();
+                for (int ingredientId : newVal.getIngredientIds()) {
+                    ImageView ingredientImageView = JavaFXUtils.getItemImageView(core, ingredientId);
+                    ingredientImageView.setFitWidth(30);
+                    ingredientImageView.setFitHeight(30);
+                    ingredientBox.getChildren().add(ingredientImageView);
+
+                    String itemName = core.getItemManager().getItemName(ingredientId);
+                    Label desc = new Label(itemName);
+                    desc.setStyle("-fx-font-size: 10px; -fx-text-fill: #b2bec3;");
+                    ingredientBox.getChildren().add(desc);
                 }
-            });
-        });
-
-        Button button = new Button("Confirm");
-        button.setOnAction(actionEvent -> {
-
-            PotionMixer selectedPotionMixer = comboBox.getValue();
-            if (selectedPotionMixer != null) {
-
-                if (!selectedPotionMixer.uiOptionsSufficient()) {
-                    Alert alert = new Alert(Alert.AlertType.ERROR, "Invalid script options", ButtonType.OK);
-                    alert.initOwner(getScene().getWindow());
-                    alert.showAndWait();
-                    return;
-                }
-                script.setSelectedMethod(selectedPotionMixer);
-                //stage.close();
-                saveSelectedMixer(selectedPotionMixer);
-                ((Stage) button.getScene().getWindow()).close();
             }
         });
-        HBox buttonHbox = new HBox(button);
-        buttonHbox.setAlignment(Pos.CENTER_RIGHT);
-        getChildren().addAll(label, comboBox, scriptContentBox, buttonHbox);
-    }
-
-    public static ComboBox<ItemIdentifier> createItemCombobox(ScriptCore core, ItemIdentifier[] values) {
-        ComboBox<ItemIdentifier> productComboBox = new ComboBox<>();
-        productComboBox.setPrefWidth(200);
-        productComboBox.setConverter(new StringConverter<>() {
+        productList.setCellFactory(lv -> new javafx.scene.control.ListCell<>() {
             @Override
-            public String toString(ItemIdentifier item) {
-                return item != null ? core.getItemManager().getItemName(item.getItemID()) : null;
-            }
-
-            @Override
-            public ItemIdentifier fromString(String string) {
-                // Not needed in this context
-                return null;
-            }
-        });
-        productComboBox.setCellFactory(param -> new ListCell<>() {
-            @Override
-            protected void updateItem(ItemIdentifier item, boolean empty) {
+            protected void updateItem(Potion item, boolean empty) {
                 super.updateItem(item, empty);
-
-                if (item != null && !empty) {
-                    int itemID = item.getItemID();
-                    String name = core.getItemManager().getItemName(itemID);
-                    ImageView itemImage = JavaFXUtils.getItemImageView(core, itemID);
-                    setGraphic(itemImage);
-                    if (item instanceof MixedPotion mixedPotion) {
-                        if (mixedPotion == MixedPotion.SUPER_COMBAT_POTION) {
-                            name = "Super combat (Torstol)";
-                        } else if (mixedPotion == MixedPotion.SUPER_COMBAT_POTION_2) {
-                            name = "Super combat (Torstol Potion unf)";
-                        }
-                    }
-                    setText(name);
-                } else {
+                if (empty || item == null) {
                     setText(null);
                     setGraphic(null);
+                } else {
+                    String name = core.getItemManager().getItemName(item.getItemID());
+                    setText(name);
+                    ImageView itemImageView = JavaFXUtils.getItemImageView(core, item.getItemID());
+                    setGraphic(itemImageView);
                 }
             }
         });
-        productComboBox.getItems().addAll(values);
-        return productComboBox;
-    }
+        typeList.setCellFactory(lv -> new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(Class<?> item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    setText(item.getSimpleName());
+                    try {
+                        Object[] values = (Object[]) item.getMethod("values").invoke(null);
+                        if (values.length > 0 && values[0] instanceof Potion first) {
+                            setGraphic(JavaFXUtils.getItemImageView(core, first.getItemID()));
+                        } else {
+                            setGraphic(null);
+                        }
+                    } catch (Exception e) {
+                        setGraphic(null);
+                    }
 
-    private void saveSelectedMixer(PotionMixer method) {
-        if (method != null) {
-            prefs.put(PREF_SELECTED_MIXER, method.name());
-        }
-    }
-
-    private void loadSavedMixer(ComboBox<PotionMixer> comboBox, PotionMixer[] availableMixers) {
-        String saved = prefs.get(PREF_SELECTED_MIXER, null);
-        if (saved != null) {
-            for (PotionMixer mixer : availableMixers) {
-                if (mixer.name().equals(saved)) {
-                    comboBox.getSelectionModel().select(mixer);
-                    Platform.runLater(() -> {
-                        scriptContentBox.getChildren().clear();
-                        mixer.provideUIOptions(scriptContentBox);
-                        scriptContentBox.setAlignment(Pos.CENTER_LEFT);
-                    });
-                    return;
                 }
             }
-        } else {
-            comboBox.getSelectionModel().selectFirst();
-            comboBox.fireEvent(new ActionEvent());
-        }
+        });
+    }
+
+    public Potion getSelectedProduct() {
+        return productList.getSelectionModel().getSelectedItem();
     }
 }

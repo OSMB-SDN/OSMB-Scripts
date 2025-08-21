@@ -31,8 +31,7 @@ public class ShopInterface extends ComponentCentered implements ItemGroup {
         Canvas canvas = new Canvas(488, 300, ColorUtils.TRANSPARENT_PIXEL);
         canvas.createBackground(core, BorderPalette.STEEL_BORDER, null);
         canvas.fillRect(5, 5, canvas.canvasWidth - 10, canvas.canvasHeight - 10, ColorUtils.TRANSPARENT_PIXEL);
-        ComponentImage<Integer> image = new ComponentImage<>(canvas.toSearchableImage(ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB), -1, 1);
-        return image;
+        return new ComponentImage<>(canvas.toSearchableImage(ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB), -1, 1);
     }
 
     @Override
@@ -121,7 +120,7 @@ public class ShopInterface extends ComponentCentered implements ItemGroup {
             return null;
         }
 
-        return new Point(bounds.x + 61, bounds.y + 49);
+        return new Point(bounds.x + 61, bounds.y + 40);
     }
 
     @Override
@@ -147,5 +146,10 @@ public class ShopInterface extends ComponentCentered implements ItemGroup {
     @Override
     public Rectangle getGroupBounds() {
         return getBounds();
+    }
+
+    @Override
+    public ScriptCore getCore() {
+        return core;
     }
 }

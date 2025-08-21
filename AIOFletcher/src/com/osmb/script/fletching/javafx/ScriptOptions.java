@@ -1,6 +1,7 @@
 package com.osmb.script.fletching.javafx;
 
 import com.osmb.api.ScriptCore;
+import com.osmb.api.javafx.JavaFXUtils;
 import com.osmb.script.fletching.AIOFletcher;
 import com.osmb.script.fletching.data.ItemIdentifier;
 import com.osmb.script.fletching.method.Method;
@@ -77,7 +78,7 @@ public class ScriptOptions extends VBox {
         productComboBox.setConverter(new StringConverter<>() {
             @Override
             public String toString(ItemIdentifier item) {
-                return item != null ? AIOFletcher.getItemName(core, item.getItemID()) : null; // Use the getName method
+                return item != null ? core.getItemManager().getItemName(item.getItemID()) : null; // Use the getName method
             }
 
             @Override
@@ -92,8 +93,8 @@ public class ScriptOptions extends VBox {
                 super.updateItem(item, empty);
                 if (item != null && !empty) {
                     int itemID = item.getItemID();
-                    String name = AIOFletcher.getItemName(core, itemID);
-                    ImageView itemImage = AIOFletcher.getUIImage(core, itemID);
+                    String name = core.getItemManager().getItemName(itemID);
+                    ImageView itemImage = JavaFXUtils.getItemImageView(core,itemID);
                     setGraphic(itemImage);
                     setText(name);
                 } else {
@@ -108,7 +109,7 @@ public class ScriptOptions extends VBox {
 
     private void saveSelectedMethod(Method method) {
         if (method != null) {
-            prefs.put(PREF_SELECTED_METHOD, method.name());
+            prefs.put(PREF_SELECTED_METHOD, method.getMethodName());
         }
     }
 
@@ -116,7 +117,7 @@ public class ScriptOptions extends VBox {
         String savedMethodName = prefs.get(PREF_SELECTED_METHOD, null);
         if (savedMethodName != null) {
             for (Method method : availableMethods) {
-                if (method.name().equals(savedMethodName)) {
+                if (method.getMethodName().equals(savedMethodName)) {
                     comboBox.getSelectionModel().select(method);
                     Platform.runLater(() -> {
                         scriptContentBox.getChildren().clear();

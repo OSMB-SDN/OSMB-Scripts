@@ -1,10 +1,8 @@
 package com.osmb.script.crafting.method.impl;
 
+import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
-import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
-import com.osmb.api.utils.UIResult;
-import com.osmb.api.utils.UIResultList;
 import com.osmb.script.crafting.AIOCrafter;
 import com.osmb.script.crafting.data.Hide;
 import com.osmb.script.crafting.data.ItemIdentifier;
@@ -15,45 +13,43 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
-import java.util.Optional;
+import java.util.HashSet;
+import java.util.Set;
 
 
 public class CraftHide extends Method {
 
+    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.COSTUME_NEEDLE, ItemID.THREAD, ItemID.NEEDLE));
     private Product itemToMake = null;
     private int hideID;
     private ComboBox<ItemIdentifier> hideComboBox;
     private ComboBox<ItemIdentifier> itemToMakeCombobox;
-    private UIResult<ItemSearchResult> needle;
-    private UIResult<ItemSearchResult> thread;
-    private UIResultList<ItemSearchResult> hides;
+    private ItemGroupResult inventorySnapshot;
 
     public CraftHide(AIOCrafter script) {
         super(script);
     }
 
     @Override
-    public int poll() {
-        needle = script.getItemManager().findItem(script.getWidgetManager().getInventory(), ItemID.NEEDLE, ItemID.COSTUME_NEEDLE);
-        thread = script.getItemManager().findItem(script.getWidgetManager().getInventory(), ItemID.THREAD);
-        hides = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), hideID);
-
-        if (!checkItemResult(hides)) {
-            return 0;
+    public void poll() {
+        inventorySnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        if (inventorySnapshot == null) {
+            // inventory not visible
+            return;
         }
-        if (!checkItemResult(needle)) {
+        if (!inventorySnapshot.contains(ItemID.NEEDLE) && !inventorySnapshot.contains(ItemID.COSTUME_NEEDLE)) {
             script.log(getClass().getSimpleName(), "No needle found in the inventory, stopping script...");
             script.stop();
-            return 0;
+            return;
         }
-        if (needle.get().getId() == ItemID.NEEDLE && !checkItemResult(thread)) {
+        if (!inventorySnapshot.contains(ItemID.COSTUME_NEEDLE) && !inventorySnapshot.contains(ItemID.THREAD)) {
             script.log(getClass().getSimpleName(), "No thread found in the inventory, stopping script...");
             script.stop();
-            return 0;
+            return;
         }
-        if (hides.size() < itemToMake.getAmountNeeded()) {
+        if (inventorySnapshot.getAmount(hideID) < itemToMake.getAmountNeeded()) {
             script.setBank(true);
-            return 0;
+            return;
         }
 
         DialogueType dialogueType = script.getWidgetManager().getDialogue().getDialogueType();
@@ -63,47 +59,40 @@ public class CraftHide extends Method {
                 boolean selectedOption = script.getWidgetManager().getDialogue().selectItem(itemToMakeItemID);
                 if (!selectedOption) {
                     script.log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
-                    return 0;
+                    return;
                 }
                 waitUntilFinishedProducing(hideID);
-                return 0;
+                return;
             }
         }
-
-        interactAndWaitForDialogue(needle.get(), hides.getRandom());
-        return 0;
+        interactAndWaitForDialogue(inventorySnapshot.getItem(ItemID.NEEDLE, ItemID.COSTUME_NEEDLE), inventorySnapshot.getRandomItem(hideID));
     }
 
 
     @Override
-    public int handleBankInterface() {
+    public void handleBankInterface() {
         // bank everything, ignoring logs and knife
-        if (!script.getWidgetManager().getBank().depositAll(new int[]{hideID, ItemID.THREAD, ItemID.NEEDLE, ItemID.COSTUME_NEEDLE})) {
-            return 0;
+        if (!script.getWidgetManager().getBank().depositAll(ITEM_IDS_TO_RECOGNISE)) {
+            return;
         }
-        UIResultList<ItemSearchResult> hidesInventory = script.getItemManager().findAllOfItem(script.getWidgetManager().getInventory(), hideID);
-        Optional<Integer> freeItemSlots = script.getItemManager().getFreeSlotsInteger(script.getWidgetManager().getInventory());
-        // if no free slots & logs are in the inventory, banking is finished
+        inventorySnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        ItemGroupResult bankSnapshot = script.getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
+        if (inventorySnapshot == null || bankSnapshot == null) {
+            // inventory or bank not visible
+            return;
+        }
 
-        if (freeItemSlots.isEmpty() || hidesInventory.isNotVisible()) {
-            return 0;
-        }
-        if (freeItemSlots.get() == 0 && hidesInventory.isFound()) {
+        if (inventorySnapshot.isFull()) {
             script.getWidgetManager().getBank().close();
-            return 0;
+        } else {
+            if (!bankSnapshot.contains(hideID)) {
+                script.log(getClass().getSimpleName(), "No hides found in bank, stopping script.");
+                script.stop();
+            } else {
+                // withdraw hides
+                script.getWidgetManager().getBank().withdraw(hideID, Integer.MAX_VALUE);
+            }
         }
-        UIResultList<ItemSearchResult> hidesBank = script.getItemManager().findAllOfItem(script.getWidgetManager().getBank(), hideID);
-        if (hidesBank.isNotVisible()) {
-            return 0;
-        }
-        if (hidesBank.isNotFound()) {
-            script.log(getClass().getSimpleName(), "No hides found in bank, stopping script.");
-            script.stop();
-            return 0;
-        }
-        // withdraw logs
-        script.getWidgetManager().getBank().withdraw(hideID, Integer.MAX_VALUE);
-        return 0;
     }
 
     @Override
@@ -140,6 +129,7 @@ public class CraftHide extends Method {
         if (hideComboBox.getValue() != null && itemToMakeCombobox.getValue() != null) {
             itemToMake = (Product) itemToMakeCombobox.getValue();
             hideID = hideComboBox.getValue().getItemID();
+            ITEM_IDS_TO_RECOGNISE.add(hideID);
             return true;
         }
         return false;

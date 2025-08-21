@@ -52,7 +52,7 @@ public class GnomeStronghold implements Course {
             core.log(getClass().getSimpleName(), "Interacting with Obstacle net");
             RSObject net = matchingNet.get();
             if (net.interact("climb-over")) {
-                core.submitTask(() -> core.getWorldPosition().getPlane() == 1, 10000);
+                core.submitHumanTask(() -> core.getWorldPosition().getPlane() == 1, 10000);
                 return 0;
             }
         } else if (OBSTACLE_NET_2_AREA.contains(position)) {
@@ -69,7 +69,7 @@ public class GnomeStronghold implements Course {
             core.log(getClass().getSimpleName(), "Interacting with Obstacle net");
             RSObject net = matchingNet.get();
             if (net.interact("climb-over")) {
-                core.submitTask(() -> TUNNEL_AREA.contains(core.getWorldPosition()), 10000);
+                core.submitHumanTask(() -> TUNNEL_AREA.contains(core.getWorldPosition()), 10000);
                 return 0;
             }
         } else if (TUNNEL_AREA.contains(position)) {

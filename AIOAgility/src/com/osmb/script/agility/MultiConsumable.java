@@ -8,6 +8,7 @@ import com.osmb.api.utils.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public enum MultiConsumable {
     CAKE(ItemID.CAKE, ItemID._23_CAKE, ItemID.SLICE_OF_CAKE),
@@ -46,7 +47,7 @@ public enum MultiConsumable {
         return null;
     }
 
-    public static ItemSearchResult getSmallestConsumable(MultiConsumable multiConsumable, UIResultList<ItemSearchResult> itemSearchResults) {
+    public static ItemSearchResult getSmallestConsumable(MultiConsumable multiConsumable, List<ItemSearchResult> itemSearchResults) {
         List<ItemSearchResult> results = new ArrayList<>();
         int biggestIndex = 0;
         for (ItemSearchResult result : itemSearchResults) {
