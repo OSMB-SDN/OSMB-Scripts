@@ -1,7 +1,7 @@
 package com.osmb.script.firemaking.wintertodt.ui;
 
 import com.osmb.api.ScriptCore;
-import com.osmb.script.firemaking.wintertodt.Brazier;
+import com.osmb.script.firemaking.wintertodt.data.Brazier;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;

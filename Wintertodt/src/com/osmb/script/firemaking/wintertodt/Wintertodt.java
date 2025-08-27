@@ -21,6 +21,7 @@ import com.osmb.api.utils.timing.Timer;
 import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.api.walker.WalkConfig;
 import com.osmb.api.world.World;
+import com.osmb.script.firemaking.wintertodt.data.Brazier;
 import com.osmb.script.firemaking.wintertodt.ui.ScriptOptions;
 import com.osmb.script.firemaking.wintertodt.utilities.Utils;
 import javafx.scene.Scene;
@@ -85,7 +86,7 @@ public class Wintertodt extends Script {
             return 0;
         }
         log(Wintertodt.class, "Deciding task...");
-        task = decideTask(method);
+        task = decideTask();
         log(Wintertodt.class, "Executing task: " + task);
         if (task == null) {
             return 0;
@@ -94,7 +95,7 @@ public class Wintertodt extends Script {
         return 0;
     }
 
-    private Task decideTask(Method method) {
+    private Task decideTask() {
         WorldPosition worldPosition = getWorldPosition();
         if (worldPosition == null) {
             log(Wintertodt.class, "Position is null.");
@@ -172,17 +173,7 @@ public class Wintertodt extends Script {
         if (warmth <= nextDrinkPercent) {
             return Task.DRINK_REJUVINATION;
         }
-
-
-        switch (method) {
-//            case SOLO -> {
-//                return decideSoloTask();
-//            }
-            case GROUP -> {
-                return decideGroupTask(worldPosition, inventorySnapshot);
-            }
-        }
-        return null;
+        return decideGroupTask(worldPosition, inventorySnapshot);
     }
 
     @Override

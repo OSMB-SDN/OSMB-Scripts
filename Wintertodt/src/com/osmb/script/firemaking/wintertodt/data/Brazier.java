@@ -1,4 +1,4 @@
-package com.osmb.script.firemaking.wintertodt;
+package com.osmb.script.firemaking.wintertodt.data;
 
 import com.osmb.api.location.area.impl.RectangleArea;
 import com.osmb.api.location.position.types.WorldPosition;

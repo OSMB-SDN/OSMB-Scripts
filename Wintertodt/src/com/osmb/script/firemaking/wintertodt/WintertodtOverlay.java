@@ -14,6 +14,7 @@ import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.api.visual.image.ImageSearchResult;
 import com.osmb.api.visual.image.SearchableImage;
 import com.osmb.api.visual.ocr.fonts.Font;
+import com.osmb.script.firemaking.wintertodt.data.Brazier;
 
 import java.awt.*;
 import java.util.HashMap;
