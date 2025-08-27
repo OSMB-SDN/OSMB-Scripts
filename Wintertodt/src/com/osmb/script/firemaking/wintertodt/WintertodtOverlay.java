@@ -36,18 +36,14 @@ public class WintertodtOverlay extends OverlayBoundary {
     private static final SearchablePixel YELLOW_UPDATE_TEXT = new SearchablePixel(-256, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
     private static final SearchablePixel RED_PIXEL = new SearchablePixel(-65536, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
     private static final SearchablePixel WHITE_PIXEL = new SearchablePixel(-1, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
-    private static final SearchablePixel RED_BAR_PIXEL = new SearchablePixel(-3407872, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
     private static final SearchablePixel GREEN_PIXEL = new SearchablePixel(-16724992, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
     private static final SearchablePixel ORANGE_PIXEL = new SearchablePixel(-761600, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
-    private static final SearchablePixel TURQUOISE_PIXEL = new SearchablePixel(-16745367, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
-    private static final SearchablePixel BLACK_OUTLINE = new SearchablePixel(-16777216, ToleranceComparator.ZERO_TOLERANCE, ColorModel.RGB);
     private static final SearchablePixel[] ACTIVE_BAR_PIXELS = new SearchablePixel[]{ORANGE_PIXEL, GREEN_PIXEL};
     private final Map<BrazierStatus, SearchableImage> statusImages;
     private final List<SearchableImage> incapacitatedImages;
 
     public WintertodtOverlay(ScriptCore core) {
         super(core);
-
         // build images
         this.statusImages = new HashMap<>();
         for (BrazierStatus status : BrazierStatus.values()) {
@@ -133,7 +129,6 @@ public class WintertodtOverlay extends OverlayBoundary {
     public boolean checkVisibility(Rectangle bounds) {
         BrazierStatus brazierStatus = findBrazierIcon(Brazier.SOUTH_WEST, bounds);
         BrazierStatus brazierStatus2 = findBrazierIcon(Brazier.NORTH_WEST, bounds);
-
         return brazierStatus != null && brazierStatus2 != null;
     }
 
@@ -286,11 +281,7 @@ public class WintertodtOverlay extends OverlayBoundary {
         Map<Brazier, BrazierStatus> brazierStatusMap = new HashMap<>();
         for (Brazier brazier : Brazier.values()) {
             BrazierStatus brazierStatus = findBrazierIcon(brazier, overlayBounds);
-            if (brazierStatus != null) {
-                brazierStatusMap.put(brazier, brazierStatus);
-            } else {
-                brazierStatusMap.put(brazier, null);
-            }
+            brazierStatusMap.put(brazier, brazierStatus);
         }
 
         return brazierStatusMap;
