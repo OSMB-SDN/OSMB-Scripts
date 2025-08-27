@@ -28,7 +28,10 @@ import com.osmb.script.agility.courses.pollnivneach.Pollnivneach;
 import com.osmb.script.agility.ui.javafx.UI;
 import javafx.scene.Scene;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
@@ -115,6 +118,12 @@ public class AIOAgility extends Script {
         return handleObstacle(core, obstacleName, menuOption, end, interactDistance, canReach, timeout, null);
     }
 
+    public static void main(String[] args) {
+        for (int i = 0; i < 1000; i++) {
+            System.out.println(RandomUtils.gaussianRandom(500, 5000, 1500, 1000));
+        }
+    }
+
     /**
      * Handles an agility obstacle, will run to & interact using the specified {@param menuOption} then sleep until we reach then {@param endPosition}
      *
@@ -131,8 +140,8 @@ public class AIOAgility extends Script {
     public static ObstacleHandleResponse handleObstacle(AIOAgility core, String obstacleName, String
             menuOption, Object end, int interactDistance, boolean canReach, int timeout, WorldPosition objectBaseTile) {
         // cache hp, we determine if we failed the obstacle via hp decrementing
-        UIResult<Integer> hitpoints = core.getWidgetManager().getMinimapOrbs().getHitpointsPercentage();
-        Optional<RSObject> result = core.getObjectManager().getObject(gameObject -> {
+        Integer hitpoints = core.getWidgetManager().getMinimapOrbs().getHitpointsPercentage();
+        RSObject object = core.getObjectManager().getRSObject(gameObject -> {
 
             if (gameObject.getName() == null || gameObject.getActions() == null) return false;
 
@@ -151,11 +160,10 @@ public class AIOAgility extends Script {
 
             return gameObject.canReach(interactDistance);
         });
-        if (result.isEmpty()) {
+        if (object == null) {
             core.log(AIOAgility.class.getSimpleName(), "ERROR: Obstacle (" + obstacleName + ") does not exist with criteria.");
             return ObstacleHandleResponse.OBJECT_NOT_IN_SCENE;
         }
-        RSObject object = result.get();
         if (object.interact(menuOption)) {
             AIOAgility.handlingObstacle = true;
             core.log(AIOAgility.class.getSimpleName(), "Interacted successfully, sleeping until conditions are met...");
@@ -167,12 +175,10 @@ public class AIOAgility extends Script {
                     return false;
                 }
                 // check if we take damage
-                if (hitpoints.isFound()) {
-                    UIResult<Integer> newHitpointsResult = core.getWidgetManager().getMinimapOrbs().getHitpointsPercentage();
-                    if (newHitpointsResult.isFound()) {
-                        if (hitpoints.get() > newHitpointsResult.get()) {
-                            return true;
-                        }
+                Integer newHitpointsResult = core.getWidgetManager().getMinimapOrbs().getHitpointsPercentage();
+                if (hitpoints != null && newHitpointsResult != null) {
+                    if (hitpoints > newHitpointsResult) {
+                        return true;
                     }
                 }
                 // check for being stood still
@@ -296,6 +302,14 @@ public class AIOAgility extends Script {
                     return false;
                 }, 7000);
             }
+
+            boolean shouldDelay = RandomUtils.gaussianRandom(0, 5, 2, 2) == 0;
+            if (shouldDelay) {
+                int delayMs = RandomUtils.gaussianRandom(500, 5000, 1500, 1000);
+                // use submitTask always returning false to keep renewing frames while sleeping,
+                // this avoids completely stalling the script thread, leaving the preview looking smooth
+                core.submitTask(() -> false, delayMs);
+            }
             return true;
         }
 
@@ -304,16 +318,6 @@ public class AIOAgility extends Script {
 
     @Override
     public void onStart() {
-        // fxml loading
-//            FXMLLoader loader = new FXMLLoader(AIOAgility.class.getResource("/ui.fxml"));
-//            // initializing the controller
-//            popupController = new Controller();
-//            loader.setController(popupController);
-//            Parent layout = loader.load();
-//
-//            // initialise our fxml's components actions
-//            popupController.init();
-
         UI ui = new UI();
         Scene scene = ui.buildScene(this);
         getStageController().show(scene, "Settings", false);
@@ -361,8 +365,8 @@ public class AIOAgility extends Script {
         }
 
         if (foodItemID != null) {
-            UIResult<Integer> hpOpt = getWidgetManager().getMinimapOrbs().getHitpointsPercentage();
-            if (!hpOpt.isFound()) {
+            Integer hitpointsPercentage = getWidgetManager().getMinimapOrbs().getHitpointsPercentage();
+            if (hitpointsPercentage == null) {
                 log(getClass().getSimpleName(), "Hitpoints orb not visible...");
                 return 0;
             }
@@ -382,23 +386,25 @@ public class AIOAgility extends Script {
                     log(getClass().getSimpleName(), "Ran out of food, stopping script...");
                     return 0;
                 }
-            } else if(hpOpt.get() <= hitpointsToEat && eatBlockTimer.hasFinished()) {
+            }
+            if (hitpointsPercentage <= hitpointsToEat && eatBlockTimer.hasFinished()) {
                 eatFood();
                 return 0;
             }
         }
 
-        UIResult<Boolean> runEnabled = getWidgetManager().getMinimapOrbs().isRunEnabled();
-        if (runEnabled.isFound()) {
-            UIResult<Integer> runEnergyOpt = getWidgetManager().getMinimapOrbs().getRunEnergy();
-            int runEnergy = runEnergyOpt.orElse(-1);
-            if (!runEnabled.get() && runEnergy > nextRunActivate) {
+        Boolean runEnabled = getWidgetManager().getMinimapOrbs().isRunEnabled();
+        Integer runEnergy = getWidgetManager().getMinimapOrbs().getRunEnergy();
+        if (runEnabled != null && runEnergy != null) {
+            if (!runEnabled && runEnergy > nextRunActivate) {
                 log(getClass().getSimpleName(), "Enabling run");
                 if (!getWidgetManager().getMinimapOrbs().setRun(true)) {
                     return 0;
                 }
                 nextRunActivate = random(30, 70);
             }
+        } else {
+            log(AIOAgility.class, "Failed to get run orb info.");
         }
 
         if (position.getPlane() > 0 && handleMOG(this)) {
@@ -408,16 +414,16 @@ public class AIOAgility extends Script {
     }
 
     private void eatFood() {
-            // eat food
-            ItemSearchResult foodToEat;
-            if (multiConsumable != null) {
-                foodToEat = MultiConsumable.getSmallestConsumable(multiConsumable, inventorySnapshot.getAllOfItems(foodItemID));
-            } else {
-                foodToEat = inventorySnapshot.getRandomItem(foodItemID);
-            }
-            foodToEat.interact();
-            eatBlockTimer.reset(3000);
-            hitpointsToEat = random(eatLow, eatHigh);
+        // eat food
+        ItemSearchResult foodToEat;
+        if (multiConsumable != null) {
+            foodToEat = MultiConsumable.getSmallestConsumable(multiConsumable, inventorySnapshot.getAllOfItems(foodItemID));
+        } else {
+            foodToEat = inventorySnapshot.getRandomItem(foodItemID);
+        }
+        foodToEat.interact();
+        eatBlockTimer.reset(random(1500, 2500));
+        hitpointsToEat = random(eatLow, eatHigh);
     }
 
     private int navigateToBank() {
@@ -496,6 +502,11 @@ public class AIOAgility extends Script {
             }
         }
 
+    }
+
+    @Override
+    public boolean promptBankTabDialogue() {
+        return foodItemID != null;
     }
 
     @Override

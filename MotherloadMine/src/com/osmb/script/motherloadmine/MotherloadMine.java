@@ -754,10 +754,16 @@ public class MotherloadMine extends Script {
             firstTimeBack = false;
         }
         long positionChangeTime = getLastPositionChangeMillis();
-        if (closestVein.getTileDistance() > 1) {
+        if (closestVein.getTileDistance(myPosition) > 1) {
             // if not in interactable distance, wait a little so we start moving.
             // This is just to detect a dud action (when you click a menu entry but nothing happens)
-            if (!submitTask(() -> closestVein.getTileDistance() <= 1 || getLastPositionChangeMillis() < positionChangeTime, random(2000, 4000))) {
+            if (!submitTask(() -> {
+                WorldPosition worldPosition = getWorldPosition();
+                if (worldPosition == null) {
+                    return false;
+                }
+                return closestVein.getTileDistance(worldPosition) <= 1 || getLastPositionChangeMillis() < positionChangeTime;
+            }, random(2000, 4000))) {
                 // if we don't move after interacting and we aren't next to the object
                 log(MotherloadMine.class, "We're not moving... trying again.");
                 return;
@@ -789,7 +795,7 @@ public class MotherloadMine extends Script {
             if (myPosition_ == null) {
                 return false;
             }
-            int tileDistance = closestVein.getTileDistance();
+            int tileDistance = closestVein.getTileDistance(myPosition_);
             if (tileDistance > 1) {
                 // still traversing to the rock
                 amountChangeTimer.reset();

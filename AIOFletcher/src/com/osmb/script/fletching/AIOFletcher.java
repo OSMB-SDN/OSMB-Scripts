@@ -8,7 +8,7 @@ import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.ui.GameState;
-import com.osmb.api.utils.timing.Timer;
+import com.osmb.api.utils.Utils;
 import com.osmb.script.fletching.javafx.ScriptOptions;
 import com.osmb.script.fletching.method.Method;
 import com.osmb.script.fletching.method.impl.Arrows;
@@ -20,7 +20,6 @@ import java.awt.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
 @ScriptDefinition(name = "AIO Fletcher", author = "Joe", version = 1.0, description = "Covers a variety of fletching methods!", skillCategory = SkillCategory.FLETCHING)
@@ -115,27 +114,23 @@ public class AIOFletcher extends Script {
             return;
         }
 
-        waitForBankToOpen();
+        waitForBankToOpen(object);
     }
 
-    private void waitForBankToOpen() {
-        AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
-        AtomicReference<WorldPosition> previousPosition = new AtomicReference<>(null);
+    private void waitForBankToOpen(RSObject object) {
+        long positionChangeTimeout = random(1000, 2500);
         submitHumanTask(() -> {
-            WorldPosition position = getWorldPosition();
-            if (position == null) {
-                log(getClass(), "Position is null");
+            WorldPosition worldPosition = getWorldPosition();
+            if (worldPosition == null) {
+                log(AIOFletcher.class, "World position is null, cannot check if bank is open.");
                 return false;
             }
-
-            if (!position.equals(previousPosition.get())) {
-                log(getClass(), "Position changed");
-                positionChangeTimer.get().reset();
-                previousPosition.set(position);
+            int tileDistance = object.getTileDistance(worldPosition);
+            if (tileDistance > 1 && getLastPositionChangeMillis() >= positionChangeTimeout) {
+                return true;
             }
-
-            return getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
-        }, 15000, false, true);
+            return getWidgetManager().getBank().isVisible();
+        }, Utils.random(8000, 13000), false, true);
     }
 
     public boolean isBank() {

@@ -68,11 +68,13 @@ public class CutGems extends Method {
         if (!script.getWidgetManager().getBank().depositAll(ITEM_IDS_TO_RECOGNISE)) {
             return;
         }
+        // get snapshots
         inventorySnapshot = script.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
         ItemGroupResult bankSnapshot = script.getWidgetManager().getBank().search(ITEM_IDS_TO_RECOGNISE);
         if (bankSnapshot == null || inventorySnapshot == null) {
             return;
         }
+
         if (inventorySnapshot.isFull()) {
             script.getWidgetManager().getBank().close();
         } else {

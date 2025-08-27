@@ -6,7 +6,7 @@ import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.ui.GameState;
-import com.osmb.api.utils.timing.Timer;
+import com.osmb.api.utils.Utils;
 import com.osmb.script.crafting.javafx.ScriptOptions;
 import com.osmb.script.crafting.method.Method;
 import com.osmb.script.crafting.method.impl.CraftHide;
@@ -17,7 +17,6 @@ import javafx.scene.Scene;
 import java.awt.*;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
 @ScriptDefinition(name = "AIO Crafter", author = "Joe", version = 1.0, description = "Covers a variety of crafting methods!", skillCategory = SkillCategory.CRAFTING)
@@ -125,24 +124,23 @@ public class AIOCrafter extends Script {
         }
         RSObject object = (RSObject) getUtils().getClosest(banksFound);
         if (!object.interact(BANK_ACTIONS)) return;
-        waitForBankToOpen();
+        waitForBankToOpen(object);
     }
 
-    private void waitForBankToOpen() {
-        AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
-        AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
+    private void waitForBankToOpen(RSObject object) {
+        long positionChangeTimeout = random(1000, 2500);
         submitHumanTask(() -> {
-            WorldPosition position = getWorldPosition();
-            if (position == null) {
+            WorldPosition worldPosition = getWorldPosition();
+            if (worldPosition == null) {
+                log(AIOCrafter.class, "World position is null, cannot check if bank is open.");
                 return false;
             }
-            if (pos.get() == null || !position.equals(pos.get())) {
-                positionChangeTimer.get().reset();
-                pos.set(position);
+            int tileDistance = object.getTileDistance(worldPosition);
+            if (tileDistance > 1 && getLastPositionChangeMillis() >= positionChangeTimeout) {
+                return true;
             }
-
-            return getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
-        }, 15000);
+            return getWidgetManager().getBank().isVisible();
+        }, Utils.random(8000, 13000), false, true);
     }
 
     public void setBank(boolean bank) {

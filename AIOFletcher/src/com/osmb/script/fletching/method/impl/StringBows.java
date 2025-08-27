@@ -2,9 +2,7 @@ package com.osmb.script.fletching.method.impl;
 
 import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
-import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
-import com.osmb.api.utils.UIResultList;
 import com.osmb.script.fletching.AIOFletcher;
 import com.osmb.script.fletching.data.Bow;
 import com.osmb.script.fletching.data.ItemIdentifier;
