@@ -181,7 +181,7 @@ public class BlastFurnace extends Script {
 
     @Override
     public int poll() {
-        if (defaultHighlightPixel == null) {
+        if (payForeman && defaultHighlightPixel == null) {
             int color = ColorPickerPanel.show(this, "Pick color for Foreman highlight");
             if (color == 0) {
                 log(BlastFurnace.class, "No color selected for foreman, stopping script.");
@@ -518,6 +518,10 @@ public class BlastFurnace extends Script {
                 pollFramesUntil(() -> {
                     // wait for bar amount to decrement in overlay
                     Overlay.BlastFurnaceInfo info = (Overlay.BlastFurnaceInfo) overlay.getValue(SECTIONS);
+                    if(info == null) {
+                        log(BlastFurnace.class, "Failed to get blast furnace info from overlay");
+                        return false;
+                    }
                     for (Bar bar : Bar.values()) {
                         if (info.getBarAmount(bar) < blastFurnaceInfo.getBarAmount(bar)) {
                             log(BlastFurnace.class, bar.getBarName(this) + " decremented");
