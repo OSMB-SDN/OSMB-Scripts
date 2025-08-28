@@ -6,6 +6,7 @@ import com.osmb.api.input.MenuHook;
 import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
+import com.osmb.api.javafx.ColorPickerPanel;
 import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.scene.RSObject;
 import com.osmb.api.script.Script;
@@ -19,8 +20,10 @@ import com.osmb.api.ui.component.tabs.SettingsTabComponent;
 import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
+import com.osmb.api.visual.SearchablePixel;
 import com.osmb.api.visual.color.ColorModel;
 import com.osmb.api.visual.color.tolerance.impl.ChannelThresholdComparator;
+import com.osmb.api.visual.color.tolerance.impl.SingleThresholdComparator;
 import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.api.walker.WalkConfig;
 import com.osmb.script.smithing.blastfurnace.component.Overlay;
@@ -134,17 +137,11 @@ public class BlastFurnace extends Script {
         if (interactedSuccessfully) {
             core.pollFramesHuman(() -> {
                 ItemGroupResult futureInventorySnapshot = core.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-                return futureInventorySnapshot != null && futureInventorySnapshot.contains(ItemID.ICE_GLOVES);
+                return futureInventorySnapshot != null && futureInventorySnapshot.containsAny(ItemID.ICE_GLOVES, ItemID.SMITHS_GLOVES_I);
             }, RandomUtils.uniformRandom(1200, 1800));
             return true;
         }
         return false;
-    }
-
-    public static void main(String[] args) {
-        for (int i = 0; i < 100; i++) {
-            System.out.println(RandomUtils.gaussianRandom(100, 2000, 300, 600));
-        }
     }
 
     @Override
@@ -184,6 +181,16 @@ public class BlastFurnace extends Script {
 
     @Override
     public int poll() {
+        if (defaultHighlightPixel == null) {
+            int color = ColorPickerPanel.show(this, "Pick color for Foreman highlight");
+            if (color == 0) {
+                log(BlastFurnace.class, "No color selected for foreman, stopping script.");
+                stop();
+                return 0;
+            }
+            defaultHighlightPixel = new SearchablePixel(color, new SingleThresholdComparator(5), ColorModel.RGB);
+        }
+
         // check zoom level is within range
         if (!setZoom) {
             setZoom();
@@ -385,7 +392,7 @@ public class BlastFurnace extends Script {
                 // cube not on screen
                 continue;
             }
-            Rectangle bounds = getPixelAnalyzer().getHighlightBounds(tileCube, YELLOW_SELECT_HIGHLIGHT_PIXEL, DEFAULT_HIGHLIGHT_PIXEL);
+            Rectangle bounds = getPixelAnalyzer().getHighlightBounds(tileCube, YELLOW_SELECT_HIGHLIGHT_PIXEL, defaultHighlightPixel);
             if (bounds == null) {
                 continue;
             }
@@ -528,7 +535,7 @@ public class BlastFurnace extends Script {
                 if (!ICE_GLOVE_EQUIP_DELAY.hasFinished()) {
                     return;
                 }
-                ItemSearchResult iceGloves = inventorySnapshot.getItem(ItemID.ICE_GLOVES);
+                ItemSearchResult iceGloves = inventorySnapshot.getItem(ItemID.ICE_GLOVES, ItemID.SMITHS_GLOVES_I);
                 if (iceGloves != null) {
                     log(BlastFurnace.class, "Equipping ice gloves...");
                     if (iceGloves.interact()) {
@@ -762,6 +769,7 @@ public class BlastFurnace extends Script {
     @Override
     public void onRelog() {
         expectBarsToBeCollected = false;
+        FOREMAN_PAYMENT_TIMER.reset(0);
     }
 
 

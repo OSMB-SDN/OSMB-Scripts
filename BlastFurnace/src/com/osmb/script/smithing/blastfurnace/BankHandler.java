@@ -126,7 +126,7 @@ public class BankHandler {
             core.log(BlastFurnace.class, "Bank entry: " + bankEntry);
             itemsToIgnore.add(bankEntry.getItemID());
         }
-        for(Resource resource : selectedBar.getOres()) {
+        for (Resource resource : selectedBar.getOres()) {
             itemsToIgnore.add(resource.getItemID());
         }
         if (!inventorySnapshot.getOccupiedSlots(itemsToIgnore).isEmpty()) {
@@ -145,6 +145,14 @@ public class BankHandler {
         core.log(BlastFurnace.class, "Processing bank entry: " + bankEntry);
         if (bankEntry.getAmount() > 0) {
             // withdraw
+            ItemSearchResult itemInBank = bankSnapshot.getItem(bankEntry.itemID);
+            if (itemInBank == null) {
+                core.log(BlastFurnace.class, "Item not found in bank: " + bankEntry.itemID);
+                return;
+            } else if(itemInBank.getStackAmount() < bankEntry.amount) {
+                core.log(BlastFurnace.class, "Not enough items in bank. Wanted: " + bankEntry.amount + ", Found: " + itemInBank.getStackAmount());
+                return;
+            }
             bank.withdraw(bankEntry.itemID, bankEntry.amount);
         } else {
             // deposit

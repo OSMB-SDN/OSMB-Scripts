@@ -510,7 +510,7 @@ public class AIOWoodcuttingGuild extends Script {
         if (xpTracker != null) {
             lines.add("Current XP: " + String.format("%,d", (long) xpTracker.getXp()));
             lines.add("XP Gained: " + String.format("%,d", (long) xpTracker.getXpGained()));
-            lines.add("Xp per hour: " + String.format("%,d", (long) xpTracker.getXpPerHour(getStartTime())));
+            lines.add("Xp per hour: " + String.format("%,d", (long) xpTracker.getXpPerHour()));
             lines.add("Logs Chopped: " + String.format("%,d", logsChopped));
         } else {
             lines.add("No XP tracker available.");
