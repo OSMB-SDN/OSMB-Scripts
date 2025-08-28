@@ -28,18 +28,14 @@ public class CraftingInterface extends ComponentCentered {
     private Map<ProductionQuantity, Rectangle> productionQuantityButtons;
     private ImageSearchResult lastFoundItem = null;
 
+
     public CraftingInterface(ScriptCore core) {
         super(core);
     }
 
     @Override
     protected ComponentImage buildBackgroundImage() {
-        Canvas canvas = new Canvas(492, 300, ColorUtils.TRANSPARENT_PIXEL);
-        // create steel border background
-        canvas.createBackground(core, BorderPalette.STEEL_BORDER, null);
-        // set middle to transparent
-        canvas.fillRect(5, 5, canvas.canvasWidth - 10, canvas.canvasHeight - 10, ColorUtils.TRANSPARENT_PIXEL);
-        return new ComponentImage<>(canvas.toSearchableImage(new SingleThresholdComparator(10), ColorModel.RGB), -1, 1);
+        return null;
     }
 
     @Override

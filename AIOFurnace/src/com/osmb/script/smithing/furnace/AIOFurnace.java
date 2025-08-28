@@ -1,6 +1,7 @@
 package com.osmb.script.smithing.furnace;
 
 import com.osmb.api.item.ItemGroupResult;
+import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.scene.RSObject;
 import com.osmb.api.script.Script;
@@ -8,9 +9,13 @@ import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.utils.RandomUtils;
-import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Timer;
+import com.osmb.api.visual.color.ColorModel;
+import com.osmb.api.visual.color.tolerance.impl.ChannelThresholdComparator;
 import com.osmb.script.smithing.furnace.component.CraftingInterface;
+import com.osmb.script.smithing.furnace.component.GoldCraftingInterface;
+import com.osmb.script.smithing.furnace.component.SilverCraftingInterface;
+import com.osmb.script.smithing.furnace.data.Bar;
 import com.osmb.script.smithing.furnace.data.Jewellery;
 import com.osmb.script.smithing.furnace.data.Misc;
 import com.osmb.script.smithing.furnace.javafx.ScriptOptions;
@@ -29,7 +34,7 @@ import java.util.stream.Collectors;
         skillCategory = SkillCategory.SMITHING
 )
 public class AIOFurnace extends Script {
-    public static final String[] BANK_NAMES = {"Bank chest", "Bank booth","Bank table"};
+    public static final String[] BANK_NAMES = {"Bank chest", "Bank booth", "Bank table"};
     public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
     public static final Predicate<RSObject> BANK_QUERY = gameObject -> {
         // if object has no name
@@ -52,6 +57,7 @@ public class AIOFurnace extends Script {
         // final check is if the object is reachable
         return gameObject.canReach();
     };
+    public static final Set<Integer> ORE_IDS = new HashSet<>(Set.of(ItemID.COAL, ItemID.IRON_ORE, ItemID.GOLD_ORE, ItemID.SILVER_ORE, ItemID.COPPER_ORE, ItemID.TIN_ORE, ItemID.MITHRIL_ORE, ItemID.ADAMANTITE_ORE, ItemID.RUNITE_ORE));
     // we add the other items in the onStart method
     private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>();
     private CraftingInterface craftingInterface;
@@ -80,8 +86,30 @@ public class AIOFurnace extends Script {
             // if the product requires a mould, add it to the list of items to recognise
             ITEM_IDS_TO_RECOGNISE.addAll(mouldIDs);
         }
-        this.craftingInterface = new CraftingInterface(this);
-        this.amountChangeTimeout = selectedProduct == Misc.CANNONBALLS ? Utils.random(5800,9000) : Utils.random(3500, 6000);
+        boolean containsSilver = false;
+        for (Resource resource : selectedProduct.getResources()) {
+            if (resource.getItemID() == ItemID.SILVER_BAR) {
+                containsSilver = true;
+                break;
+            }
+        }
+        if (containsSilver) {
+            // if we're crafting silver jewellery, we need to add coal to the list of items to recognise as we need it for smelting silver bars
+            this.craftingInterface = new SilverCraftingInterface(this);
+        } else {
+            this.craftingInterface = new GoldCraftingInterface(this);
+        }
+        this.amountChangeTimeout = selectedProduct == Misc.CANNONBALLS ? RandomUtils.uniformRandom(5800, 9000) : RandomUtils.uniformRandom(3500, 6000);
+
+        // tolerance overrides
+        for (int itemID : ORE_IDS) {
+            getItemManager().overrideDefaultColorModel(itemID, ColorModel.HSL);
+            getItemManager().overrideDefaultComparator(itemID, new ChannelThresholdComparator(9, 7, 7));
+        }
+        for (Bar bar : Bar.values()) {
+            getItemManager().overrideDefaultColorModel(bar.getItemID(), ColorModel.HSL);
+            getItemManager().overrideDefaultComparator(bar.getItemID(), new ChannelThresholdComparator(9, 7, 7));
+        }
     }
 
     @Override
@@ -127,7 +155,7 @@ public class AIOFurnace extends Script {
             log(AIOFurnace.class, "Failed to interact with furnace.");
         }
         // wait for the dialogue to appear
-        submitHumanTask(() -> getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION || craftingInterface.isVisible(), random(4000, 10000));
+        pollFramesHuman(() -> getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION || craftingInterface.isVisible(), random(4000, 10000));
     }
 
     private void handleDialogue() {
@@ -176,25 +204,24 @@ public class AIOFurnace extends Script {
             previousAmounts.get().put(resource.getItemID(), -1);
         }
         com.osmb.api.utils.timing.Timer amountChangeTimer = new Timer();
-        submitTask(() -> {
+        pollFramesUntil(() -> {
             DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
-            if (dialogueType != null) {
-                // look out for level up dialogue etc.
-                if (dialogueType == DialogueType.TAP_HERE_TO_CONTINUE) {
-                    // sleep for a random time so we're not instantly reacting to the dialogue
-                    // we do this in the task to continue updating the screen
-                    submitTask(() -> false, random(1000, 4000));
-                    // random chance to interact with the dialogue, if not just re-interact with the furnace
-                    if (random(2) == 0) {
-                        getWidgetManager().getDialogue().continueChatDialogue();
-                    }
-                    return true;
+            // look out for level up dialogue etc.
+            if (dialogueType == DialogueType.TAP_HERE_TO_CONTINUE) {
+                log(AIOFurnace.class, "Dialogue detected. Continuing...");
+                // sleep for a random time so we're not instantly reacting to the dialogue
+                // we do this in the task to continue updating the screen
+                pollFramesUntil(() -> false, random(1000, 4000));
+                // random chance to interact with the dialogue, if not just re-interact with the furnace
+                if (random(2) == 0) {
+                    getWidgetManager().getDialogue().continueChatDialogue();
                 }
+                return true;
             }
             // If the amount of items in the inventory hasn't changed in the timeout amount, then return true to break out of the sleep method
             if (amountChangeTimer.timeElapsed() > amountChangeTimeout) {
                 log(AIOFurnace.class, "No item amount change detected in " + amountChangeTimer.timeElapsed() + "ms. Breaking out of the sleep method.");
-                amountChangeTimeout = selectedProduct == Misc.CANNONBALLS ? Utils.random(5800,9000) : Utils.random(3500, 6000);
+                amountChangeTimeout = selectedProduct == Misc.CANNONBALLS ? RandomUtils.uniformRandom(5800, 9000) : RandomUtils.uniformRandom(3500, 6000);
                 return true;
             }
 
@@ -222,7 +249,7 @@ public class AIOFurnace extends Script {
         // random delay
         int randomDelay = RandomUtils.gaussianRandom(300, 5000, 500, 1500);
         log(AIOFurnace.class, "⏳ - Executing humanised delay: " + randomDelay + "ms");
-        submitTask(() -> false, randomDelay);
+        pollFramesUntil(() -> false, randomDelay);
     }
 
     private boolean hasSuppliesForProduct(ItemGroupResult inventorySnapshot) {
@@ -314,10 +341,13 @@ public class AIOFurnace extends Script {
 
 
         // now we need to work out how many of each resource we need to withdraw
+        int resourceCount = resources.size();
+        int stackableCount = 0;
         for (Resource resource : resources) {
             int inventoryAmount = inventorySnapshot.getAmount(resource.getItemID());
             log(AIOFurnace.class, "Resource required - Item ID: " + resource.getItemID() + " Amount in inventory: " + inventoryAmount);
             if (getItemManager().isStackable(resource.getItemID())) {
+                stackableCount++;
                 log(AIOFurnace.class, "Resource is stackable - Withdrawing all if not enough in inventory.");
                 // if the item is stackable withdraw all
                 ItemSearchResult stackableIngredient = inventorySnapshot.getItem(resource.getItemID());
@@ -359,7 +389,12 @@ public class AIOFurnace extends Script {
                     stop();
                     return;
                 }
-                getWidgetManager().getBank().withdraw(bankEntry.itemID, stackable ? Integer.MAX_VALUE : bankEntry.amount);
+                int nonStackableResources = resourceCount - stackableCount;
+                if (!stackable && nonStackableResources >= 2) {
+                    getWidgetManager().getBank().withdraw(bankEntry.itemID, amountOfProducts);
+                } else {
+                    getWidgetManager().getBank().withdraw(bankEntry.itemID, stackable ? Integer.MAX_VALUE : bankEntry.amount);
+                }
             } else {
                 // deposit
                 int depositAmount = Math.abs(bankEntry.amount);
