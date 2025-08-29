@@ -13,7 +13,7 @@ public class AreaManager {
     public static final Area MAPLE_TREE_AREA = new RectangleArea(1608, 3488, 20, 11, 0);
     public static final Area WILLOW_TREE_AREA = new RectangleArea(1626, 3493, 22, 11, 0);
     public static final Area OAK_TREE_AREA = new RectangleArea(1613, 3506, 20, 9, 0);
-    public static final Area TREE_AREA = new RectangleArea(1625, 3507, 29, 10, 0);
+    public static final Area TREE_AREA = new RectangleArea(1625, 3507, 29, 9, 0);
     public static final Area BANK_AREA = new RectangleArea(1589, 3475, 4, 5, 0);
     public static final Area REDWOOD_TREE_AREA =  new RectangleArea(1567, 3479, 7, 17, 1);
     public static final Area MAGIC_TREE_AREA = new RectangleArea(1576, 3481, 7, 13, 0);
