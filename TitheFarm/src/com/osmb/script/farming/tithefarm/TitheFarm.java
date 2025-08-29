@@ -104,6 +104,7 @@ public class TitheFarm extends Script {
     private int depositAmount;
     private boolean setZoom = false;
     private boolean depositFlag = false;
+    private int seedMissingCount = 0;
 
     public TitheFarm(Object scriptCore) {
         super(scriptCore);
@@ -164,6 +165,10 @@ public class TitheFarm extends Script {
             return Task.SET_ZOOM;
         }
         if (LEVEL_CHECK_TIMER.hasFinished() || farmingLevel == 0) {
+            // ensure no item is selected
+            if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
+                return null;
+            }
             return Task.CHECK_LEVEL;
         }
 
@@ -221,6 +226,13 @@ public class TitheFarm extends Script {
                     }
                 }
                 return Task.LEAVE_FARM;
+            }
+        } else {
+            // reset on 5 tries, this is because the seed is tapped often,
+            // meaning it could maybe detected as not in inventory when it actually is if the snapshot happens while it is transparent
+            if (seedMissingCount >= 5) {
+                seedMissingCount = 0;
+                patchManager.reset();
             }
         }
 
@@ -788,8 +800,10 @@ public class TitheFarm extends Script {
         ItemSearchResult seed = inventorySnapshot.getItem(selectedPlant.getSeedID());
         if (seed == null) {
             log(TitheFarm.class, "Seed is null");
+            seedMissingCount++;
             return;
         }
+        seedMissingCount = 0;
         if (!seed.isSelected()) {
             // select seed
             if (seed.interact()) {
