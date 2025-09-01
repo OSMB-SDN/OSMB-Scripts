@@ -16,6 +16,8 @@ public class Status {
     public static boolean coalBagFull = false;
     public static boolean expectBarsToBeCollected = false;
     public static boolean setZoom = false;
+    public static Integer cofferValue;
+    public static int cofferReadAttempts = 0;
 
     public static final Map<Bar, Integer> MELTING_POT_BARS = new HashMap<>();
 }

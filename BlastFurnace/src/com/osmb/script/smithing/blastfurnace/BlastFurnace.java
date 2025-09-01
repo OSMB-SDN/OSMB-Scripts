@@ -1,8 +1,6 @@
 package com.osmb.script.smithing.blastfurnace;
 
 import com.osmb.api.ScriptCore;
-import com.osmb.api.input.MenuEntry;
-import com.osmb.api.input.MenuHook;
 import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
@@ -78,11 +76,20 @@ public class BlastFurnace extends Script {
         core.log(BlastFurnace.class, "Waiting for inventory change...");
         AtomicReference<ItemGroupResult> futureInventorySnapshot = new AtomicReference<>();
         AtomicBoolean inventoryChanged = new AtomicBoolean(false);
-        core.pollFramesHuman(() -> {
+        int notMovingTimeout = RandomUtils.uniformRandom(700, 1500);
+        core.pollFramesUntil(() -> {
             WorldPosition myPos = core.getWorldPosition();
             if (myPos == null) {
                 core.log(BlastFurnace.class, "Failed to get world position.");
                 return true;
+            }
+            DialogueType dialogueType = core.getWidgetManager().getDialogue().getDialogueType();
+            if (dialogueType == DialogueType.TAP_HERE_TO_CONTINUE) {
+                UIResult<String> dialogueText = core.getWidgetManager().getDialogue().getText();
+                if (dialogueText.isFound() && dialogueText.get().startsWith("You must ask the foreman")) {
+                    FOREMAN_PAYMENT_TIMER.reset(0);
+                    return true;
+                }
             }
             futureInventorySnapshot.set(core.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE));
             if (futureInventorySnapshot.get() == null) {
@@ -100,6 +107,10 @@ public class BlastFurnace extends Script {
             // break out when the inventory snapshot has changed
             if (!futureInventorySnapshot.get().equals(inventorySnapshot)) {
                 inventoryChanged.set(true);
+                return true;
+            }
+
+            if (conveyorBelt.getTileDistance(myPos) > 1 && core.getLastPositionChangeMillis() > notMovingTimeout) {
                 return true;
             }
             return false;
@@ -127,6 +138,7 @@ public class BlastFurnace extends Script {
             // update melting pot map
             MELTING_POT_BARS.clear();
             MELTING_POT_BARS.putAll(Utils.getMeltingPotBars(blastFurnaceInfo));
+            core.pollFramesUntil(() -> false, RandomUtils.gaussianRandom(100, 3200, 200, 500));
         } else {
             core.log(BlastFurnace.class, "Failed to put ores on conveyor belt.");
         }
@@ -137,7 +149,7 @@ public class BlastFurnace extends Script {
         if (interactedSuccessfully) {
             core.pollFramesHuman(() -> {
                 ItemGroupResult futureInventorySnapshot = core.getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-                return futureInventorySnapshot != null && futureInventorySnapshot.containsAny(ItemID.ICE_GLOVES, ItemID.SMITHS_GLOVES_I);
+                return futureInventorySnapshot != null && futureInventorySnapshot.containsAny(ItemID.ICE_GLOVES);
             }, RandomUtils.uniformRandom(1200, 1800));
             return true;
         }
@@ -226,8 +238,19 @@ public class BlastFurnace extends Script {
                 log(BlastFurnace.class, "Unable to get blast furnace info from overlay");
                 return 0;
             }
-
-            if (blastFurnaceInfo.getCofferValue() == 0) {
+            cofferValue = blastFurnaceInfo.getCofferValue();
+            if (cofferValue == null) {
+                cofferReadAttempts++;
+                if (cofferReadAttempts > 3) {
+                    log(BlastFurnace.class, "Coffer is empty, stopping script.");
+                    stop();
+                    return 0;
+                } else {
+                    return 200;
+                }
+            }
+            cofferReadAttempts = 0;
+            if (cofferValue == 0) {
                 log(BlastFurnace.class, "Coffer is empty, stopping script.");
                 stop();
                 return 0;
@@ -310,7 +333,7 @@ public class BlastFurnace extends Script {
             log(BlastFurnace.class, "Melting pot bars have changed, waiting for collection...");
             expectBarsToBeCollected = false;
             MELTING_POT_BARS.clear();
-            ICE_GLOVE_EQUIP_DELAY.reset(RandomUtils.gaussianRandom(0, 1700, 500, 500));
+            ICE_GLOVE_EQUIP_DELAY.reset(RandomUtils.gaussianRandom(0, 1700, 200, 400));
         } else {
             RSObject barDispenser = getObjectManager().getClosestObject("Bar dispenser");
             if (barDispenser == null) {
@@ -331,14 +354,14 @@ public class BlastFurnace extends Script {
                         log(BlastFurnace.class, "Melting pot bars have changed, waiting for collection...");
                         expectBarsToBeCollected = false;
                         MELTING_POT_BARS.clear();
-                        ICE_GLOVE_EQUIP_DELAY.reset(RandomUtils.gaussianRandom(0, 1700, 500, 500));
+                        ICE_GLOVE_EQUIP_DELAY.reset(RandomUtils.gaussianRandom(0, 1700, 200, 400));
                         return true;
                     }
                     Overlay.BlastFurnaceInfo blastFurnaceInfo_ = (Overlay.BlastFurnaceInfo) overlay.getValue(SECTIONS);
                     log(BlastFurnace.class, "Collection status: " + blastFurnaceInfo_.getCollectionStatus());
                     if (blastFurnaceInfo_.getCollectionStatus() != Overlay.BlastFurnaceInfo.CollectionStatus.NOT_READY) {
                         // human delay (prevents breaking out of run method & immediately interacting with dispenser)
-                        ICE_GLOVE_EQUIP_DELAY.reset(RandomUtils.gaussianRandom(0, 1700, 500, 500));
+                        ICE_GLOVE_EQUIP_DELAY.reset(RandomUtils.gaussianRandom(0, 1700, 200, 400));
                         return true;
                     }
                     WorldPosition myPos = getWorldPosition();
@@ -359,6 +382,9 @@ public class BlastFurnace extends Script {
         if (conveyorBelt == null) {
             log(BlastFurnace.class, "No conveyor belt found, be sure to run the script inside the blast furnace area.");
             stop();
+            return false;
+        }
+        if(!inventorySnapshot.containsAny(ItemID.COAL_BAG, ItemID.OPEN_COAL_BAG)) {
             return false;
         }
         int coalDeposited = blastFurnaceInfo.getOreAmount(Ore.COAL);
@@ -469,8 +495,15 @@ public class BlastFurnace extends Script {
                 equipGoldsmithGuantlets(this, goldSmithGauntlets, false);
             }
         }
-        if (conveyorBelt.interact("put-ore-on")) {
-            waitForConveyorBeltInteraction(this, inventorySnapshot, conveyorBelt, blastFurnaceInfo);
+        Polygon conveyorBeltHull = conveyorBelt.getConvexHull();
+        if (conveyorBeltHull == null || (conveyorBeltHull = conveyorBeltHull.getResized(0.8)) == null || getWidgetManager().insideGameScreenFactor(conveyorBeltHull, Collections.emptyList()) < 0.2) {
+            if (conveyorBelt.interact("put-ore-on")) {
+                waitForConveyorBeltInteraction(this, inventorySnapshot, conveyorBelt, blastFurnaceInfo);
+            }
+        } else {
+            if (getFinger().tapGameScreen(conveyorBeltHull)) {
+                waitForConveyorBeltInteraction(this, inventorySnapshot, conveyorBelt, blastFurnaceInfo);
+            }
         }
     }
 
@@ -481,16 +514,17 @@ public class BlastFurnace extends Script {
             log(BlastFurnace.class, "Unable to find coal bag in inventory snapshot");
             return;
         }
-        MenuHook coalBagHook = menuEntries -> {
-            for (MenuEntry entry : menuEntries) {
-                if (entry.getRawText().startsWith("empty")) {
-                    return entry;
-                }
-            }
-            return null;
-        };
-        if (getFinger().tap(false, coalBag, coalBagHook)) {
-            boolean emptied = pollFramesHuman(() -> {
+//        MenuHook coalBagHook = menuEntries -> {
+//            for (MenuEntry entry : menuEntries) {
+//                if (entry.getRawText().startsWith("empty")) {
+//                    return entry;
+//                }
+//            }
+//            return null;
+//        };
+        //if (getFinger().tap(false, coalBag, coalBagHook)) {
+        if (getFinger().tap(false, coalBag)) {
+            boolean emptied = pollFramesUntil(() -> {
                 log(BlastFurnace.class, "Waiting for coal bag to be emptied...");
                 ItemGroupResult currentInventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
                 if (currentInventorySnapshot == null) {
@@ -503,6 +537,7 @@ public class BlastFurnace extends Script {
             if (emptied) {
                 log(BlastFurnace.class, "Coal bag has been emptied successfully.");
                 coalBagFull = false;
+                pollFramesUntil(() -> false, RandomUtils.gaussianRandom(100, 1200, 200, 400));
             } else {
                 log(BlastFurnace.class, "Failed to empty coal bag, looks like it was already empty.");
                 coalBagFull = false;
@@ -518,7 +553,7 @@ public class BlastFurnace extends Script {
                 pollFramesUntil(() -> {
                     // wait for bar amount to decrement in overlay
                     Overlay.BlastFurnaceInfo info = (Overlay.BlastFurnaceInfo) overlay.getValue(SECTIONS);
-                    if(info == null) {
+                    if (info == null) {
                         log(BlastFurnace.class, "Failed to get blast furnace info from overlay");
                         return false;
                     }
@@ -545,7 +580,7 @@ public class BlastFurnace extends Script {
                     if (iceGloves.interact()) {
                         // this is so we simply tap & then
                         ICE_GLOVE_EQUIP_IGNORE_DELAY.reset(RandomUtils.uniformRandom(2000, 4000));
-                        BAR_DISPENSER_INTERACTION_DELAY.reset(RandomUtils.gaussianRandom(100, 2000, 300, 600));
+                        BAR_DISPENSER_INTERACTION_DELAY.reset(RandomUtils.gaussianRandom(100, 2000, 200, 500));
                         return;
                     }
                 }
@@ -562,13 +597,24 @@ public class BlastFurnace extends Script {
                 stop();
                 return;
             }
-            if (barDispenser.interact("take")) {
+            boolean interacted = false;
+            Polygon barDispenserHull = barDispenser.getConvexHull();
+            if (barDispenserHull == null || (barDispenserHull = barDispenserHull.getResized(0.8)) == null || getWidgetManager().insideGameScreenFactor(barDispenserHull, Collections.emptyList()) < 0.2) {
+                if (barDispenser.interact("take")) {
+                    interacted = true;
+                }
+            } else {
+                if (getFinger().tapGameScreen(barDispenserHull)) {
+                    interacted = true;
+                }
+            }
+            if (interacted) {
                 WorldPosition worldPosition = getWorldPosition();
                 if (worldPosition == null) {
                     log(BlastFurnace.class, "Failed to get world position after interacting with bar dispenser.");
                     return;
                 }
-                if (barDispenser.distance(worldPosition) > 1) {
+                if (barDispenser.getTileDistance(worldPosition) > 1) {
                     // wait until we start moving
                     boolean moving = pollFramesUntil(() -> getLastPositionChangeMillis() < 300, RandomUtils.uniformRandom(1000, 2500));
                     if (!moving) {
@@ -576,7 +622,23 @@ public class BlastFurnace extends Script {
                         return;
                     }
                 }
-                pollFramesHuman(() -> getWidgetManager().getDialogue().isVisible(), RandomUtils.uniformRandom(6000, 9000));
+
+                int notMovingTimeout = RandomUtils.uniformRandom(700, 1500);
+                AtomicBoolean dialogueFound = new AtomicBoolean(false);
+                pollFramesUntil(() -> {
+                    if (getLastPositionChangeMillis() > notMovingTimeout) {
+                        // break out if we stop moving
+                        return true;
+                    }
+                    if (getWidgetManager().getDialogue().isVisible()) {
+                        dialogueFound.set(true);
+                        return true;
+                    }
+                    return false;
+                }, RandomUtils.uniformRandom(6000, 9000));
+                if (dialogueFound.get()) {
+                    pollFramesUntil(() -> false, RandomUtils.gaussianRandom(100, 3500, 200, 400));
+                }
             }
         }
     }
@@ -601,8 +663,15 @@ public class BlastFurnace extends Script {
             }
             return false;
         }, "use")) {
+
+            // wait until we start moving
+            boolean moving = pollFramesUntil(() -> getLastPositionChangeMillis() < 400, RandomUtils.uniformRandom(1600, 2500));
+            if (!moving) {
+                log(BlastFurnace.class, "Looks like we didn't start moving after interacting with bank chest.");
+                return;
+            }
             int positionChangeTimeout = RandomUtils.uniformRandom(1200, 2000);
-            pollFramesHuman(() -> {
+            pollFramesUntil(() -> {
                 WorldPosition worldPosition = getWorldPosition();
                 if (worldPosition == null) {
                     log(BlastFurnace.class, "Failed to get world position after interacting with bank chest.");

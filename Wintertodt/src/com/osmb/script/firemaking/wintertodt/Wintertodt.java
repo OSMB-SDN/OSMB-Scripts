@@ -361,14 +361,10 @@ public class Wintertodt extends Script {
             // poly is null, will be off screen
             return;
         }
-        // get the current frame uuid
-        UUID frameUuid = getScreen().getUUID();
         // resize the poly so it fits to the pyromancer
         poly = poly.getResized(0.7);
         // calculate initial rejuvenation doses
         int doses = getRejuvenationDoses(inventorySnapshot);
-        // print frame check
-        log(Wintertodt.class, "Tapping pyromancer poly generated at frame: " + frameUuid + " current frame: " + getScreen().getUUID());
         // tap the pyromancer
         if (getFinger().tapGameScreen(poly, "Help pyromancer", "Heal pyromancer")) {
             // wait until rejuvenation doses decrement if we successfully tapped the pyromancer
@@ -843,7 +839,7 @@ public class Wintertodt extends Script {
 
     private void restockRejuvenation() {
         log(Wintertodt.class, "Restocking Rejuvenation");
-        ItemGroupResult inventorySnapshot = getWidgetManager().getInventory().search(Set.of(ItemID.REJUVENATION_POTION_UNF, ItemID.BRUMA_HERB));
+        ItemGroupResult inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
         if (inventorySnapshot == null) {
             return;
         }

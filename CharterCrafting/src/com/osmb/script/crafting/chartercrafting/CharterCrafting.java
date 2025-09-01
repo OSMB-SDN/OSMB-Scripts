@@ -1,5 +1,6 @@
 package com.osmb.script.crafting.chartercrafting;
 
+import com.osmb.api.ScriptCore;
 import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
@@ -14,108 +15,42 @@ import com.osmb.api.shape.Polygon;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.ui.spellbook.LunarSpellbook;
 import com.osmb.api.ui.spellbook.SpellNotFoundException;
+import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
 import com.osmb.api.utils.Utils;
 import com.osmb.api.utils.timing.Stopwatch;
 import com.osmb.api.utils.timing.Timer;
-import com.osmb.api.visual.SearchablePixel;
-import com.osmb.api.visual.color.ColorModel;
-import com.osmb.api.visual.color.tolerance.ToleranceComparator;
-import com.osmb.api.visual.color.tolerance.impl.SingleThresholdComparator;
 import com.osmb.api.walker.WalkConfig;
 import com.osmb.script.crafting.chartercrafting.component.ShopInterface;
 import com.osmb.script.crafting.chartercrafting.javafx.UI;
+import com.osmb.script.crafting.chartercrafting.utils.Utilities;
 import javafx.scene.Scene;
 
 import java.awt.*;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Predicate;
+
+import static com.osmb.script.crafting.chartercrafting.Config.*;
+import static com.osmb.script.crafting.chartercrafting.Constants.*;
+import static com.osmb.script.crafting.chartercrafting.Status.*;
+import static com.osmb.script.crafting.chartercrafting.utils.Utilities.roundDownToNearestOption;
 
 @ScriptDefinition(name = "Charter crafter", author = "Joe", version = 1.0, description = "", skillCategory = SkillCategory.CRAFTING)
 public class CharterCrafting extends Script {
 
-    public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth", "Bank counter", "Bank table"};
-    public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
-    private static final int[] SELL_OPTION_AMOUNTS = new int[]{1, 5, 10, 50};
-
-
-    private static final ToleranceComparator TOLERANCE_COMPARATOR = new SingleThresholdComparator(3);
-    private static final Set<Integer> ITEM_IDS_TO_RECOGNISE = new HashSet<>(Set.of(ItemID.GLASSBLOWING_PIPE, ItemID.MOLTEN_GLASS, ItemID.BUCKET_OF_SAND, ItemID.SODA_ASH, ItemID.SEAWEED, ItemID.BUCKET));
-    private static Dock selectedDock;
-    // Find bank and open it
-    private static final Predicate<RSObject> BANK_QUERY = gameObject -> {
-        // if object has no name
-        String name = gameObject.getName();
-
-        if (name == null) {
-            return false;
-        }
-
-
-        if (selectedDock == Dock.CORSAIR_COVE) {
-            // handle closed bank
-            if (gameObject.getWorldX() != 2569 || gameObject.getWorldY() != 2865) {
-                return false;
-            }
-            if (!name.equalsIgnoreCase("Closed booth")) {
-                return false;
-            }
-
-        } else {
-            // has no interact options (eg. bank, open etc.)
-            if (gameObject.getActions() == null) {
-                return false;
-            }
-
-            if (!Arrays.stream(BANK_NAMES).anyMatch(bankName -> bankName.equalsIgnoreCase(name))) {
-                return false;
-            }
-
-            // if no actions contain bank or open
-            if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
-                return false;
-            }
-        }
-        // final check is if the object is reachable
-        return gameObject.canReach();
-    };
-    private ShopInterface shopInterface;
-    private GlassBlowingItem selectedGlassBlowingItem;
-    private Method selectedMethod;
-    private int amountChangeTimeout;
-    // not used, npc highlights are bugged in osrs and reset when relogging. saving for when they are fixed.
-    private SearchablePixel highlightColor;
-    private boolean hopFlag = false;
-    private List<NPC> npcs;
-    private ItemGroupResult inventorySnapshot;
-    private int combinationItemID;
+    private final ShopInterface shopInterface;
     private int craftAmount = -1;
 
     public CharterCrafting(Object scriptCore) {
         super(scriptCore);
+        shopInterface = new ShopInterface(this);
     }
 
-    public static int roundDownToNearestOption(int amount) {
-        if (amount < SELL_OPTION_AMOUNTS[0]) {
-            return 0;
-        }
-
-        for (int i = SELL_OPTION_AMOUNTS.length - 1; i >= 0; i--) {
-            if (SELL_OPTION_AMOUNTS[i] <= amount) {
-                return SELL_OPTION_AMOUNTS[i];
-            }
-        }
-
-        // This line should theoretically never be reached because of the first check
-        return SELL_OPTION_AMOUNTS[0];
-    }
 
     @Override
     public void onStart() {
-        shopInterface = new ShopInterface(this);
         // inventory will be seen as visible when shop interface is visible
         getWidgetManager().getInventory().registerInventoryComponent(shopInterface);
         UI ui = new UI(this);
@@ -124,13 +59,11 @@ public class CharterCrafting extends Script {
         scene.getStylesheets().add("style.css");
         getStageController().show(scene, "Settings", false);
 
-        this.amountChangeTimeout = random(4500, 7000);
         selectedDock = ui.getSelectedDock();
         // workaround as highlights aren't working for charter crew members
-        this.npcs = NPC.getNpcsForDock(selectedDock);
-        this.selectedMethod = ui.getSelectedMethod();
-        this.selectedGlassBlowingItem = ui.getSelectedGlassBlowingItem();
-        this.highlightColor = new SearchablePixel(-14221313, TOLERANCE_COMPARATOR, ColorModel.RGB);
+        Status.npcs = NPC.getNpcsForDock(selectedDock);
+        selectedMethod = ui.getSelectedMethod();
+        selectedGlassBlowingItem = ui.getSelectedGlassBlowingItem();
 
         ITEM_IDS_TO_RECOGNISE.add(selectedGlassBlowingItem.getItemId());
         combinationItemID = selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH;
@@ -145,50 +78,51 @@ public class CharterCrafting extends Script {
     @Override
     public int poll() {
         if (getWidgetManager().getBank().isVisible()) {
-            log(CharterCrafting.class, "Bank is visible");
             handleBank();
             return 0;
         } else if (shopInterface.isVisible()) {
-            log(CharterCrafting.class, "Shop is visible");
             handleShopInterface();
-            return 0;
-        }
-        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-        if (inventorySnapshot == null) {
-            // inventory not visible - re-poll
-            return 0;
-        }
-
-        if (selectedMethod != Method.BUY_AND_BANK) {
-            if (craftAmount == -1) {
-                craftAmount = nextCraftAmount(inventorySnapshot);
-            }
-            if (!inventorySnapshot.contains(ItemID.GLASSBLOWING_PIPE)) {
-                log(CharterCrafting.class, "No glassblowing pipe found.");
-                stop();
+        } else {
+            inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+            if (inventorySnapshot == null) {
+                // inventory not visible - re-poll
+                log(CharterCrafting.class, "Unable to snapshot inventory...");
                 return 0;
             }
-            if (inventorySnapshot.contains(ItemID.MOLTEN_GLASS)) {
-                log(CharterCrafting.class, "Crafting molten glass...");
-                craftMoltenGlass(inventorySnapshot.getItem(ItemID.GLASSBLOWING_PIPE), inventorySnapshot.getRandomItem(ItemID.MOLTEN_GLASS));
+
+            if (selectedMethod != Method.BUY_AND_BANK) {
+                if (craftAmount == -1) {
+                    craftAmount = nextCraftAmount(inventorySnapshot);
+                }
+                if (!inventorySnapshot.contains(ItemID.GLASSBLOWING_PIPE)) {
+                    log(CharterCrafting.class, "No glassblowing pipe found.");
+                    stop();
+                    return 0;
+                }
+                if (inventorySnapshot.contains(ItemID.MOLTEN_GLASS)) {
+                    log(CharterCrafting.class, "Crafting molten glass...");
+                    craftMoltenGlass(inventorySnapshot.getItem(ItemID.GLASSBLOWING_PIPE), inventorySnapshot.getRandomItem(ItemID.MOLTEN_GLASS));
+                    return 0;
+                }
+            }
+
+            if (shouldOpenShop(inventorySnapshot)) {
+                log(CharterCrafting.class, "We need to open the shop...");
+                if (hopFlag) {
+                    log(CharterCrafting.class, "Hop flag is set, hopping worlds...");
+                    hopWorlds();
+                } else {
+                    log(CharterCrafting.class, "Need to open shop interface...");
+                    openShop();
+                }
                 return 0;
             }
-        }
 
-        if (shouldOpenShop(inventorySnapshot)) {
-            if (hopFlag) {
-                log(CharterCrafting.class, "Hopping worlds");
-                hopWorlds();
+            switch (selectedMethod) {
+                case SUPER_GLASS_MAKE -> superGlassMake();
+                case BUY_AND_BANK -> bankSupplies();
+                case BUY_AND_FURNACE_CRAFT -> smeltSupplies();
             }
-            log(CharterCrafting.class, "Need to open shop interface...");
-            openShop();
-            return 0;
-        }
-
-        switch (selectedMethod) {
-            case SUPER_GLASS_MAKE -> superGlassMake();
-            case BUY_AND_BANK -> bankSupplies();
-            case BUY_AND_FURNACE_CRAFT -> smeltSupplies();
         }
         return 0;
     }
@@ -250,7 +184,7 @@ public class CharterCrafting extends Script {
             return;
         }
         // wait for shop interface + human reaction time after
-        submitHumanTask(() -> shopInterface.isVisible(), random(6000, 9000));
+        pollFramesHuman(shopInterface::isVisible, random(6000, 9000));
     }
 
     private void walkToFurthestNPC(WorldPosition myPosition, List<WorldPosition> npcPositions) {
@@ -341,7 +275,7 @@ public class CharterCrafting extends Script {
             log(CharterCrafting.class, "Failed to unselect item.");
             return;
         }
-        if (validDialogue()) {
+        if (Utilities.validDialogue(this)) {
             waitUntilFinishedProducing(timeout, ItemID.MOLTEN_GLASS);
             return;
         }
@@ -349,23 +283,11 @@ public class CharterCrafting extends Script {
         interactAndWaitForDialogue(glassblowingPipe, moltenGlass);
 
         // only double call due to the walking method
-        if (validDialogue()) {
+        if (Utilities.validDialogue(this)) {
             waitUntilFinishedProducing(timeout, ItemID.MOLTEN_GLASS);
         }
     }
 
-    public boolean validDialogue() {
-        DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
-        if (dialogueType == DialogueType.ITEM_OPTION) {
-            boolean selectedOption = getWidgetManager().getDialogue().selectItem(selectedGlassBlowingItem.getItemId());
-            if (!selectedOption) {
-                log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
-                return false;
-            }
-            return true;
-        }
-        return false;
-    }
 
     public void waitUntilFinishedProducing(int timeout, int... resources) {
         AtomicReference<Stopwatch> stopwatch = new AtomicReference<>(new Stopwatch(timeout));
@@ -374,7 +296,7 @@ public class CharterCrafting extends Script {
             previousAmounts.get().put(resource, -1);
         }
         Timer amountChangeTimer = new Timer();
-        submitHumanTask(() -> {
+        pollFramesHuman(() -> {
             DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
             if (dialogueType != null) {
                 // look out for level up dialogue etc.
@@ -384,9 +306,9 @@ public class CharterCrafting extends Script {
                     // sleep for a random time so we're not instantly reacting to the dialogue
                     // we do this in the task to continue updating the screen
                     log(CharterCrafting.class, "Tap here to continue dialogue interrupted us, generating extra random time to react...");
-                    // submitHumanTask already gives a delay afterward on completetion,
+                    // submitHumanTask already gives a delay afterward on completion,
                     // but we want a bit of extra time on top as the user won't always be expecting the dialogue
-                    submitTask(() -> false, random(1000, 6000));
+                    pollFramesUntil(() -> false, random(1000, 6000));
                     // return true and execute the shorter generated human delay by submitHumanTask
                     return true;
                 }
@@ -397,14 +319,7 @@ public class CharterCrafting extends Script {
                 if (!selectedDock.getWanderArea().contains(myPosition) && stopwatch.get().hasFinished()) {
                     return true;
                 }
-
             }
-            // If the amount of resources in the inventory hasn't changed and the timeout is exceeded, then return true to break out of the sleep method
-            if (amountChangeTimer.timeElapsed() > amountChangeTimeout) {
-                this.amountChangeTimeout = random(4500, 7000);
-                return true;
-            }
-
             inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
             if (inventorySnapshot == null) {
                 return false;
@@ -421,8 +336,15 @@ public class CharterCrafting extends Script {
                     amountChangeTimer.reset();
                 }
             }
+
+            // If the amount of resources in the inventory hasn't changed and the timeout is exceeded, then return true to break out of the sleep method
+            if (amountChangeTimer.timeElapsed() > amountChangeTimeout) {
+                resetAmountChangeTimeout();
+                return true;
+            }
+
             return false;
-        }, 90000, false, true);
+        }, 90000, true);
     }
 
     public boolean interactAndWaitForDialogue(ItemSearchResult item1, ItemSearchResult item2) {
@@ -431,11 +353,7 @@ public class CharterCrafting extends Script {
         ItemSearchResult interact1 = random == 0 ? item1 : item2;
         ItemSearchResult interact2 = random == 0 ? item2 : item1;
         if (interact1.interact() && interact2.interact()) {
-            return submitHumanTask(() -> {
-                DialogueType dialogueType1 = getWidgetManager().getDialogue().getDialogueType();
-                if (dialogueType1 == null) return false;
-                return dialogueType1 == DialogueType.ITEM_OPTION;
-            }, 3000);
+            return pollFramesHuman(() -> getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION, 3000);
         }
         return false;
     }
@@ -466,6 +384,7 @@ public class CharterCrafting extends Script {
     }
 
     private void handleBank() {
+        log(CharterCrafting.class, "Handling bank interface");
         if (!getWidgetManager().getBank().depositAll(Set.of(ItemID.COINS_995))) {
             return;
         }
@@ -480,9 +399,9 @@ public class CharterCrafting extends Script {
         try {
             if (getWidgetManager().getSpellbook().selectSpell(LunarSpellbook.SUPERGLASS_MAKE, null)) {
                 // generate human response after selecting spell
-                submitHumanTask(() -> true, 100);
+                pollFramesHuman(() -> true, 100);
                 // check inventory
-                submitHumanTask(() -> {
+                pollFramesHuman(() -> {
                     inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
                     if (inventorySnapshot == null) {
                         return false;
@@ -544,7 +463,7 @@ public class CharterCrafting extends Script {
 
         if (furnace.interact("Smelt")) {
             // sleep until dialogue is visible
-            submitHumanTask(() -> getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION, random(2000, 7000));
+            pollFramesHuman(() -> getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION, random(2000, 7000));
         }
     }
 
@@ -580,7 +499,7 @@ public class CharterCrafting extends Script {
         AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
         AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
         // sleep until bank is open or not moving (failsafe for dud actions)
-        submitHumanTask(() -> {
+        pollFramesHuman(() -> {
             WorldPosition position = getWorldPosition();
             if (position == null) {
                 return false;
@@ -595,7 +514,7 @@ public class CharterCrafting extends Script {
     }
 
     private void handleShopInterface() {
-        log(CharterCrafting.class, "Shop interface is visible.");
+        log(CharterCrafting.class, "Handling shop interface.");
         // sell crafted items
         ItemGroupResult shopSnapshot = shopInterface.search(ITEM_IDS_TO_RECOGNISE);
         inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
@@ -680,11 +599,13 @@ public class CharterCrafting extends Script {
         if (bucketOfSandToBuy == 0 && combinationToBuy == 0) {
             // complete
             if (combinationItemStock == 0 || bucketOfSandStock == 0) {
+                log(CharterCrafting.class, "One of our required items is out of stock, setting hop flag to true.");
                 hopFlag = true;
             }
             shopInterface.close();
+            return;
         }
-
+        // handle buy entries
         List<BuyEntry> buyEntries = new ArrayList<>();
         if (bucketOfSandToBuy > 0) {
             buyEntries.add(new BuyEntry(bucketOfSandShop, bucketOfSandToBuy));
@@ -729,7 +650,7 @@ public class CharterCrafting extends Script {
 
         if (item.interact()) {
             // wait for inv slots to change
-            return submitTask(() -> {
+            return pollFramesUntil(() -> {
                         inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
                         if (inventorySnapshot == null) {
                             return false;
@@ -746,7 +667,7 @@ public class CharterCrafting extends Script {
         int amount = sellEntry.amount;
         boolean all = amount == 999;
         if (all) {
-            amount = (random(2) == 1 ? 10 : 50);
+            amount = (RandomUtils.uniformRandom(2) == 1 ? 10 : 50);
         } else {
             amount = roundDownToNearestOption(amount);
         }
@@ -767,19 +688,20 @@ public class CharterCrafting extends Script {
         }
         log(CharterCrafting.class, "Selling items...");
         ItemSearchResult item = sellEntry.item;
-        if (item.interact()) {
-            submitTask(() -> false, 300);
-            // wait for inv slots to change
-            return submitTask(() -> {
-                        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-                        if (inventorySnapshot == null) {
-                            return false;
-                        }
-                        return inventorySnapshot.getFreeSlots() != initialFreeSlots;
-                    },
-                    5000);
+        if (!item.interact()) {
+            log(CharterCrafting.class, "Failed to sell item.");
+            return false;
         }
-        return false;
+        pollFramesUntil(() -> false, 600);
+        // wait for inv slots to change
+        return pollFramesUntil(() -> {
+                    inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+                    if (inventorySnapshot == null) {
+                        return false;
+                    }
+                    return inventorySnapshot.getFreeSlots() != initialFreeSlots;
+                },
+                5000);
     }
 
     private List<WorldPosition> getValidNPCPositions(List<WorldPosition> npcPositions) {
@@ -796,24 +718,15 @@ public class CharterCrafting extends Script {
             }
             // check for highlight pixel
             for (NPC npc : npcs) {
-
-//  -------------- highlights aren't working for charter npc's idk why. but this is how you would do it if not & works sooo much better.
-//                Rectangle highlightBounds = getUtils().getHighlightBounds(poly, highlightColor, SELECTED_HIGHLIGHT_COLOR);
-//                if (highlightBounds == null) {
-//                    log(CharterCrafting.class, "No highlight bounds!");
-//                    return;
-//                }
-//                if (!getFinger().tap(highlightBounds, "Trade")) {
-//                    return;
-//                }
-
-                if (getPixelAnalyzer().findPixel(poly, npc.getSearchablePixels()) != null) {
-                    // add to our separate list if we find the npc's pixels inside the tile cube
-                    validPositions.add(position);
-                    getScreen().getDrawableCanvas().drawPolygon(poly.getXPoints(), poly.getYPoints(), poly.numVertices(), Color.GREEN.getRGB(), 1);
-                    break;
+                if (getPixelAnalyzer().findPixel(poly, npc.getSearchablePixels()) == null) {
+                    continue;
                 }
+                // add to our separate list if we find the npc's pixels inside the tile cube
+                validPositions.add(position);
+                getScreen().getDrawableCanvas().drawPolygon(poly.getXPoints(), poly.getYPoints(), poly.numVertices(), Color.GREEN.getRGB(), 1);
+                break;
             }
+
         });
         return validPositions;
     }

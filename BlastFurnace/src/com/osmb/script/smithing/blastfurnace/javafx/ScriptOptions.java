@@ -89,8 +89,8 @@ public class ScriptOptions extends VBox {
         });
 
         payForeman = new CheckBox("Pay Foreman");
+        payForeman.setSelected(false);
         payForeman.setStyle("-fx-text-fill: white");
-        payForeman.setSelected(true);
 
         useStaminaPotionCheckBox = new CheckBox("Use stamina potion");
         useStaminaPotionCheckBox.setStyle("-fx-text-fill: white");

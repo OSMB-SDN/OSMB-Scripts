@@ -6,6 +6,7 @@ import com.osmb.api.ui.overlay.OverlayBoundary;
 import com.osmb.api.ui.overlay.OverlayPosition;
 import com.osmb.api.ui.overlay.OverlayValueFinder;
 import com.osmb.api.visual.ocr.fonts.Font;
+import com.osmb.script.smithing.blastfurnace.BlastFurnace;
 import com.osmb.script.smithing.blastfurnace.data.Bar;
 import com.osmb.script.smithing.blastfurnace.data.Ore;
 
@@ -97,10 +98,16 @@ public class Overlay extends OverlayBoundary {
             }
 
             if (text.endsWith(":")) {
+
                 int height = line.getY() + line.getHeight() - startY;
-                Rectangle valueBounds = new Rectangle(line.getX() + line.width - 75, startY, 75, height);
+                int width = 75;
+                if (text.contains("Coffer")) {
+                    width = 95;
+                }
+                Rectangle valueBounds = new Rectangle(line.getX() + line.width - width, startY, width, height);
                 String sectionText = sb.toString();
                 int[] color = sectionText.equalsIgnoreCase("Collection:") ? new int[]{/*green*/-16711936, /*red*/-65536} : new int[]{-1};
+                core.getScreen().getDrawableCanvas().drawRect(valueBounds, Color.RED.getRGB());
                 String value = core.getOCR().getText(Font.STANDARD_FONT, valueBounds, color);
                 sections.put(sectionText.toLowerCase(), value.toLowerCase());
                 sb.setLength(0);
@@ -124,8 +131,10 @@ public class Overlay extends OverlayBoundary {
                 try {
                     this.cofferValue = Integer.parseInt(coffer);
                 } catch (NumberFormatException e) {
-                    System.err.println("Error parsing coffer value: " + coffer);
+                    core.log(Overlay.class, "Error parsing coffer value: " + coffer);
                 }
+            } else {
+                core.log(Overlay.class, "Can't read Coffer value");
             }
             String collection = entries.get("collection:");
             if (collection != null) {

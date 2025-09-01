@@ -55,7 +55,7 @@ public class BankHandler {
                 core.log(BlastFurnace.class, "Can't read run energy...");
                 return;
             }
-            if (needToDrinkStamina(runEnergy, hasStaminaEffect)) {
+            if (needToDrinkStamina(inventorySnapshot, runEnergy, hasStaminaEffect)) {
                 // need to drink a stamina potion, handle withdrawing & drinking
                 handleStamina(runEnergy, hasStaminaEffect, inventorySnapshot, bankSnapshot);
                 return;
@@ -106,10 +106,11 @@ public class BankHandler {
                     return;
                 }
                 // This is to interact with the conveyor belt if it's visible on screen while the bank is open
-                Polygon conveyorBeltPoly = getConveyorBeltPolygon(conveyorBelt, core);
-                if (conveyorBeltPoly != null) {
+                Polygon conveyorBeltHull = getConveyorBeltPolygon(conveyorBelt, core);
+                if (conveyorBeltHull == null || (conveyorBeltHull = conveyorBeltHull.getResized(0.8)) == null || core.getWidgetManager().insideGameScreenFactor(conveyorBeltHull, Collections.emptyList()) < 0.2) {
                     // interact with conveyor belt instead of closing bank and interacting
-                    if (core.getFinger().tap(conveyorBeltPoly, "put-ore-on")) {
+                    //if (core.getFinger().tapGameScreen(conveyorBeltHull, "put-ore-on")) {
+                    if (core.getFinger().tapGameScreen(conveyorBeltHull)) {
                         GOLD_GLOVE_EQUIP_DELAY.reset(RandomUtils.uniformRandom(800, 2000));
                         waitForConveyorBeltInteraction(core, inventorySnapshot, conveyorBelt, blastFurnaceInfo);
                         return;
@@ -147,10 +148,12 @@ public class BankHandler {
             // withdraw
             ItemSearchResult itemInBank = bankSnapshot.getItem(bankEntry.itemID);
             if (itemInBank == null) {
-                core.log(BlastFurnace.class, "Item not found in bank: " + bankEntry.itemID);
+                core.log(BlastFurnace.class, "Item not found in bank: " + bankEntry.itemID + ". Stopping script...");
+                core.stop();
                 return;
-            } else if(itemInBank.getStackAmount() < bankEntry.amount) {
+            } else if (itemInBank.getStackAmount() < bankEntry.amount) {
                 core.log(BlastFurnace.class, "Not enough items in bank. Wanted: " + bankEntry.amount + ", Found: " + itemInBank.getStackAmount());
+                core.stop();
                 return;
             }
             bank.withdraw(bankEntry.itemID, bankEntry.amount);
@@ -234,12 +237,14 @@ public class BankHandler {
         }
     }
 
-    private boolean needToDrinkStamina(Integer runEnergy, Boolean hasStaminaEffect) {
+    private boolean needToDrinkStamina(ItemGroupResult inventorySnapshot, Integer runEnergy, Boolean hasStaminaEffect) {
         if (runEnergy == null || hasStaminaEffect == null) {
             core.log(BlastFurnace.class, "Can't read run energy...");
             return false;
         }
-        return runEnergy < 80 && !hasStaminaEffect;
+        boolean inventoryAlreadyHasPotion = inventorySnapshot.containsAny(STAMINA_POTION_IDS);
+        int minimumEnergy = inventoryAlreadyHasPotion ? 85 : 80;
+        return runEnergy < minimumEnergy && !hasStaminaEffect;
     }
 
     private void handleStamina(Integer runEnergy, Boolean hasStaminaEffect, ItemGroupResult inventorySnapshot, ItemGroupResult bankSnapshot) {

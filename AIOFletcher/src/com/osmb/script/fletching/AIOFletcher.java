@@ -8,6 +8,7 @@ import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.ui.GameState;
+import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.utils.Utils;
 import com.osmb.script.fletching.javafx.ScriptOptions;
 import com.osmb.script.fletching.method.Method;
@@ -99,39 +100,35 @@ public class AIOFletcher extends Script {
         return 0;
     }
 
-    private void openBank() {
-        log(getClass().getSimpleName(), "Searching for a bank...");
-        // Find bank and open it
-
-        List<RSObject> banksFound = getObjectManager().getObjects(BANK_QUERY);
-        //can't find a bank
-        if (banksFound.isEmpty()) {
-            log(getClass().getSimpleName(), "Can't find any banks matching criteria...");
-            return;
-        }
-        RSObject object = (RSObject) getUtils().getClosest(banksFound);
-        if (!object.interact(BANK_ACTIONS)) {
-            return;
-        }
-
-        waitForBankToOpen(object);
+private void openBank() {
+    List<RSObject> banksFound = getObjectManager().getObjects(BANK_QUERY);
+    // can't find a bank in our loaded scene
+    if (banksFound.isEmpty()) {
+        log(getClass().getSimpleName(), "Can't find any banks matching criteria...");
+        return;
     }
-
-    private void waitForBankToOpen(RSObject object) {
-        long positionChangeTimeout = random(1000, 2500);
-        submitHumanTask(() -> {
-            WorldPosition worldPosition = getWorldPosition();
-            if (worldPosition == null) {
-                log(AIOFletcher.class, "World position is null, cannot check if bank is open.");
-                return false;
-            }
-            int tileDistance = object.getTileDistance(worldPosition);
-            if (tileDistance > 1 && getLastPositionChangeMillis() >= positionChangeTimeout) {
-                return true;
-            }
-            return getWidgetManager().getBank().isVisible();
-        }, Utils.random(8000, 13000), false, true);
+    RSObject object = (RSObject) getUtils().getClosest(banksFound);
+    if (!object.interact(BANK_ACTIONS)) {
+        return;
     }
+    waitForBankToOpen(object);
+}
+
+private void waitForBankToOpen(RSObject object) {
+    long positionChangeTimeout = random(1000, 2500);
+    pollFramesHuman(() -> {
+        WorldPosition worldPosition = getWorldPosition();
+        if (worldPosition == null) {
+            return false;
+        }
+        int tileDistance = object.getTileDistance(worldPosition);
+        // if we are 1 tile away, check if we aren't moving & break out to re-interact
+        if (tileDistance > 1 && getLastPositionChangeMillis() >= positionChangeTimeout) {
+            return true;
+        }
+        return getWidgetManager().getBank().isVisible();
+    }, RandomUtils.uniformRandom(8000, 15000), true);
+}
 
     public boolean isBank() {
         return bank;

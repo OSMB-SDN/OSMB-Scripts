@@ -30,5 +30,4 @@ public class Constants {
 
     public static final Stopwatch POTION_DRINK_COOLDOWN = new Stopwatch();
 
-
 }
