@@ -37,3 +37,5 @@ bin/
 *.ids
 *.orig
 /out/
+/GuardiansOfTheRift/
+/PlaygroundScript/
