@@ -159,7 +159,8 @@ public class AIOFurnace extends Script {
     }
 
     private void handleDialogue() {
-        if (selectedProduct instanceof Jewellery) {
+        boolean isTiara = selectedProduct == Jewellery.TIARA || selectedProduct == Jewellery.GOLDEN_TIARA;
+        if (selectedProduct instanceof Jewellery && !isTiara) {
             // handle jewellery crafting
             if (!craftingInterface.isVisible()) {
                 log(AIOFurnace.class, "Crafting interface is not visible...");
