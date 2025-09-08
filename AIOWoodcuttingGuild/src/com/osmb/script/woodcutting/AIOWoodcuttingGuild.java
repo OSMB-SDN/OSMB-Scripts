@@ -8,18 +8,11 @@ import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
-import com.osmb.api.shape.Rectangle;
-import com.osmb.api.trackers.experiencetracker.XPTracker;
-import com.osmb.api.ui.component.ComponentSearchResult;
 import com.osmb.api.ui.component.chatbox.ChatboxComponent;
-import com.osmb.api.ui.component.minimap.xpcounter.XPDropsComponent;
 import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.utils.Utils;
 import com.osmb.api.visual.PixelAnalyzer;
-import com.osmb.api.visual.color.ColorModel;
-import com.osmb.api.visual.color.tolerance.impl.SingleThresholdComparator;
 import com.osmb.api.visual.drawing.Canvas;
-import com.osmb.api.visual.image.SearchableImage;
 import com.osmb.api.walker.WalkConfig;
 import com.osmb.script.woodcutting.data.AreaManager;
 import com.osmb.script.woodcutting.data.Tree;
@@ -42,11 +35,8 @@ public class AIOWoodcuttingGuild extends Script {
             ItemID.RUNE_AXE, ItemID.DRAGON_AXE, ItemID.DRAGON_AXE_OR, ItemID.DRAGON_AXE_OR_30352, ItemID.CRYSTAL_AXE, ItemID.CRYSTAL_AXE_23862, ItemID.INFERNAL_AXE, ItemID.INFERNAL_AXE_OR, ItemID.INFERNAL_AXE_OR_30347,
             ItemID.BRONZE_FELLING_AXE, ItemID.IRON_FELLING_AXE, ItemID.STEEL_FELLING_AXE, ItemID.BLACK_FELLING_AXE, ItemID.MITHRIL_FELLING_AXE, ItemID.ADAMANT_FELLING_AXE, ItemID.RUNE_FELLING_AXE, ItemID.DRAGON_FELLING_AXE, ItemID.CRYSTAL_FELLING_AXE);
     private static final Font ARIAL = new Font("Arial", Font.PLAIN, 14);
-    private final SearchableImage woodcuttingSprite;
     private Tree selectedTree = Tree.OAK;
     private boolean powerChop = false;
-    private XPTracker xpTracker;
-    private int logsChopped = 0;
     /**
      * Flag to indicate if this is the first time back from the bank. This is used to prevent the script being as repetitive by choosing one of the closest tree's instead of just the closest tree every time.
      */
@@ -54,7 +44,6 @@ public class AIOWoodcuttingGuild extends Script {
 
     public AIOWoodcuttingGuild(Object scriptCore) {
         super(scriptCore);
-        woodcuttingSprite = new SearchableImage(214, this, new SingleThresholdComparator(15), ColorModel.RGB);
     }
 
     @Override
@@ -78,7 +67,6 @@ public class AIOWoodcuttingGuild extends Script {
             log(AIOWoodcuttingGuild.class, "Position is null");
             return 0;
         }
-        checkXP();
         ItemGroupResult inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
         if (inventorySnapshot == null) {
             log(AIOWoodcuttingGuild.class, "Unable to snapshot inventory...");
@@ -258,7 +246,7 @@ public class AIOWoodcuttingGuild extends Script {
                 RSObject closestOffScreenTree = trees.get(index);
                 log("Closest treeType off screen: " + closestOffScreenTree.getName() + " at " + closestOffScreenTree.getWorldPosition());
                 WalkConfig.Builder builder = new WalkConfig.Builder();
-                builder.breakCondition(closestOffScreenTree::isInteractableOnScreen);
+                builder.breakCondition(() -> treeVisibleOnScreen(closestOffScreenTree));
                 builder.tileRandomisationRadius(3);
                 getWalker().walkTo(closestOffScreenTree, builder.build());
             } else {
@@ -349,11 +337,7 @@ public class AIOWoodcuttingGuild extends Script {
                     if (!selectedTree.getTreeArea().contains(position)) {
                         return false;
                     }
-                    Polygon treePolygon = rsObject.getConvexHull();
-                    if (treePolygon == null || (treePolygon = treePolygon.getResized(0.5)) == null) {
-                        return false; // Skip if the polygon is null
-                    }
-                    if (getWidgetManager().insideGameScreenFactor(treePolygon, List.of(ChatboxComponent.class)) < 0.5) {
+                    if (!treeVisibleOnScreen(rsObject)) {
                         return false;
                     }
                     return rsObject.canReach() && rsObject.getTileDistance(position) <= 15;
@@ -365,6 +349,14 @@ public class AIOWoodcuttingGuild extends Script {
                     return Double.compare(distA, distB);
                 })
                 .toList();
+    }
+
+    private boolean treeVisibleOnScreen(RSObject tree) {
+        Polygon treePolygon = tree.getConvexHull();
+        if (treePolygon == null || (treePolygon = treePolygon.getResized(0.5)) == null) {
+            return false; // Skip if the polygon is null
+        }
+        return getWidgetManager().insideGameScreenFactor(treePolygon, List.of(ChatboxComponent.class)) >= 0.5;
     }
 
     private void waitUntilFinishedChopping(Tree treeType, RSObject tree) {
@@ -399,7 +391,6 @@ public class AIOWoodcuttingGuild extends Script {
                         log(AIOWoodcuttingGuild.class, "Position is null");
                         return false;
                     }
-                    checkXP();
                     Polygon treePolygon = tree.getConvexHull();
                     if (treePolygon == null || (treePolygon = treePolygon.getResized(0.5)) == null) {
                         return false; // Skip if the polygon is null
@@ -436,63 +427,6 @@ public class AIOWoodcuttingGuild extends Script {
         }
     }
 
-    private void checkXP() {
-        Integer currentXP = getXpCounter();
-        if (currentXP != null) {
-            if (xpTracker == null) {
-                xpTracker = new XPTracker(this, currentXP);
-            } else {
-                double xp = xpTracker.getXp();
-                double gainedXP = currentXP - xp;
-                if (gainedXP > 0) {
-                    xpTracker.incrementXp(gainedXP);
-                    logsChopped++;
-                }
-            }
-        }
-    }
-
-    private Integer getXpCounter() {
-        Rectangle bounds = getXPDropsBounds();
-        if (bounds == null) {
-            log(AIOWoodcuttingGuild.class, "Failed to get XP drops component bounds");
-            return null;
-        }
-        boolean isWoodcutting = getImageAnalyzer().findLocation(bounds, woodcuttingSprite) != null;
-        if (!isWoodcutting) {
-            return null;
-        }
-        getScreen().getDrawableCanvas().drawRect(bounds, Color.RED.getRGB(), 1);
-        String xpText = getOCR().getText(com.osmb.api.visual.ocr.fonts.Font.SMALL_FONT, bounds, -1).replaceAll("[^0-9]", "");
-        if (xpText.isEmpty()) {
-            return null;
-        }
-        return Integer.parseInt(xpText);
-    }
-
-    private Rectangle getXPDropsBounds() {
-        XPDropsComponent xpDropsComponent = (XPDropsComponent) getWidgetManager().getComponent(XPDropsComponent.class);
-        Rectangle bounds = xpDropsComponent.getBounds();
-        if (bounds == null) {
-            log(AIOWoodcuttingGuild.class, "Failed to get XP drops component bounds");
-            return null;
-        }
-        ComponentSearchResult<Integer> result = xpDropsComponent.getResult();
-        if (result.getComponentImage().getGameFrameStatusType() != 1) {
-            log(AIOWoodcuttingGuild.class, "XP drops component is not open, opening it");
-            getFinger().tap(bounds);
-            boolean succeed = submitTask(() -> {
-                ComponentSearchResult<Integer> result_ = xpDropsComponent.getResult();
-                return result_ != null && result_.getComponentImage().getGameFrameStatusType() == 1;
-            }, random(1500, 3000));
-            bounds = xpDropsComponent.getBounds();
-            if (!succeed || bounds == null) {
-                return null;
-            }
-        }
-        return new Rectangle(bounds.x - 140, bounds.y - 1, 119, 38);
-    }
-
     @Override
     public int[] regionsToPrioritise() {
         return new int[]{6198, 6454};
@@ -506,14 +440,6 @@ public class AIOWoodcuttingGuild extends Script {
         List<String> lines = new ArrayList<>();
         if (selectedTree != null) {
             lines.add("Selected tree: " + selectedTree.getObjectName());
-        }
-        if (xpTracker != null) {
-            lines.add("Current XP: " + String.format("%,d", (long) xpTracker.getXp()));
-            lines.add("XP Gained: " + String.format("%,d", (long) xpTracker.getXpGained()));
-            lines.add("Xp per hour: " + String.format("%,d", (long) xpTracker.getXpPerHour()));
-            lines.add("Logs Chopped: " + String.format("%,d", logsChopped));
-        } else {
-            lines.add("No XP tracker available.");
         }
         // Calculate max width and total height
         int maxWidth = 0;
