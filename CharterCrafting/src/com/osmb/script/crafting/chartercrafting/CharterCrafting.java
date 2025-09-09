@@ -1,67 +1,45 @@
 package com.osmb.script.crafting.chartercrafting;
 
-import com.osmb.api.ScriptCore;
 import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
-import com.osmb.api.item.ItemSearchResult;
-import com.osmb.api.location.area.Area;
-import com.osmb.api.location.position.types.WorldPosition;
-import com.osmb.api.scene.RSObject;
-import com.osmb.api.scene.RSTile;
 import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
-import com.osmb.api.shape.Polygon;
-import com.osmb.api.ui.chatbox.dialogue.DialogueType;
-import com.osmb.api.ui.spellbook.LunarSpellbook;
-import com.osmb.api.ui.spellbook.SpellNotFoundException;
-import com.osmb.api.utils.RandomUtils;
-import com.osmb.api.utils.UIResult;
-import com.osmb.api.utils.UIResultList;
-import com.osmb.api.utils.Utils;
-import com.osmb.api.utils.timing.Stopwatch;
-import com.osmb.api.utils.timing.Timer;
-import com.osmb.api.walker.WalkConfig;
-import com.osmb.script.crafting.chartercrafting.component.ShopInterface;
+import com.osmb.script.crafting.chartercrafting.handles.BankHandler;
+import com.osmb.script.crafting.chartercrafting.handles.CraftHandler;
+import com.osmb.script.crafting.chartercrafting.handles.FurnaceHandler;
+import com.osmb.script.crafting.chartercrafting.handles.ShopHandler;
 import com.osmb.script.crafting.chartercrafting.javafx.UI;
-import com.osmb.script.crafting.chartercrafting.utils.Utilities;
-import javafx.scene.Scene;
 
-import java.awt.*;
-import java.util.*;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Set;
 
 import static com.osmb.script.crafting.chartercrafting.Config.*;
-import static com.osmb.script.crafting.chartercrafting.Constants.*;
-import static com.osmb.script.crafting.chartercrafting.Status.*;
-import static com.osmb.script.crafting.chartercrafting.utils.Utilities.roundDownToNearestOption;
+import static com.osmb.script.crafting.chartercrafting.Constants.ITEM_IDS_TO_RECOGNISE;
+import static com.osmb.script.crafting.chartercrafting.State.*;
 
 @ScriptDefinition(name = "Charter crafter", author = "Joe", version = 1.0, description = "", skillCategory = SkillCategory.CRAFTING)
 public class CharterCrafting extends Script {
 
-    private final ShopInterface shopInterface;
-    private int craftAmount = -1;
+    private ShopHandler shopHandler;
+    private FurnaceHandler furnaceHandler;
+    private BankHandler bankHandler;
+    private CraftHandler craftHandler;
 
     public CharterCrafting(Object scriptCore) {
         super(scriptCore);
-        shopInterface = new ShopInterface(this);
     }
-
 
     @Override
     public void onStart() {
-        // inventory will be seen as visible when shop interface is visible
-        getWidgetManager().getInventory().registerInventoryComponent(shopInterface);
-        UI ui = new UI(this);
-        Scene scene = new Scene(ui);
-        //  osmb style sheet
-        scene.getStylesheets().add("style.css");
-        getStageController().show(scene, "Settings", false);
+        this.shopHandler = new ShopHandler(this);
+        this.furnaceHandler = new FurnaceHandler(this);
+        this.bankHandler = new BankHandler(this);
+        this.craftHandler = new CraftHandler(this);
 
+        UI ui = UI.show(this);
         selectedDock = ui.getSelectedDock();
         // workaround as highlights aren't working for charter crew members
-        Status.npcs = NPC.getNpcsForDock(selectedDock);
+        npcs = NPC.getNpcsForDock(selectedDock);
         selectedMethod = ui.getSelectedMethod();
         selectedGlassBlowingItem = ui.getSelectedGlassBlowingItem();
 
@@ -69,19 +47,13 @@ public class CharterCrafting extends Script {
         combinationItemID = selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH;
     }
 
-    @Override
-    public int[] regionsToPrioritise() {
-        log(getClass().getSimpleName(), "Prioritised region:" + selectedDock.getRegionID());
-        return new int[]{selectedDock.getRegionID()};
-    }
 
     @Override
     public int poll() {
         if (getWidgetManager().getBank().isVisible()) {
-            handleBank();
-            return 0;
-        } else if (shopInterface.isVisible()) {
-            handleShopInterface();
+            bankHandler.handleInterface();
+        } else if (shopHandler.interfaceVisible()) {
+            shopHandler.handleInterface();
         } else {
             inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
             if (inventorySnapshot == null) {
@@ -92,7 +64,7 @@ public class CharterCrafting extends Script {
 
             if (selectedMethod != Method.BUY_AND_BANK) {
                 if (craftAmount == -1) {
-                    craftAmount = nextCraftAmount(inventorySnapshot);
+                    nextCraftAmount(inventorySnapshot);
                 }
                 if (!inventorySnapshot.contains(ItemID.GLASSBLOWING_PIPE)) {
                     log(CharterCrafting.class, "No glassblowing pipe found.");
@@ -101,30 +73,58 @@ public class CharterCrafting extends Script {
                 }
                 if (inventorySnapshot.contains(ItemID.MOLTEN_GLASS)) {
                     log(CharterCrafting.class, "Crafting molten glass...");
-                    craftMoltenGlass(inventorySnapshot.getItem(ItemID.GLASSBLOWING_PIPE), inventorySnapshot.getRandomItem(ItemID.MOLTEN_GLASS));
+                    craftHandler.craft(inventorySnapshot.getItem(ItemID.GLASSBLOWING_PIPE), inventorySnapshot.getRandomItem(ItemID.MOLTEN_GLASS));
                     return 0;
                 }
             }
 
             if (shouldOpenShop(inventorySnapshot)) {
-                log(CharterCrafting.class, "We need to open the shop...");
+                int itemIDToDrop = getItemIDToDrop(inventorySnapshot);
+                if (itemIDToDrop != -1) {
+                    log(CharterCrafting.class, "Dropping excess item: " + itemIDToDrop);
+                    getWidgetManager().getInventory().dropItems(itemIDToDrop);
+                    return 0;
+                }
+
                 if (hopFlag) {
                     log(CharterCrafting.class, "Hop flag is set, hopping worlds...");
                     hopWorlds();
                 } else {
                     log(CharterCrafting.class, "Need to open shop interface...");
-                    openShop();
+                    shopHandler.open();
                 }
                 return 0;
             }
 
+            log(CharterCrafting.class, "Handling selected method: " + selectedMethod);
             switch (selectedMethod) {
-                case SUPER_GLASS_MAKE -> superGlassMake();
-                case BUY_AND_BANK -> bankSupplies();
-                case BUY_AND_FURNACE_CRAFT -> smeltSupplies();
+                case SUPER_GLASS_MAKE -> craftHandler.superGlassMake();
+                case BUY_AND_BANK -> bankHandler.open();
+                case BUY_AND_FURNACE_CRAFT -> furnaceHandler.poll();
             }
         }
         return 0;
+    }
+
+    private int getItemIDToDrop(ItemGroupResult inventorySnapshot) {
+        // check for excess items, drop instead of selling to avoid issues
+        int freeSlotsExclBuyItems = inventorySnapshot.getFreeSlots(Set.of(ItemID.BUCKET_OF_SAND, combinationItemID));
+        int moltenGlassToMake = freeSlotsExclBuyItems / 2;
+        if (inventorySnapshot.getAmount(ItemID.BUCKET_OF_SAND) > moltenGlassToMake) {
+            return ItemID.BUCKET_OF_SAND;
+        } else if (inventorySnapshot.getAmount(combinationItemID) > moltenGlassToMake) {
+            return combinationItemID;
+        }
+        return -1;
+    }
+
+    private boolean shouldOpenShop(ItemGroupResult inventorySnapshot) {
+        int bucketsOfSand = inventorySnapshot.getAmount(ItemID.BUCKET_OF_SAND);
+        int combinationItems = inventorySnapshot.getAmount(combinationItemID);
+        return switch (selectedMethod) {
+            case BUY_AND_BANK, BUY_AND_FURNACE_CRAFT -> inventorySnapshot.getFreeSlots() >= 2;
+            case SUPER_GLASS_MAKE -> bucketsOfSand < craftAmount || combinationItems < craftAmount;
+        };
     }
 
     private void hopWorlds() {
@@ -137,640 +137,18 @@ public class CharterCrafting extends Script {
         hopFlag = false;
     }
 
-    private void openShop() {
-        WorldPosition myPosition = getWorldPosition();
-        if (myPosition == null) {
-            log(CharterCrafting.class, "Position is null!");
-            return;
-        }
-
-        if (!selectedDock.getWanderArea().contains(myPosition)) {
-            // walk to area
-            walkToNPCWanderArea();
-            return;
-        }
-
-        UIResultList<WorldPosition> npcPositionsResult = getWidgetManager().getMinimap().getNPCPositions();
-        if (npcPositionsResult.isNotFound()) {
-            log(getClass().getSimpleName(), "No NPC's found nearby...");
-            return;
-        }
-        List<WorldPosition> npcPositions = new ArrayList<>(npcPositionsResult.asList());
-
-        // remove positions which aren't in the wander area
-        npcPositions.removeIf(worldPosition -> !selectedDock.getWanderArea().contains(worldPosition));
-
-        // get tile cubes for positions & scan for npc pixels
-        List<WorldPosition> validNPCPositions = getValidNPCPositions(npcPositions);
-        if (validNPCPositions.isEmpty()) {
-            // walk to the furthest if there is none visible on screen
-            walkToFurthestNPC(myPosition, npcPositions);
-            return;
-        }
-
-        // interact - get closest position from valid npc's
-        WorldPosition closestPosition = (WorldPosition) Utils.getClosestPosition(myPosition, validNPCPositions.toArray(new WorldPosition[0]));
-
-        // create a cube poly
-        Polygon cubePoly = getSceneProjector().getTileCube(closestPosition, 130);
-        if (cubePoly == null) {
-            return;
-        }
-        //shrink the poly towards the center, this will make it more accurate to the npc - you can check this with the tile picking in the debug tool (scale).
-        cubePoly = cubePoly.getResized(0.5);
-
-        // tap inside the poly
-        if (!getFinger().tap(cubePoly, "trade trader crewmember")) {
-            return;
-        }
-        // wait for shop interface + human reaction time after
-        pollFramesHuman(shopInterface::isVisible, random(6000, 9000));
-    }
-
-    private void walkToFurthestNPC(WorldPosition myPosition, List<WorldPosition> npcPositions) {
-        WorldPosition furthestNPCPosition = getFurthestNPC(myPosition, npcPositions);
-        if (furthestNPCPosition == null) {
-            log(CharterCrafting.class, "Furthest npc position is null");
-            return;
-        }
-        WalkConfig.Builder walkConfig = new WalkConfig.Builder();
-        walkConfig.breakCondition(() -> {
-            // break out when they are on screen, so we're not breaking out when we reach the specific tile... looks a lot more fluent
-            RSTile tile = getSceneManager().getTile(furthestNPCPosition);
-            if (tile == null) {
-                return false;
-            }
-            return tile.isOnGameScreen();
-        });
-        getWalker().walkTo(furthestNPCPosition, walkConfig.build());
-    }
-
-    private void walkToNPCWanderArea() {
-        log(CharterCrafting.class, "Walking to npc area...");
-        WorldPosition randomPos = selectedDock.getWanderArea().getRandomPosition();
-        WalkConfig.Builder walkConfig = new WalkConfig.Builder();
-        walkConfig.breakCondition(() -> {
-            WorldPosition myPosition2 = getWorldPosition();
-            if (myPosition2 == null) {
-                log(CharterCrafting.class, "Position is null!");
-                return false;
-            }
-            return selectedDock.getWanderArea().contains(myPosition2);
-        });
-        getWalker().walkTo(randomPos, walkConfig.build());
-    }
-
-    private WorldPosition getFurthestNPC(WorldPosition myPosition, List<WorldPosition> npcPositions) {
-        // get furthest npc
-        return npcPositions.stream().max(Comparator.comparingDouble(npc -> npc.distanceTo(myPosition))).orElse(null);
-    }
-
-    private boolean shouldOpenShop(ItemGroupResult inventorySnapshot) {
-        return switch (selectedMethod) {
-            case BUY_AND_BANK -> inventorySnapshot.getFreeSlots() >= 2;
-            case BUY_AND_FURNACE_CRAFT ->
-                    !inventorySnapshot.contains(ItemID.BUCKET_OF_SAND) || !inventorySnapshot.contains(combinationItemID) || inventorySnapshot.getFreeSlots() >= 2;
-            case SUPER_GLASS_MAKE ->
-                    !inventorySnapshot.contains(ItemID.BUCKET_OF_SAND) || !inventorySnapshot.contains(combinationItemID);
-        };
-    }
-
-    private void craftMoltenGlass(ItemSearchResult glassblowingPipe, ItemSearchResult moltenGlass) {
-        log(CharterCrafting.class, "Crafting Molten glass...");
-        WorldPosition myPosition = getWorldPosition();
-        if (myPosition == null) {
-            return;
-        }
-        Area wanderArea = selectedDock.getWanderArea();
-        if (wanderArea.contains(myPosition)) {
-            craft(glassblowingPipe, moltenGlass, Integer.MAX_VALUE);
-        } else {
-            // walk to wander area and craft
-            WalkConfig.Builder walkConfig = new WalkConfig.Builder().disableWalkScreen(true).tileRandomisationRadius(2);
-            walkConfig.doWhileWalking(() -> {
-                log(CharterCrafting.class, "Crafting while walking...");
-                inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-                if (inventorySnapshot == null) {
-                    // inventory not visible
-                    return null;
-                }
-                if (!inventorySnapshot.contains(ItemID.MOLTEN_GLASS)) {
-                    // no molten glass to craft
-                    return null;
-                }
-                if (!inventorySnapshot.contains(ItemID.GLASSBLOWING_PIPE)) {
-                    log(CharterCrafting.class, "No glassblowing pipe found.");
-                    stop();
-                    return null;
-                }
-                craft(inventorySnapshot.getItem(ItemID.GLASSBLOWING_PIPE), inventorySnapshot.getRandomItem(ItemID.MOLTEN_GLASS), random(4000, 12000));
-                return null;
-            });
-            getWalker().walkTo(wanderArea.getRandomPosition(), walkConfig.build());
-        }
-    }
-
-    private void craft(ItemSearchResult glassblowingPipe, ItemSearchResult moltenGlass, int timeout) {
-        if (!getWidgetManager().getInventory().unSelectItemIfSelected()) {
-            log(CharterCrafting.class, "Failed to unselect item.");
-            return;
-        }
-        if (Utilities.validDialogue(this)) {
-            waitUntilFinishedProducing(timeout, ItemID.MOLTEN_GLASS);
-            return;
-        }
-        log(CharterCrafting.class, "Interacting...");
-        interactAndWaitForDialogue(glassblowingPipe, moltenGlass);
-
-        // only double call due to the walking method
-        if (Utilities.validDialogue(this)) {
-            waitUntilFinishedProducing(timeout, ItemID.MOLTEN_GLASS);
-        }
-    }
-
-
-    public void waitUntilFinishedProducing(int timeout, int... resources) {
-        AtomicReference<Stopwatch> stopwatch = new AtomicReference<>(new Stopwatch(timeout));
-        AtomicReference<Map<Integer, Integer>> previousAmounts = new AtomicReference<>(new HashMap<>());
-        for (int resource : resources) {
-            previousAmounts.get().put(resource, -1);
-        }
-        Timer amountChangeTimer = new Timer();
-        pollFramesHuman(() -> {
-            DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
-            if (dialogueType != null) {
-                // look out for level up dialogue etc.
-                // we can check the dialogue text specifically if it is a level up dialogue,
-                // no point though as if we're interrupted we want to break out the loop anyway
-                if (dialogueType == DialogueType.TAP_HERE_TO_CONTINUE) {
-                    // sleep for a random time so we're not instantly reacting to the dialogue
-                    // we do this in the task to continue updating the screen
-                    log(CharterCrafting.class, "Tap here to continue dialogue interrupted us, generating extra random time to react...");
-                    // submitHumanTask already gives a delay afterward on completion,
-                    // but we want a bit of extra time on top as the user won't always be expecting the dialogue
-                    pollFramesUntil(() -> false, random(1000, 6000));
-                    // return true and execute the shorter generated human delay by submitHumanTask
-                    return true;
-                }
-            }
-
-            WorldPosition myPosition = getWorldPosition();
-            if (myPosition != null) {
-                if (!selectedDock.getWanderArea().contains(myPosition) && stopwatch.get().hasFinished()) {
-                    return true;
-                }
-            }
-            inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-            if (inventorySnapshot == null) {
-                return false;
-            }
-
-            for (int resource : resources) {
-                int amount = inventorySnapshot.getAmount(resource);
-                if (amount == 0) {
-                    return true;
-                }
-                int previousAmount = previousAmounts.get().get(resource);
-                if (amount < previousAmount || previousAmount == -1) {
-                    previousAmounts.get().put(resource, amount);
-                    amountChangeTimer.reset();
-                }
-            }
-
-            // If the amount of resources in the inventory hasn't changed and the timeout is exceeded, then return true to break out of the sleep method
-            if (amountChangeTimer.timeElapsed() > amountChangeTimeout) {
-                resetAmountChangeTimeout();
-                return true;
-            }
-
-            return false;
-        }, 90000, true);
-    }
-
-    public boolean interactAndWaitForDialogue(ItemSearchResult item1, ItemSearchResult item2) {
-        // use chisel on gems and wait for dialogue
-        int random = random(2);
-        ItemSearchResult interact1 = random == 0 ? item1 : item2;
-        ItemSearchResult interact2 = random == 0 ? item2 : item1;
-        if (interact1.interact() && interact2.interact()) {
-            return pollFramesHuman(() -> getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION, 3000);
-        }
+    @Override
+    public boolean canHopWorlds() {
+        // only hop when we force
         return false;
-    }
-
-    private void bankSupplies() {
-        log(CharterCrafting.class, "Banking supplies");
-        WorldPosition myPosition = getWorldPosition();
-        if (myPosition == null) {
-            return;
-        }
-        Area bankArea = selectedDock.getBankArea();
-        if (bankArea.contains(myPosition)) {
-            // find bank
-            openBank();
-            return;
-        }
-
-        // walk to bank
-        WalkConfig.Builder walkConfig = new WalkConfig.Builder();
-        walkConfig.breakCondition(() -> {
-            WorldPosition myPosition_ = getWorldPosition();
-            if (myPosition_ == null) {
-                return false;
-            }
-            return bankArea.contains(myPosition_);
-        });
-        getWalker().walkTo(bankArea.getRandomPosition(), walkConfig.build());
-    }
-
-    private void handleBank() {
-        log(CharterCrafting.class, "Handling bank interface");
-        if (!getWidgetManager().getBank().depositAll(Set.of(ItemID.COINS_995))) {
-            return;
-        }
-        getWidgetManager().getBank().close();
-    }
-
-    private void superGlassMake() {
-        if (inventorySnapshot.getAmount(ItemID.BUCKET_OF_SAND) < craftAmount && inventorySnapshot.getAmount(ItemID.SEAWEED, ItemID.SODA_ASH) < craftAmount) {
-            // not enough yet
-            return;
-        }
-        try {
-            if (getWidgetManager().getSpellbook().selectSpell(LunarSpellbook.SUPERGLASS_MAKE, null)) {
-                // generate human response after selecting spell
-                pollFramesHuman(() -> true, 100);
-                // check inventory
-                pollFramesHuman(() -> {
-                    inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-                    if (inventorySnapshot == null) {
-                        return false;
-                    }
-                    int combinationItem = selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH;
-                    return !inventorySnapshot.contains(combinationItem) || !inventorySnapshot.contains(ItemID.BUCKET_OF_SAND);
-                }, 5000);
-                // randomise next amount
-                craftAmount = nextCraftAmount(inventorySnapshot);
-            }
-        } catch (SpellNotFoundException e) {
-            log(CharterCrafting.class, "Spell sprite not found, stopping script...");
-            stop();
-        }
-    }
-
-    /**
-     * Add check to ensure we can work with UIM
-     *
-     * @param inventorySnapshot
-     * @return the next amount to craft
-     */
-    private int nextCraftAmount(ItemGroupResult inventorySnapshot) {
-        int freeSlotsExclItems = inventorySnapshot.getFreeSlots(Set.of(ItemID.BUCKET_OF_SAND, ItemID.SEAWEED, ItemID.SODA_ASH));
-        int maxAmount = freeSlotsExclItems / 2;
-        // randomise next amount
-        return Math.min(maxAmount, Utils.random(4, 8));
-    }
-
-    private void smeltSupplies() {
-        Area furnaceArea = selectedDock.getFurnaceArea();
-        if (furnaceArea == null) {
-            throw new RuntimeException("No furnace area for selected dock.");
-        }
-
-        RSObject furnace = getObjectManager().getClosestObject("Furnace");
-        if (furnace == null) {
-            // walk to furnace area if no furnace in our loaded scene
-            walkToFurnace();
-            return;
-        }
-        WorldPosition position = getWorldPosition();
-        if (position == null) {
-            return;
-        }
-        if (furnaceArea.contains(position)) {
-            // check for dialogue
-            DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
-            if (dialogueType == DialogueType.ITEM_OPTION) {
-                boolean selectedOption = getWidgetManager().getDialogue().selectItem(ItemID.MOLTEN_GLASS);
-                if (!selectedOption) {
-                    log(getClass().getSimpleName(), "No option selected, can't find item in dialogue...");
-                    return;
-                }
-                waitUntilFinishedProducing(Integer.MAX_VALUE, new int[]{selectedMethod == Method.SUPER_GLASS_MAKE ? ItemID.SEAWEED : ItemID.SODA_ASH, ItemID.BUCKET_OF_SAND});
-                return;
-            }
-        }
-
-        if (furnace.interact("Smelt")) {
-            // sleep until dialogue is visible
-            pollFramesHuman(() -> getWidgetManager().getDialogue().getDialogueType() == DialogueType.ITEM_OPTION, random(2000, 7000));
-        }
-    }
-
-    private void walkToFurnace() {
-        WalkConfig.Builder walkConfig = new WalkConfig.Builder();
-        walkConfig.breakCondition(() -> {
-            WorldPosition myPosition = getWorldPosition();
-            if (myPosition == null) {
-                return false;
-            }
-            return selectedDock.getFurnaceArea().contains(myPosition);
-        });
-        getWalker().walkTo(selectedDock.getFurnaceArea().getRandomPosition(), walkConfig.build());
-    }
-
-    private void openBank() {
-        log(getClass().getSimpleName(), "Searching for a bank...");
-
-        List<RSObject> banksFound = getObjectManager().getObjects(BANK_QUERY);
-        //can't find a bank
-        if (banksFound.isEmpty()) {
-            log(getClass().getSimpleName(), "Can't find any banks matching criteria...");
-            return;
-        }
-        RSObject object = (RSObject) getUtils().getClosest(banksFound);
-        if (object.getName().equals("Closed booth")) {
-            if (!object.interact("Bank booth", new String[]{"Bank"})) {
-                return;
-            }
-        } else {
-            if (!object.interact(BANK_ACTIONS)) return;
-        }
-        AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
-        AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
-        // sleep until bank is open or not moving (failsafe for dud actions)
-        pollFramesHuman(() -> {
-            WorldPosition position = getWorldPosition();
-            if (position == null) {
-                return false;
-            }
-            if (pos.get() == null || !position.equals(pos.get())) {
-                positionChangeTimer.get().reset();
-                pos.set(position);
-            }
-
-            return getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
-        }, 15000);
-    }
-
-    private void handleShopInterface() {
-        log(CharterCrafting.class, "Handling shop interface.");
-        // sell crafted items
-        ItemGroupResult shopSnapshot = shopInterface.search(ITEM_IDS_TO_RECOGNISE);
-        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-        if (shopSnapshot == null || inventorySnapshot == null) {
-            return;
-        }
-        if (inventorySnapshot.contains(selectedGlassBlowingItem.getItemId())) {
-            log(CharterCrafting.class, "Selling crafted items");
-            sellItems(new SellEntry(inventorySnapshot.getRandomItem(selectedGlassBlowingItem.getItemId()), 999), inventorySnapshot.getFreeSlots());
-            return;
-        }
-        if (inventorySnapshot.contains(ItemID.BUCKET)) {
-            log(CharterCrafting.class, "Selling crafted items");
-            sellItems(new SellEntry(inventorySnapshot.getRandomItem(ItemID.BUCKET), 999), inventorySnapshot.getFreeSlots());
-            return;
-        }
-
-
-        int bucketOfSandInventory = inventorySnapshot.getAmount(ItemID.BUCKET_OF_SAND);
-        int combinationItemInventory = inventorySnapshot.getAmount(combinationItemID);
-
-        int freeSlotsExclBuyItems = inventorySnapshot.getFreeSlots() + combinationItemInventory + bucketOfSandInventory;
-        int moltenGlassToMake = freeSlotsExclBuyItems / 2;
-        int excessSlots = freeSlotsExclBuyItems - (moltenGlassToMake * 2);
-
-        ItemSearchResult bucketOfSandShop = shopSnapshot.getItem(ItemID.BUCKET_OF_SAND);
-        ItemSearchResult combinationItemShop = shopSnapshot.getItem(combinationItemID);
-        // cache shop stock
-        int bucketOfSandStock = bucketOfSandShop != null ? bucketOfSandShop.getStackAmount() : 0;
-        int combinationItemStock = combinationItemShop != null ? combinationItemShop.getStackAmount() : 0;
-        log(CharterCrafting.class, "Bucket of sand stock: " + bucketOfSandStock + " Combination stock: " + combinationItemStock);
-
-        // calculate amount to buy
-        int bucketOfSandToBuy = moltenGlassToMake - bucketOfSandInventory;
-        int combinationToBuy = moltenGlassToMake - combinationItemInventory;
-        log(CharterCrafting.class, "Need to buy Bucket of sand: " + bucketOfSandToBuy + " Combination: " + combinationToBuy);
-
-
-        List<SellEntry> sellEntries = new ArrayList<>();
-
-        // if the number is negative, that means we have too many in our inventory and need to sell
-        if (hasTooMany(bucketOfSandToBuy)) {
-            sellEntries.add(new SellEntry(inventorySnapshot.getRandomItem(ItemID.BUCKET_OF_SAND), Math.abs(bucketOfSandToBuy)));
-        }
-        if (hasTooMany(combinationToBuy)) {
-            sellEntries.add(new SellEntry(inventorySnapshot.getRandomItem(combinationItemID), Math.abs(combinationToBuy)));
-        }
-        if (!sellEntries.isEmpty()) {
-            boolean shouldSkip = sellEntries.size() == 1 &&
-                    sellEntries.get(0).amount == 1 &&
-                    excessSlots == 1;
-            if (shouldSkip) {
-                combinationToBuy = Math.max(0, combinationToBuy);
-                bucketOfSandToBuy = Math.max(0, bucketOfSandToBuy);
-            } else {
-                SellEntry sellEntry = sellEntries.get(random(sellEntries.size()));
-                sellItems(sellEntry, inventorySnapshot.getFreeSlots());
-                return;
-            }
-        }
-
-        if (bucketOfSandToBuy > 0) {
-            bucketOfSandToBuy += excessSlots;
-            if (bucketOfSandToBuy >= bucketOfSandStock || bucketOfSandToBuy >= inventorySnapshot.getFreeSlots()) {
-                bucketOfSandToBuy = 999;
-            }
-        }
-        if (combinationToBuy > 0) {
-            combinationToBuy += excessSlots;
-            if (combinationToBuy >= combinationItemStock || combinationToBuy >= inventorySnapshot.getFreeSlots()) {
-                combinationToBuy = 999;
-            }
-        }
-        if (bucketOfSandStock == 0) {
-            bucketOfSandToBuy = 0;
-        }
-        if (combinationItemStock == 0) {
-            combinationToBuy = 0;
-        }
-
-        log(CharterCrafting.class, "BucketOfSandToBuy: " + bucketOfSandToBuy + " CombinationToBuy: " + combinationToBuy);
-        if (bucketOfSandToBuy == 0 && combinationToBuy == 0) {
-            // complete
-            if (combinationItemStock == 0 || bucketOfSandStock == 0) {
-                log(CharterCrafting.class, "One of our required items is out of stock, setting hop flag to true.");
-                hopFlag = true;
-            }
-            shopInterface.close();
-            return;
-        }
-        // handle buy entries
-        List<BuyEntry> buyEntries = new ArrayList<>();
-        if (bucketOfSandToBuy > 0) {
-            buyEntries.add(new BuyEntry(bucketOfSandShop, bucketOfSandToBuy));
-        }
-        if (combinationToBuy > 0) {
-            buyEntries.add(new BuyEntry(combinationItemShop, combinationToBuy));
-        }
-        if (buyEntries.isEmpty()) {
-            // should never happen
-            return;
-        }
-        BuyEntry randomEntry = buyEntries.get(random(buyEntries.size()));
-        buyItem(randomEntry, inventorySnapshot.getFreeSlots());
-    }
-
-    private boolean hasTooMany(int amount) {
-        return amount < 0;
-    }
-
-    private boolean buyItem(BuyEntry buyEntry, int initialFreeSlots) {
-        log(CharterCrafting.class, "Buying item - Entry: " + buyEntry);
-        int amount = buyEntry.amount;
-        boolean all = amount == 999;
-        if (all) {
-            amount = 50;
-        } else {
-            amount = roundDownToNearestOption(amount);
-        }
-        UIResult<Integer> selectedAmount = shopInterface.getSelectedAmount();
-        if (selectedAmount.isNotVisible()) {
-            return false;
-        }
-        Integer amountSelected = selectedAmount.get();
-        if (amountSelected == null || amountSelected != amount) {
-            if (!all || amountSelected == null || amountSelected < amount) {
-                if (!shopInterface.setSelectedAmount(amount)) {
-                    return false;
-                }
-            }
-        }
-        ItemSearchResult item = buyEntry.item;
-
-        if (item.interact()) {
-            // wait for inv slots to change
-            return pollFramesUntil(() -> {
-                        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-                        if (inventorySnapshot == null) {
-                            return false;
-                        }
-                        return inventorySnapshot.getFreeSlots() != initialFreeSlots;
-                    },
-                    5000);
-        }
-        return false;
-    }
-
-    private boolean sellItems(SellEntry sellEntry, int initialFreeSlots) {
-        log(CharterCrafting.class, "Selling item. Entry: " + sellEntry);
-        int amount = sellEntry.amount;
-        boolean all = amount == 999;
-        if (all) {
-            amount = (RandomUtils.uniformRandom(2) == 1 ? 10 : 50);
-        } else {
-            amount = roundDownToNearestOption(amount);
-        }
-        UIResult<Integer> selectedAmount = shopInterface.getSelectedAmount();
-        if (selectedAmount.isNotVisible()) {
-            return false;
-        }
-        Integer amountSelected = selectedAmount.get();
-        log("Amount selected: " + amountSelected);
-
-        if (amountSelected == null || amountSelected != amount) {
-            log("All? " + all);
-            if (!all || (amountSelected == null || amountSelected < 10)) {
-                if (!shopInterface.setSelectedAmount(amount)) {
-                    return false;
-                }
-            }
-        }
-        log(CharterCrafting.class, "Selling items...");
-        ItemSearchResult item = sellEntry.item;
-        if (!item.interact()) {
-            log(CharterCrafting.class, "Failed to sell item.");
-            return false;
-        }
-        pollFramesUntil(() -> false, 600);
-        // wait for inv slots to change
-        return pollFramesUntil(() -> {
-                    inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-                    if (inventorySnapshot == null) {
-                        return false;
-                    }
-                    return inventorySnapshot.getFreeSlots() != initialFreeSlots;
-                },
-                5000);
-    }
-
-    private List<WorldPosition> getValidNPCPositions(List<WorldPosition> npcPositions) {
-        List<WorldPosition> validPositions = new ArrayList<>();
-        npcPositions.forEach(position -> {
-            // check if npc is in wander area
-            if (!selectedDock.getWanderArea().contains(position)) {
-                return;
-            }
-            // create a tile cube, we will analyse this for the npc's pixels
-            Polygon poly = getSceneProjector().getTileCube(position, 150);
-            if (poly == null) {
-                return;
-            }
-            // check for highlight pixel
-            for (NPC npc : npcs) {
-                if (getPixelAnalyzer().findPixel(poly, npc.getSearchablePixels()) == null) {
-                    continue;
-                }
-                // add to our separate list if we find the npc's pixels inside the tile cube
-                validPositions.add(position);
-                getScreen().getDrawableCanvas().drawPolygon(poly.getXPoints(), poly.getYPoints(), poly.numVertices(), Color.GREEN.getRGB(), 1);
-                break;
-            }
-
-        });
-        return validPositions;
     }
 
     @Override
-    public boolean canHopWorlds() {
-        return false;
+    public int[] regionsToPrioritise() {
+        log(CharterCrafting.class, "Prioritised region:" + selectedDock.getRegionID());
+        return new int[]{selectedDock.getRegionID()};
     }
 
-    public static class BuyEntry {
-        ItemSearchResult item;
-        int amount;
-
-        public BuyEntry(ItemSearchResult item, int amount) {
-            this.item = item;
-            this.amount = amount;
-        }
-
-        @Override
-        public String toString() {
-            return "BuyEntry{" +
-                    "item=" + item +
-                    ", amount=" + amount +
-                    '}';
-        }
-    }
-
-    public static class SellEntry {
-        ItemSearchResult item;
-        int amount;
-
-        public SellEntry(ItemSearchResult item, int amount) {
-            this.item = item;
-            this.amount = amount;
-        }
-
-        @Override
-        public String toString() {
-            return "SellEntry{" +
-                    "item=" + item +
-                    ", amount=" + amount +
-                    '}';
-        }
-    }
 }
 
 

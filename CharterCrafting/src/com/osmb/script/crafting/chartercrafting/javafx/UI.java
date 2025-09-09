@@ -20,16 +20,15 @@ import java.util.stream.Collectors;
 
 public class UI extends VBox {
 
+    private static final Preferences prefs = Preferences.userNodeForPackage(UI.class);
+    private static final String PREF_SELECTED_METHOD = "chartercrafting_selected_method";
+    private static final String PREF_SELECTED_DOCK = "chartercrafting_selected_dock";
+    private static final String PREF_SELECTED_ITEM = "chartercrafting_selected_item";
     private final ComboBox<Dock> dockComboBox = new ComboBox<>();
     private final ComboBox<Method> methodComboBox = new ComboBox<>();
     private final ComboBox<Integer> itemToMakeComboBox;
     private final Label itemLabel;
     private VBox itemToMakeBox = null;
-
-    private static final Preferences prefs = Preferences.userNodeForPackage(UI.class);
-    private static final String PREF_SELECTED_METHOD = "chartercrafting_selected_method";
-    private static final String PREF_SELECTED_DOCK = "chartercrafting_selected_dock";
-    private static final String PREF_SELECTED_ITEM = "chartercrafting_selected_item";
 
     public UI(ScriptCore core) {
         setStyle("-fx-spacing: 10; -fx-alignment: left; -fx-padding: 5; -fx-background-color: #636E72");
@@ -54,7 +53,7 @@ public class UI extends VBox {
                     itemToMakeBox.setVisible(newMethod != Method.BUY_AND_BANK);
                 Scene scene = methodComboBox.getScene();
                 if (scene != null) {
-                    ((Stage) scene.getWindow()).sizeToScene();
+                    scene.getWindow().sizeToScene();
                 }
             });
         });
@@ -103,6 +102,15 @@ public class UI extends VBox {
         });
     }
 
+    public static UI show(ScriptCore core) {
+        UI ui = new UI(core);
+        Scene scene = new Scene(ui);
+        //  osmb style sheet
+        scene.getStylesheets().add("style.css");
+        core.getStageController().show(scene, "Settings", false);
+        return ui;
+    }
+
     public Dock getSelectedDock() {
         return dockComboBox.getSelectionModel().getSelectedItem();
     }
@@ -146,7 +154,8 @@ public class UI extends VBox {
                     return dock;
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return null;
     }
 }
