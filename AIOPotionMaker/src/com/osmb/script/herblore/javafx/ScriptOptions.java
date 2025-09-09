@@ -6,6 +6,7 @@ import com.osmb.api.javafx.JavaFXUtils;
 import com.osmb.script.herblore.data.MixedPotion;
 import com.osmb.script.herblore.data.Potion;
 import com.osmb.script.herblore.data.UnfinishedPotion;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
@@ -19,6 +20,7 @@ public class ScriptOptions extends VBox {
     private final ListView<Potion> productList;
     private final HBox ingredientBox;
     private final Label ingredientsLabel;
+
 
     public ScriptOptions(ScriptCore core) {
         setStyle("-fx-padding: 10; -fx-background-color: #636E72;");
@@ -121,6 +123,14 @@ public class ScriptOptions extends VBox {
                 }
             }
         });
+    }
+
+    public static ScriptOptions show(ScriptCore core) {
+        ScriptOptions scriptOptions = new ScriptOptions(core);
+        Scene scene = new Scene(scriptOptions);
+        scene.getStylesheets().add("style.css");
+        core.getStageController().show(scene, "Settings", false);
+        return scriptOptions;
     }
 
     public Potion getSelectedProduct() {

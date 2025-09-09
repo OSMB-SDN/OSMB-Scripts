@@ -1,51 +1,26 @@
 package com.osmb.script.herblore;
 
-import com.osmb.api.location.position.types.WorldPosition;
-import com.osmb.api.scene.RSObject;
 import com.osmb.api.script.Script;
 import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
-import com.osmb.api.utils.timing.Timer;
-import com.osmb.script.herblore.data.Potion;
+import com.osmb.script.herblore.bank.BankHandler;
 import com.osmb.script.herblore.javafx.ScriptOptions;
-import com.osmb.script.herblore.method.PotionMixer;
-import javafx.scene.Scene;
+import com.osmb.script.herblore.mixing.PotionMixer;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Predicate;
+import static com.osmb.script.herblore.Config.selectedPotion;
+import static com.osmb.script.herblore.Status.inventorySnapshot;
+import static com.osmb.script.herblore.utils.Utilities.hasIngredients;
 
 @ScriptDefinition(name = "AIO Potion maker", author = "Joe", version = 1.0, description = "Makes potions and unfinished potions", skillCategory = SkillCategory.HERBLORE)
 public class AIOPotionMaker extends Script {
-    // names of possible banks
-    public static final String[] BANK_NAMES = {"Bank", "Chest", "Bank booth", "Bank chest", "Grand Exchange booth", "Bank counter", "Bank table"};
-    public static final String[] BANK_ACTIONS = {"bank", "open", "use"};
-    public static final Predicate<RSObject> BANK_QUERY = gameObject -> {
-        // if object has no name
-        if (gameObject.getName() == null) {
-            return false;
-        }
-        // has no interact options (eg. bank, open etc.)
-        if (gameObject.getActions() == null) {
-            return false;
-        }
 
-        if (!Arrays.stream(BANK_NAMES).anyMatch(name -> name.equalsIgnoreCase(gameObject.getName()))) {
-            return false;
-        }
+    private final PotionMixer potionMixer;
+    private final BankHandler bankHandler;
 
-        // if no actions contain bank or open
-        if (!Arrays.stream(gameObject.getActions()).anyMatch(action -> Arrays.stream(BANK_ACTIONS).anyMatch(bankAction -> bankAction.equalsIgnoreCase(action)))) {
-            return false;
-        }
-        // final check is if the object is reachable
-        return gameObject.canReach();
-    };
-    private PotionMixer potionMixer;
-    private boolean bank = false;
     public AIOPotionMaker(Object o) {
         super(o);
+        this.potionMixer = new PotionMixer(this);
+        this.bankHandler = new BankHandler(this);
     }
 
     @Override
@@ -55,78 +30,33 @@ public class AIOPotionMaker extends Script {
 
     @Override
     public void onStart() {
-        ScriptOptions scriptOptions = new ScriptOptions(this);
-        Scene scene = new Scene(scriptOptions);
-        scene.getStylesheets().add("style.css");
-        getStageController().show(scene, "Settings", false);
-
-        Potion selectedProduct = scriptOptions.getSelectedProduct();
-        if (selectedProduct == null) {
+        // show UI
+        ScriptOptions scriptOptions = ScriptOptions.show(this);
+        // get potion to make
+        Config.selectedPotion = scriptOptions.getSelectedProduct();
+        // safety check
+        if (Config.selectedPotion == null) {
             throw new IllegalArgumentException("Selected potion cannot be null!");
         }
-
-        this.potionMixer = new PotionMixer(this, selectedProduct);
-
     }
-
 
     @Override
     public int poll() {
+        // update inventory snapshot, if failed to update return and try again next loop
+        if ((inventorySnapshot = getWidgetManager().getInventory().search(selectedPotion.getIngredientIds())) == null) {
+            log(AIOPotionMaker.class, "Failed to update inventory snapshot!");
+            return 0;
+        }
         if (getWidgetManager().getBank().isVisible()) {
-            log(getClass().getSimpleName(), "Handling bank");
-            this.bank = false;
-            potionMixer.handleBankInterface();
-        } else if (bank) {
-            openBank();
+            bankHandler.handleBankInterface();
         } else {
-            potionMixer.poll();
+            if (!hasIngredients(this, inventorySnapshot)) {
+                bankHandler.openBank();
+            } else {
+                potionMixer.poll();
+            }
         }
         return 0;
-    }
-
-    private void openBank() {
-        log(getClass().getSimpleName(), "Searching for a bank...");
-        // Find bank and open it
-        List<RSObject> banksFound = getObjectManager().getObjects(BANK_QUERY);
-        //can't find a bank
-        if (banksFound.isEmpty()) {
-            log(getClass().getSimpleName(), "Can't find any banks matching criteria...");
-            return;
-        }
-
-        RSObject object = (RSObject) getUtils().getClosest(banksFound);
-        if (!object.interact(BANK_ACTIONS)) {
-            // failed to interact with the bank
-            return;
-        }
-        waitForBankToOpen();
-    }
-
-    private void waitForBankToOpen() {
-        AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
-        AtomicReference<WorldPosition> pos = new AtomicReference<>(null);
-        // wait for bank interface
-        submitHumanTask(() -> {
-            WorldPosition position = getWorldPosition();
-            if (position == null) {
-                return false;
-            }
-            // check position change, in case of a dud action
-            if (pos.get() == null || !position.equals(pos.get())) {
-                positionChangeTimer.get().reset();
-                pos.set(position);
-            }
-
-            return getWidgetManager().getBank().isVisible() || positionChangeTimer.get().timeElapsed() > 2000;
-        }, 15000);
-    }
-
-    public boolean isBank() {
-        return bank;
-    }
-
-    public void setBank(boolean bank) {
-        this.bank = bank;
     }
 
     @Override
