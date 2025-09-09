@@ -5,6 +5,7 @@ import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemID;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.javafx.ColorPickerPanel;
+import com.osmb.api.location.position.types.LocalPosition;
 import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.scene.RSObject;
 import com.osmb.api.script.Script;
@@ -12,12 +13,13 @@ import com.osmb.api.script.ScriptDefinition;
 import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
 import com.osmb.api.shape.Rectangle;
-import com.osmb.api.trackers.experiencetracker.XPTracker;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.ui.component.tabs.SettingsTabComponent;
 import com.osmb.api.utils.RandomUtils;
+import com.osmb.api.utils.TileEdge;
 import com.osmb.api.utils.UIResult;
 import com.osmb.api.utils.UIResultList;
+import com.osmb.api.visual.PixelCluster;
 import com.osmb.api.visual.SearchablePixel;
 import com.osmb.api.visual.color.ColorModel;
 import com.osmb.api.visual.color.tolerance.impl.ChannelThresholdComparator;
@@ -29,16 +31,17 @@ import com.osmb.script.smithing.blastfurnace.data.Bar;
 import com.osmb.script.smithing.blastfurnace.data.Ore;
 import com.osmb.script.smithing.blastfurnace.javafx.ScriptOptions;
 import com.osmb.script.smithing.blastfurnace.utility.Utils;
-import com.osmb.script.smithing.blastfurnace.utility.XPTracking;
 import javafx.scene.Scene;
 
 import java.awt.*;
+import java.time.temporal.Temporal;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.osmb.api.utils.Utils.getClosestPoint;
 import static com.osmb.script.smithing.blastfurnace.Constants.*;
 import static com.osmb.script.smithing.blastfurnace.Options.*;
 import static com.osmb.script.smithing.blastfurnace.Status.*;
@@ -48,14 +51,12 @@ import static com.osmb.script.smithing.blastfurnace.component.Overlay.SECTIONS;
 public class BlastFurnace extends Script {
     private final Overlay overlay;
     private final BankHandler bankHandler;
-    private final XPTracking xpTracking;
     private Overlay.BlastFurnaceInfo blastFurnaceInfo;
 
     public BlastFurnace(Object scriptCore) {
         super(scriptCore);
         this.overlay = new Overlay(this);
         this.bankHandler = new BankHandler(this);
-        this.xpTracking = new XPTracking(this);
     }
 
     public static void waitForConveyorBeltInteraction(ScriptCore core, ItemGroupResult inventorySnapshot, RSObject conveyorBelt, Overlay.BlastFurnaceInfo blastFurnaceInfo) {
@@ -208,11 +209,6 @@ public class BlastFurnace extends Script {
             setZoom();
             return 0;
         }
-        // make sure xp drops is active
-        if (!xpTracking.checkXPCounterActive()) {
-            return 0;
-        }
-
         if (getWidgetManager().getBank().isVisible()) {
             log(BlastFurnace.class, "Handling bank interface...");
             if (blastFurnaceInfo == null) {
@@ -384,7 +380,7 @@ public class BlastFurnace extends Script {
             stop();
             return false;
         }
-        if(!inventorySnapshot.containsAny(ItemID.COAL_BAG, ItemID.OPEN_COAL_BAG)) {
+        if (!inventorySnapshot.containsAny(ItemID.COAL_BAG, ItemID.OPEN_COAL_BAG)) {
             return false;
         }
         int coalDeposited = blastFurnaceInfo.getOreAmount(Ore.COAL);
@@ -397,7 +393,7 @@ public class BlastFurnace extends Script {
 
     private void payForeman() {
         DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
-        if (dialogueType == DialogueType.TEXT_OPTION) {
+        if (dialogueType == DialogueType.TEXT_OPTION || dialogueType == DialogueType.CHAT_DIALOGUE) {
             if (handleForemanDialogue()) {
                 return;
             }
@@ -445,32 +441,47 @@ public class BlastFurnace extends Script {
         }
     }
 
+
     private boolean handleForemanDialogue() {
-        UIResult<String> dialogueTitle = getWidgetManager().getDialogue().getDialogueTitle();
-        if (dialogueTitle.isNotVisible()) {
-            return true;
-        }
-        if (dialogueTitle.get().startsWith("Pay 2,500 coins")) {
-            if (getWidgetManager().getDialogue().selectOption("Yes")) {
-                boolean result = pollFramesHuman(() -> {
-                    if (getWidgetManager().getDialogue().getDialogueType() != DialogueType.CHAT_DIALOGUE) {
-                        return false;
-                    }
-                    UIResult<String> dialogueText = getWidgetManager().getDialogue().getText();
-                    if (dialogueText.isNotVisible()) {
-                        return false;
-                    }
-                    return dialogueText.get().startsWith("Okay, you can use the furnace");
-                }, RandomUtils.uniformRandom(3000, 5000));
-                if (result) {
-                    // add random offset so we can allow to be prompted with the dialogue sometimes
-                    long randomOffset = RandomUtils.uniformRandom(5000, 120000);
-                    FOREMAN_PAYMENT_TIMER.reset(TimeUnit.MINUTES.toMillis(9) + randomOffset);
+        DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
+        if (dialogueType == DialogueType.CHAT_DIALOGUE) {
+            UIResult<String> dialogueText = getWidgetManager().getDialogue().getText();
+            if (dialogueText.isFound()) {
+                if (dialogueText.get().toLowerCase().contains("you are an experienced smith")) {
+                    payForeman = false;
+                    return false;
                 }
+                return true;
             } else {
-                log(BlastFurnace.class, "Failed to select 'yes' option in foreman payment dialogue.");
+                return false;
             }
-            return true;
+        } else {
+            UIResult<String> dialogueTitle = getWidgetManager().getDialogue().getDialogueTitle();
+            if (dialogueTitle.isNotVisible()) {
+                return true;
+            }
+            if (dialogueTitle.get().startsWith("Pay 2,500 coins")) {
+                if (getWidgetManager().getDialogue().selectOption("Yes")) {
+                    boolean result = pollFramesHuman(() -> {
+                        if (getWidgetManager().getDialogue().getDialogueType() != DialogueType.CHAT_DIALOGUE) {
+                            return false;
+                        }
+                        UIResult<String> dialogueText = getWidgetManager().getDialogue().getText();
+                        if (dialogueText.isNotVisible()) {
+                            return false;
+                        }
+                        return dialogueText.get().startsWith("Okay, you can use the furnace");
+                    }, RandomUtils.uniformRandom(3000, 5000));
+                    if (result) {
+                        // add random offset so we can allow to be prompted with the dialogue sometimes
+                        long randomOffset = RandomUtils.uniformRandom(5000, 120000);
+                        FOREMAN_PAYMENT_TIMER.reset(TimeUnit.MINUTES.toMillis(9) + randomOffset);
+                    }
+                } else {
+                    log(BlastFurnace.class, "Failed to select 'yes' option in foreman payment dialogue.");
+                }
+                return true;
+            }
         }
         return false;
     }
@@ -755,18 +766,6 @@ public class BlastFurnace extends Script {
         int padding = 5;
 
         List<String> lines = new ArrayList<>();
-        if (this.xpTracking != null) {
-            lines.add("---- XP Info ----");
-            XPTracker xpTracker = xpTracking.getXpTracker();
-            if (xpTracker != null) {
-                lines.add("XP Gained: " + xpTracker.getXpGained() + " | XP/hr: " + xpTracker.getXpPerHour());
-                lines.add("Experience gained: " + xpTracker.getXpGained());
-                lines.add("Time to next level: " + xpTracker.timeToNextLevelString());
-            } else {
-                lines.add("XP Tracker not initialized");
-            }
-            lines.add("");
-        }
         if (selectedBar != null) {
             lines.add("Selected bar: " + selectedBar.getBarName(this));
         }
@@ -807,11 +806,6 @@ public class BlastFurnace extends Script {
             int color = Color.WHITE.getRGB();
             c.drawText(line, drawX, drawY += metrics.getHeight(), color, ARIAL);
         }
-    }
-
-    @Override
-    public void onNewFrame() {
-        xpTracking.checkXP();
     }
 
     @Override
