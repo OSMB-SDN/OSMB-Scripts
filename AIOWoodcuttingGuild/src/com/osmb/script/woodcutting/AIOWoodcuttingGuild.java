@@ -10,7 +10,6 @@ import com.osmb.api.script.SkillCategory;
 import com.osmb.api.shape.Polygon;
 import com.osmb.api.ui.component.chatbox.ChatboxComponent;
 import com.osmb.api.utils.RandomUtils;
-import com.osmb.api.utils.Utils;
 import com.osmb.api.visual.PixelAnalyzer;
 import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.api.walker.WalkConfig;
@@ -109,14 +108,14 @@ public class AIOWoodcuttingGuild extends Script {
         }
         if (ladder.interact("climb-down")) {
             // wait until we are no longer in the redwood tree area
-            submitHumanTask(() -> {
+            pollFramesHuman(() -> {
                 WorldPosition myPosition = getWorldPosition();
                 if (myPosition == null) {
                     log(AIOWoodcuttingGuild.class, "Position is null");
                     return true;
                 }
                 return !AreaManager.REDWOOD_TREE_AREA.contains(myPosition);
-            }, Utils.random(10000, 20000));
+            }, RandomUtils.uniformRandom(10000, 20000));
         } else {
             log(AIOWoodcuttingGuild.class, "Failed to interact with ladder");
         }
@@ -134,14 +133,14 @@ public class AIOWoodcuttingGuild extends Script {
         }
         if (ladder.interact("climb-up")) {
             // wait until we are in the redwood tree area
-            submitHumanTask(() -> {
+            pollFramesHuman(() -> {
                 WorldPosition myPosition = getWorldPosition();
                 if (myPosition == null) {
                     log(AIOWoodcuttingGuild.class, "Position is null");
                     return true;
                 }
                 return AreaManager.REDWOOD_TREE_AREA.contains(myPosition);
-            }, Utils.random(10000, 20000));
+            }, RandomUtils.uniformRandom(10000, 20000));
         } else {
             log(AIOWoodcuttingGuild.class, "Failed to interact with ladder");
         }
@@ -181,7 +180,7 @@ public class AIOWoodcuttingGuild extends Script {
         if (bank.interact("use")) {
             // sleep until bank is open
             long positionChangeTimeout = random(1000, 2500);
-            submitHumanTask(() -> {
+            pollFramesHuman(() -> {
                 WorldPosition myPosition_ = getWorldPosition();
                 if (myPosition_ == null) {
                     log(AIOWoodcuttingGuild.class, "Position is null");
@@ -195,7 +194,7 @@ public class AIOWoodcuttingGuild extends Script {
                     return true;
                 }
                 return getWidgetManager().getBank().isVisible();
-            }, Utils.random(10000, 20000));
+            }, RandomUtils.uniformRandom(10000, 20000));
         }
     }
 
@@ -368,9 +367,9 @@ public class AIOWoodcuttingGuild extends Script {
         // wait until stopped moving
         if (tree.getTileDistance(worldPosition) > 1) {
             log(AIOWoodcuttingGuild.class, "Waiting until we've started moving...");
-            submitTask(() -> getLastPositionChangeMillis() < 600, Utils.random(1000, 3000));
+            pollFramesUntil(() -> getLastPositionChangeMillis() < 600, RandomUtils.uniformRandom(1000, 3000));
             log(AIOWoodcuttingGuild.class, "Waiting until we've stopped moving...");
-            submitTask(() -> {
+            pollFramesUntil(() -> {
                 WorldPosition worldPosition_ = getWorldPosition();
                 if (worldPosition_ == null) {
                     log(AIOWoodcuttingGuild.class, "Position is null");
@@ -378,14 +377,14 @@ public class AIOWoodcuttingGuild extends Script {
                 }
                 long lastPositionChange = getLastPositionChangeMillis();
                 return lastPositionChange > 800 && tree.getTileDistance(worldPosition_) == 1;
-            }, Utils.random(5000, 12000));
+            }, RandomUtils.uniformRandom(5000, 12000));
         }
         if (tree.getTileDistance(worldPosition) > 1) {
             log(AIOWoodcuttingGuild.class, "We didn't reach the tree, returning...");
             return;
         }
         log(AIOWoodcuttingGuild.class, "Waiting until we're finished chopping...");
-        submitHumanTask(() -> {
+        pollFramesHuman(() -> {
                     WorldPosition myPosition = getWorldPosition();
                     if (myPosition == null) {
                         log(AIOWoodcuttingGuild.class, "Position is null");
@@ -419,11 +418,11 @@ public class AIOWoodcuttingGuild extends Script {
                         return true; // Stop the script if inventory is full
                     }
                     return false;
-                }, selectedTree == Tree.REDWOOD ? Utils.random(220000, 380000) : Utils.random(55000, 95000), false, true
+                }, selectedTree == Tree.REDWOOD ? RandomUtils.uniformRandom(220000, 380000) : RandomUtils.uniformRandom(55000, 95000), true
         );
         if (RandomUtils.uniformRandom(0, 3) == 0) {
             // Randomly wait before chopping again
-            submitTask(() -> false, RandomUtils.exponentialRandom(1800, 700, 8000));
+            pollFramesUntil(() -> false, RandomUtils.exponentialRandom(1800, 700, 8000));
         }
     }
 
