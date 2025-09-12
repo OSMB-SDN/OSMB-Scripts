@@ -694,10 +694,22 @@ public class MotherloadMine extends Script {
         AtomicInteger previousAmount = new AtomicInteger(inventorySnapshot.getAmount(ItemID.PAYDIRT));
         Timer amountChangeTimer = new Timer();
         long positionChangeTimeout = RandomUtils.uniformRandom(800, 2000);
-        submitHumanTask(() -> {
+        pollFramesHuman(() -> {
             WorldPosition myPosition_ = getWorldPosition();
             if (myPosition_ == null) {
                 return false;
+            }
+            DialogueType dialogueType = getWidgetManager().getDialogue().getDialogueType();
+            if (dialogueType == DialogueType.TAP_HERE_TO_CONTINUE) {
+                UIResult<String> text = getWidgetManager().getDialogue().getText();
+                if (text.isFound()) {
+                    if (text.get().toLowerCase().contains("you need a pickaxe")) {
+                        log(MotherloadMine.class, "No pickaxe, stopping script.");
+                        stop();
+                        return true;
+                    }
+                }
+                return true;
             }
             int tileDistance = closestVein.getTileDistance(myPosition_);
             if (tileDistance > 1) {
