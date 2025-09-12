@@ -19,7 +19,7 @@ import java.util.Set;
 import static com.osmb.script.herblore.Config.selectedPotion;
 import static com.osmb.script.herblore.Constants.BANK_ACTIONS;
 import static com.osmb.script.herblore.Constants.BANK_QUERY;
-import static com.osmb.script.herblore.Status.inventorySnapshot;
+import static com.osmb.script.herblore.State.inventorySnapshot;
 
 public class BankHandler {
 
@@ -34,8 +34,8 @@ public class BankHandler {
     public void handleBankInterface() {
         Ingredient[] ingredientsList = selectedPotion.getIngredients();
         // work out how many potions we can make
-        int amountToProduce = Utilities.calculatePotionAmount(core, inventorySnapshot, ingredientsList);
-
+        int amountToProduce = Utilities.calculatePotionAmount(core, ingredientsList);
+        core.log(BankHandler.class, "Amount of potions we can create: " + amountToProduce);
         Set<Integer> itemsToIgnore = getItemsToNotDeposit(inventorySnapshot, amountToProduce);
 
         // deposit unrelated items
@@ -50,7 +50,7 @@ public class BankHandler {
         if (bankSnapshot == null || inventorySnapshot == null) {
             return;
         }
-        amountToProduce = Utilities.calculatePotionAmount(core, inventorySnapshot, ingredientsList);
+        amountToProduce = Utilities.calculatePotionAmount(core, ingredientsList);
         core.log(PotionMixer.class, "Amount of potions we can create: " + amountToProduce);
 
 
@@ -120,8 +120,11 @@ public class BankHandler {
             }
             int inventoryAmount = inventorySnapshot.getAmount(ingredient.getItemID());
             int amountNeeded = (ingredient.getAmount() * amountToProduce) - inventoryAmount;
+            String itemName = core.getItemManager().getItemName(ingredient.getItemID());
+            core.log("Ingredient: " + itemName + " Inventory amount: " + inventoryAmount + " Amount needed: " + amountNeeded);
             if (amountNeeded == 0) {
                 itemsToIgnore.add(ingredient.getItemID());
+                core.log(PotionMixer.class, "Not depositing item id: " + itemName);
             }
         }
         return itemsToIgnore;

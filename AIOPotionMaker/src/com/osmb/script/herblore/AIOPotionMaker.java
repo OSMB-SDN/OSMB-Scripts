@@ -8,7 +8,7 @@ import com.osmb.script.herblore.javafx.ScriptOptions;
 import com.osmb.script.herblore.mixing.PotionMixer;
 
 import static com.osmb.script.herblore.Config.selectedPotion;
-import static com.osmb.script.herblore.Status.inventorySnapshot;
+import static com.osmb.script.herblore.State.inventorySnapshot;
 import static com.osmb.script.herblore.utils.Utilities.hasIngredients;
 
 @ScriptDefinition(name = "AIO Potion maker", author = "Joe", version = 1.0, description = "Makes potions and unfinished potions", skillCategory = SkillCategory.HERBLORE)

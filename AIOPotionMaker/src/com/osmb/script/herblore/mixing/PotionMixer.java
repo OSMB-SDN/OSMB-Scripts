@@ -4,7 +4,7 @@ import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.utils.timing.Timer;
 import com.osmb.script.herblore.AIOPotionMaker;
-import com.osmb.script.herblore.Status;
+import com.osmb.script.herblore.State;
 import com.osmb.script.herblore.data.Ingredient;
 import com.osmb.script.herblore.utils.Utilities;
 
@@ -13,8 +13,8 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.osmb.script.herblore.Config.selectedPotion;
-import static com.osmb.script.herblore.Status.amountChangeTimeout;
-import static com.osmb.script.herblore.Status.inventorySnapshot;
+import static com.osmb.script.herblore.State.amountChangeTimeout;
+import static com.osmb.script.herblore.State.inventorySnapshot;
 
 
 public class PotionMixer {
@@ -130,7 +130,7 @@ public class PotionMixer {
                 return true;
             }
             if (itemListenResult == ItemListenResult.AMOUNT_CHANGED) {
-                Status.resetAmountChangeTimeout();
+                State.resetAmountChangeTimeout();
                 amountChangeTimer.reset();
             }
             // check if items haven't changed within timeout

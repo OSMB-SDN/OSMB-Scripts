@@ -3,7 +3,7 @@ package com.osmb.script.herblore;
 import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.utils.RandomUtils;
 
-public class Status {
+public class State {
     public static int amountChangeTimeout;
     public static ItemGroupResult inventorySnapshot;
 

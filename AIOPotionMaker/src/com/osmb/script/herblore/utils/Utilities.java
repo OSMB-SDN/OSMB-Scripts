@@ -5,10 +5,7 @@ import com.osmb.api.item.ItemGroupResult;
 import com.osmb.script.herblore.data.Ingredient;
 import com.osmb.script.herblore.data.Potion;
 
-import java.util.Set;
-
 import static com.osmb.script.herblore.Config.selectedPotion;
-import static com.osmb.script.herblore.Status.inventorySnapshot;
 
 public class Utilities {
 
@@ -58,12 +55,11 @@ public class Utilities {
      * Stackable ingredients are treated differently as they only take up 1 slot for all potions.
      *
      * @param core              the script core
-     * @param inventorySnapshot the current inventory snapshot
      * @param ingredients       the ingredients required to make the potion
      * @return the number of potions we can make based on the slots available in the inventory
      */
-    public static int calculatePotionAmount(ScriptCore core, ItemGroupResult inventorySnapshot, Ingredient[] ingredients) {
-        int slotsToWorkWith = inventorySnapshot.getFreeSlots();
+    public static int calculatePotionAmount(ScriptCore core, Ingredient[] ingredients) {
+        int slotsToWorkWith = 28;
         // calculate how many slots it takes to make a single potion
         int slotsPerPotion = 0;
         // treat stackable ingredients differently as they only take up 1 slot for ALL potions
@@ -73,13 +69,9 @@ public class Utilities {
             if (core.getItemManager().isStackable(ingredient.getItemID())) {
                 // if stackable
                 stackableIngredients++;
-                if (inventorySnapshot.contains(ingredient.getItemID())) {
-                    slotsToWorkWith++;
-                }
             } else {
                 // if not stackable
                 slotsPerPotion += ingredient.getAmount();
-                slotsToWorkWith += inventorySnapshot.getAmount(ingredient.getItemID());
             }
         }
         // work out how many potions we can make
