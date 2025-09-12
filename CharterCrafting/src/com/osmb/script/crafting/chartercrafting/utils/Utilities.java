@@ -1,6 +1,8 @@
 package com.osmb.script.crafting.chartercrafting.utils;
 
 import com.osmb.api.ScriptCore;
+import com.osmb.api.item.ItemGroupResult;
+import com.osmb.api.item.ItemID;
 import com.osmb.api.location.position.types.WorldPosition;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
 import com.osmb.api.utils.RandomUtils;
@@ -10,10 +12,12 @@ import com.osmb.script.crafting.chartercrafting.CharterCrafting;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.osmb.script.crafting.chartercrafting.Config.*;
-import static com.osmb.script.crafting.chartercrafting.Constants.*;
+import static com.osmb.script.crafting.chartercrafting.Constants.ITEM_IDS_TO_RECOGNISE;
+import static com.osmb.script.crafting.chartercrafting.Constants.SELL_OPTION_AMOUNTS;
 import static com.osmb.script.crafting.chartercrafting.State.*;
 
 public class Utilities {
@@ -104,4 +108,26 @@ public class Utilities {
         }, 90000, true);
     }
 
+    public static CharterCrafting.DropResult getExcessItemsToDrop(ItemGroupResult inventorySnapshot) {
+        // check for excess items, drop instead of selling to avoid issues
+        int freeSlotsExclBuyItems = inventorySnapshot.getFreeSlots(Set.of(ItemID.BUCKET_OF_SAND, combinationItemID, ItemID.BUCKET, selectedGlassBlowingItem.getItemId()));
+        int moltenGlassToMake = freeSlotsExclBuyItems / 2;
+        int combinationNeeded = moltenGlassToMake - inventorySnapshot.getAmount(combinationItemID);
+        int bucketsOfSandNeeded = moltenGlassToMake - inventorySnapshot.getAmount(ItemID.BUCKET_OF_SAND);
+
+        int maxExcess = freeSlotsExclBuyItems % 2;
+        int excessSand = Math.max(0, -bucketsOfSandNeeded);
+        int excessCombination = Math.max(0, -combinationNeeded);
+        int totalExcess = excessSand + excessCombination;
+
+        if (totalExcess <= maxExcess) {
+            return null;
+        }
+        if (excessSand > 0) {
+            return new CharterCrafting.DropResult(ItemID.BUCKET_OF_SAND, excessSand);
+        } else if (excessCombination > 0) {
+            return new CharterCrafting.DropResult(combinationItemID, excessCombination);
+        }
+        return null;
+    }
 }

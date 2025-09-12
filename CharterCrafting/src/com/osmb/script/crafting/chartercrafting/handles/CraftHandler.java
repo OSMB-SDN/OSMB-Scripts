@@ -10,7 +10,7 @@ import com.osmb.api.ui.spellbook.LunarSpellbook;
 import com.osmb.api.ui.spellbook.SpellNotFoundException;
 import com.osmb.api.utils.RandomUtils;
 import com.osmb.api.walker.WalkConfig;
-import com.osmb.script.crafting.chartercrafting.Method;
+ import com.osmb.script.crafting.chartercrafting.Method;
 import com.osmb.script.crafting.chartercrafting.utils.Utilities;
 
 import static com.osmb.script.crafting.chartercrafting.Config.*;

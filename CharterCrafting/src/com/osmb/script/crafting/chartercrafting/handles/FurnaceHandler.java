@@ -13,18 +13,21 @@ import com.osmb.script.crafting.chartercrafting.Method;
 
 import static com.osmb.script.crafting.chartercrafting.Config.selectedDock;
 import static com.osmb.script.crafting.chartercrafting.Config.selectedMethod;
+import static com.osmb.script.crafting.chartercrafting.State.smelt;
 import static com.osmb.script.crafting.chartercrafting.utils.Utilities.waitUntilFinishedProducing;
 
 public class FurnaceHandler {
 
     private final ScriptCore core;
     private final Dialogue dialogue;
+
     public FurnaceHandler(ScriptCore core) {
         this.core = core;
         this.dialogue = core.getWidgetManager().getDialogue();
     }
 
     public void poll() {
+        smelt = true;
         Area furnaceArea = selectedDock.getFurnaceArea();
         if (furnaceArea == null) {
             throw new RuntimeException("No furnace area for selected dock.");

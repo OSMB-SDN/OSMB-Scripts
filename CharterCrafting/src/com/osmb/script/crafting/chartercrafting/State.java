@@ -13,6 +13,7 @@ public class State {
     public static ItemGroupResult inventorySnapshot;
     public static boolean hopFlag = false;
     public static List<NPC> npcs;
+    public static boolean smelt = false;
 
     public static void resetAmountChangeTimeout() {
         amountChangeTimeout = RandomUtils.uniformRandom(4500, 7000);

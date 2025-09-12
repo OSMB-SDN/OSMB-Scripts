@@ -16,6 +16,7 @@ import java.util.Set;
 import static com.osmb.script.crafting.chartercrafting.Config.*;
 import static com.osmb.script.crafting.chartercrafting.Constants.ITEM_IDS_TO_RECOGNISE;
 import static com.osmb.script.crafting.chartercrafting.State.*;
+import static com.osmb.script.crafting.chartercrafting.utils.Utilities.getExcessItemsToDrop;
 
 @ScriptDefinition(name = "Charter crafter", author = "Joe", version = 1.0, description = "", skillCategory = SkillCategory.CRAFTING)
 public class CharterCrafting extends Script {
@@ -50,87 +51,29 @@ public class CharterCrafting extends Script {
 
     @Override
     public int poll() {
-        if (getWidgetManager().getBank().isVisible()) {
-            bankHandler.handleInterface();
-        } else if (shopHandler.interfaceVisible()) {
-            shopHandler.handleInterface();
-        } else {
-            inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
-            if (inventorySnapshot == null) {
-                // inventory not visible - re-poll
-                log(CharterCrafting.class, "Unable to snapshot inventory...");
-                return 0;
-            }
-
-            if (selectedMethod != Method.BUY_AND_BANK) {
-                if (craftAmount == -1) {
-                    nextCraftAmount(inventorySnapshot);
-                }
-                if (!inventorySnapshot.contains(ItemID.GLASSBLOWING_PIPE)) {
-                    log(CharterCrafting.class, "No glassblowing pipe found.");
-                    stop();
-                    return 0;
-                }
-                if (inventorySnapshot.contains(ItemID.MOLTEN_GLASS)) {
-                    log(CharterCrafting.class, "Crafting molten glass...");
-                    craftHandler.craft(inventorySnapshot.getItem(ItemID.GLASSBLOWING_PIPE), inventorySnapshot.getRandomItem(ItemID.MOLTEN_GLASS));
-                    return 0;
-                }
-            }
-
-            if (shouldOpenShop(inventorySnapshot)) {
-                int itemIDToDrop = getItemIDToDrop(inventorySnapshot);
-                if (itemIDToDrop != -1) {
-                    log(CharterCrafting.class, "Dropping excess item: " + itemIDToDrop);
-                    getWidgetManager().getInventory().dropItems(itemIDToDrop);
-                    return 0;
-                }
-
-                if (hopFlag) {
-                    log(CharterCrafting.class, "Hop flag is set, hopping worlds...");
-                    hopWorlds();
-                } else {
-                    log(CharterCrafting.class, "Need to open shop interface...");
-                    shopHandler.open();
-                }
-                return 0;
-            }
-
-            log(CharterCrafting.class, "Handling selected method: " + selectedMethod);
-            switch (selectedMethod) {
-                case SUPER_GLASS_MAKE -> craftHandler.superGlassMake();
-                case BUY_AND_BANK -> bankHandler.open();
-                case BUY_AND_FURNACE_CRAFT -> furnaceHandler.poll();
-            }
+        if (hasNoHopProfile()) {
+            log(CharterCrafting.class, "No hop profile selected, make sure to select one before running the script.");
+            stop();
         }
+        decideTask();
         return 0;
     }
 
-    private int getItemIDToDrop(ItemGroupResult inventorySnapshot) {
-        // check for excess items, drop instead of selling to avoid issues
-        int freeSlotsExclBuyItems = inventorySnapshot.getFreeSlots(Set.of(ItemID.BUCKET_OF_SAND, combinationItemID));
-        int moltenGlassToMake = freeSlotsExclBuyItems / 2;
-        if (inventorySnapshot.getAmount(ItemID.BUCKET_OF_SAND) > moltenGlassToMake) {
-            return ItemID.BUCKET_OF_SAND;
-        } else if (inventorySnapshot.getAmount(combinationItemID) > moltenGlassToMake) {
-            return combinationItemID;
-        }
-        return -1;
-    }
+
 
     private boolean shouldOpenShop(ItemGroupResult inventorySnapshot) {
         int bucketsOfSand = inventorySnapshot.getAmount(ItemID.BUCKET_OF_SAND);
         int combinationItems = inventorySnapshot.getAmount(combinationItemID);
         return switch (selectedMethod) {
-            case BUY_AND_BANK, BUY_AND_FURNACE_CRAFT -> inventorySnapshot.getFreeSlots() >= 2;
+            case BUY_AND_BANK -> inventorySnapshot.getFreeSlots() >= 2;
+            case BUY_AND_FURNACE_CRAFT ->
+                    inventorySnapshot.getFreeSlots() >= 2 && !smelt || (bucketsOfSand == 0 || combinationItems == 0);
             case SUPER_GLASS_MAKE -> bucketsOfSand < craftAmount || combinationItems < craftAmount;
         };
     }
 
     private void hopWorlds() {
-        if (!getProfileManager().hasHopProfile()) {
-            log(CharterCrafting.class, "No hop profile set, please make sure to select a hop profile when running this script.");
-            stop();
+        if (hasNoHopProfile()) {
             return;
         }
         getProfileManager().forceHop();
@@ -149,7 +92,111 @@ public class CharterCrafting extends Script {
         return new int[]{selectedDock.getRegionID()};
     }
 
+    private boolean canCraft(ItemGroupResult inventorySnapshot) {
+        return inventorySnapshot.contains(ItemID.MOLTEN_GLASS) && (selectedMethod == Method.BUY_AND_FURNACE_CRAFT && !smelt || selectedMethod == Method.SUPER_GLASS_MAKE &&  !inventorySnapshot.containsAll(Set.of(ItemID.BUCKET_OF_SAND, combinationItemID)));
+    }
+
+    private void decideTask() {
+        if (hasNoHopProfile()) return;
+        if (getWidgetManager().getBank().isVisible()) {
+            bankHandler.handleInterface();
+            return;
+        } else if (shopHandler.interfaceVisible()) {
+            shopHandler.handleInterface();
+            return;
+        }
+        inventorySnapshot = getWidgetManager().getInventory().search(ITEM_IDS_TO_RECOGNISE);
+        if (inventorySnapshot == null) {
+            // inventory not visible - re-poll
+            log(CharterCrafting.class, "Unable to snapshot inventory...");
+            return;
+        }
+
+        if (selectedMethod != Method.BUY_AND_BANK) {
+            if (smelt) {
+                if (!inventorySnapshot.contains(ItemID.BUCKET_OF_SAND) || !inventorySnapshot.contains(combinationItemID)) {
+                    smelt = false;
+                } else {
+                    furnaceHandler.poll();
+                }
+                return;
+            }
+            if (craftAmount == -1) {
+                // reset craft amount if we don't have one
+                nextCraftAmount(inventorySnapshot);
+            }
+            if (!inventorySnapshot.contains(ItemID.GLASSBLOWING_PIPE)) {
+                log(CharterCrafting.class, "No glassblowing pipe found.");
+                stop();
+                return;
+            }
+            if (canCraft(inventorySnapshot)) {
+                log(CharterCrafting.class, "Crafting molten glass...");
+                craftHandler.craft(inventorySnapshot.getItem(ItemID.GLASSBLOWING_PIPE), inventorySnapshot.getRandomItem(ItemID.MOLTEN_GLASS));
+                return;
+            }
+        }
+
+        if (shouldOpenShop(inventorySnapshot)) {
+            DropResult itemToDrop = getExcessItemsToDrop(inventorySnapshot);
+            if (itemToDrop != null) {
+                log(CharterCrafting.class, "Dropping excess item: " + itemToDrop);
+                getWidgetManager().getInventory().dropItem(itemToDrop.itemId, itemToDrop.amount);
+                return;
+            }
+
+            if (hopFlag) {
+                log(CharterCrafting.class, "Hop flag is set, hopping worlds...");
+                hopWorlds();
+            } else {
+                log(CharterCrafting.class, "Need to open shop interface...");
+                shopHandler.open();
+            }
+            return;
+        }
+
+        log(CharterCrafting.class, "Handling selected method: " + selectedMethod);
+        switch (selectedMethod) {
+            case SUPER_GLASS_MAKE -> craftHandler.superGlassMake();
+            case BUY_AND_BANK -> bankHandler.open();
+            case BUY_AND_FURNACE_CRAFT -> furnaceHandler.poll();
+        }
+    }
+
+    private boolean hasNoHopProfile() {
+        if (!getProfileManager().hasHopProfile()) {
+            log(CharterCrafting.class, "No hop profile set, please make sure to select a hop profile when running this script.");
+            stop();
+            return true;
+        }
+        return false;
+    }
+
+    public static class DropResult {
+        public final int amount;
+        public final int itemId;
+
+        public DropResult(int itemId, int amount) {
+            this.amount = amount;
+            this.itemId = itemId;
+        }
+    }
+
+    enum Task {
+        OPEN_SHOP,
+        BUY_ITEMS,
+        OPEN_BANK,
+        BANK_ITEMS,
+        HANDLE_BANK_INTERFACE,
+        HANDLE_SHOP_INTERFACE,
+        WALK_TO_FURNACE,
+        SMELT,
+        CRAFT
+    }
+
 }
+
+
 
 
 

@@ -24,6 +24,7 @@ import java.util.List;
 import static com.osmb.script.crafting.chartercrafting.Config.*;
 import static com.osmb.script.crafting.chartercrafting.Constants.ITEM_IDS_TO_RECOGNISE;
 import static com.osmb.script.crafting.chartercrafting.State.*;
+import static com.osmb.script.crafting.chartercrafting.utils.Utilities.getExcessItemsToDrop;
 import static com.osmb.script.crafting.chartercrafting.utils.Utilities.roundDownToNearestOption;
 
 public class ShopHandler {
@@ -60,6 +61,12 @@ public class ShopHandler {
             return;
         }
 
+        if(getExcessItemsToDrop(inventorySnapshot) != null) {
+            core.log(ShopHandler.class, "We have an excess amount of an item, closing shop to drop them.");
+            shopInterface.close();
+            return;
+        }
+
         int bucketOfSandInventory = inventorySnapshot.getAmount(ItemID.BUCKET_OF_SAND);
         int combinationItemInventory = inventorySnapshot.getAmount(combinationItemID);
 
@@ -79,12 +86,6 @@ public class ShopHandler {
         int combinationItemStock = combinationItemShop != null ? combinationItemShop.getStackAmount() : 0;
         core.log(ShopHandler.class, "Bucket of sand stock: " + bucketOfSandStock + " Combination stock: " + combinationItemStock);
 
-
-        // if the number is negative, that means we have too many in our inventory and need to sell
-        if (hasTooMany(bucketOfSandToBuy) || hasTooMany(combinationToBuy)) {
-            shopInterface.close();
-            return;
-        }
 
         if (bucketOfSandToBuy > 0) {
             bucketOfSandToBuy += excessSlots;
@@ -106,7 +107,7 @@ public class ShopHandler {
         }
 
         core.log(ShopHandler.class, "BucketOfSandToBuy: " + bucketOfSandToBuy + " CombinationToBuy: " + combinationToBuy);
-        if (bucketOfSandToBuy == 0 && combinationToBuy == 0) {
+        if (bucketOfSandToBuy <= 0 && combinationToBuy <= 0) {
             // complete
             if (combinationItemStock == 0 || bucketOfSandStock == 0) {
                 core.log(ShopHandler.class, "One of our required items is out of stock, setting hop flag to true.");
